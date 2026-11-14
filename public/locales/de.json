@@ -3,6 +3,8 @@
     "back": "Zurück",
     "close": "Schließen",
     "collapseSidebar": "Seitenleiste einklappen",
+    "devServerHint": "Verwenden Sie für diese Entwicklungssitzung das BAAS-Tauri-Desktopfenster. Die Browseradresse stellt Vite-Ressourcen für die Tauri-WebView bereit.",
+    "devServerTitle": "Der BAAS-Tauri-Entwicklungsserver läuft",
     "expandSidebar": "Seitenleiste ausklappen",
     "forward": "Vorwärts",
     "maximize": "Maximieren",
@@ -22,6 +24,8 @@
     "mobileSettings": "Optionen",
     "plugins": "Plugins",
     "scheduler": "Planer",
+    "scrollLeft": "Nach links scrollen",
+    "scrollRight": "Nach rechts scrollen",
     "settings": "Einstellungen"
   },
   "common": {
@@ -34,6 +38,7 @@
     "delete": "Löschen",
     "edit": "Bearbeiten",
     "execute": "Ausführen",
+    "loading": "Wird geladen…",
     "save": "Speichern",
     "start": "Starten",
     "stop": "Stopp",
@@ -56,6 +61,7 @@
   },
   "log": {
     "$self": "Protokolle",
+    "copied": "Protokolle in die Zwischenablage kopiert",
     "empty": {
       "description": "Starte eine Aufgabe, um ihren Fortschritt hier zu sehen.",
       "title": "Noch keine Aktivität"
@@ -71,7 +77,16 @@
     "noneQueued": "Keine Aufgaben in der Warteschlange",
     "noneRunning": "Derzeit wird keine Aufgabe ausgeführt",
     "overview": "Aufgabenübersicht",
-    "running": "Laufende Aufgabe"
+    "running": "Laufende Aufgabe",
+    "status": {
+      "failed": "Fehlgeschlagen",
+      "idle": "Inaktiv",
+      "pending": "Ausstehend",
+      "running": "Wird ausgeführt",
+      "skipped": "Übersprungen",
+      "stopped": "Gestoppt",
+      "success": "Erfolgreich"
+    }
   },
   "notification": {
     "script": {
@@ -178,6 +193,7 @@
       "backgroundImageSelected": "Hintergrundbild festgelegt",
       "backgroundImageTooLarge": "Das Hintergrundbild darf hoechstens 5 MB gross sein.",
       "enableBAComet": "BAComet aktivieren",
+      "enableBACursors": "BACursors aktivieren",
       "enableSafeStream": "Remote-Video verschlüsseln",
       "enableSystemNotifications": "Systembenachrichtigungen aktivieren",
       "idleAutoUpdate": "Skripte im Leerlauf automatisch aktualisieren",
@@ -295,20 +311,31 @@
     "advancedHint": "Sprache, Darstellung, Update-Kanal und Verbindung.",
     "autoEnter": "Nach der Installation automatisch öffnen",
     "autoEnterHint": "Wenn deaktiviert, bleiben die Installationsprotokolle sichtbar, bis Sie auf „Startseite öffnen“ klicken.",
+    "autoLoginFailed": "Automatische Anmeldung fehlgeschlagen. Der vorhandene Backend-Schlüssel könnte abweichen.",
+    "backendNotReady": "Der Authentifizierungsdienst des Backends ist noch nicht bereit.",
+    "backToSetup": "Zurück zur Einrichtung",
     "completed": "Installation abgeschlossen",
     "directoryHint": "Laufzeitumgebung und Skriptdateien werden in diesem Ordner installiert.",
+    "duration": "Dauer",
     "enter": "Startseite öffnen",
     "entering": "Wird geöffnet…",
+    "errorHint": "Kehren Sie zur Einrichtung zurück, um den Installationspfad zu ändern oder es erneut zu versuchen. Kopieren Sie die Protokolle, bevor Sie das Problem melden.",
+    "errorTitle": "Installationsfehler",
     "exit": "Installation abbrechen",
+    "finished": "Beendet",
     "logs": "Installationsprotokoll",
     "noOutput": "Noch keine Terminalausgabe.",
+    "noStructuredLogs": "Keine strukturierten Protokolle erfasst.",
     "portableHint": "Im portablen Modus wird der Ordner der Anwendung verwendet.",
     "preparing": "Terminal wird vorbereitet…",
     "setting": "Installationseinstellungen",
     "start": "Installation starten",
+    "started": "Begonnen",
+    "stepProgress": "Schritt {{index}}/{{total}}",
     "title": {
       "wizard": "Einrichtungsassistent"
-    }
+    },
+    "workflowFailed": "Installation oder Update wurde nicht erfolgreich abgeschlossen."
   },
   "auth": {
     "authenticationFailed": "Authentifizierung fehlgeschlagen. Prüfe deinen Key und die Serververbindung.",
@@ -623,6 +650,8 @@
     "switch": {
       "start": "Start/Stopp"
     },
+    "triggerFailed": "Tastenkürzel konnte nicht ausgelöst werden",
+    "triggerNotReady": "Die BAAS-Steuerverbindung ist noch nicht bereit.",
     "usage": "Kombinationen wie"
   },
   "property": {
@@ -758,11 +787,12 @@
       "inspectFailed": "Installierte Spiele konnten nicht gelesen werden",
       "live": "Live",
       "liveDisplay": "Livebild von {{game}}",
-      "openOnDevice": "Spiel auf dem Gerät öffnen",
-      "openOnDeviceBusy": "BAAS wird aktualisiert oder das Spiel wird bereits manuell gesteuert.",
-      "openOnDeviceFailed": "Das Spiel konnte auf diesem Gerät nicht geöffnet werden",
+      "previewAlt": "Spielbild auf dem virtuellen Bildschirm",
+      "previewConnecting": "Verbindung zum Spielbild wird hergestellt…",
+      "previewHidden": "Die Spielvorschau ist nicht mehr sichtbar.",
       "restartFailed": "Spiel konnte nicht neu gestartet werden",
       "startBackground": "Spiel im Hintergrund starten",
+      "takeoverBusy": "Das Spiel wird bereits manuell gesteuert oder das Backend wird aktualisiert.",
       "takeoverFailed": "Vollbild-Spielmodus konnte nicht geöffnet werden"
     },
     "start": {
@@ -795,7 +825,9 @@
     }
   },
   "androidSetup": {
+    "authStatus": "Authentifizierung: {{status}}",
     "awaitingConfirmation": "Bestätigung ausstehend",
+    "backendStatus": "Python-Backend: {{status}}",
     "channelDev": "Development",
     "channelStable": "Stable",
     "channelTitle": "Choose the update channel",
@@ -803,6 +835,7 @@
     "clientConnect": "Connect to local service",
     "clientSync": "Sync configuration",
     "clientTitle": "App connection",
+    "configStatus": "Konfigurationsabgleich: {{status}}",
     "confirmInstall": "Bestätigen und installieren",
     "copied": "Copied",
     "copyLogs": "Copy logs",
@@ -811,6 +844,7 @@
     "noLogs": "Waiting for backend output…",
     "progress": "Installation progress",
     "retry": "Retry installation",
+    "startup": "Android-Start",
     "stateDone": "Done",
     "stateFailed": "Failed",
     "statePending": "Waiting",
@@ -852,6 +886,21 @@
     "unavailable": "GitHub ist nicht erreichbar. Verfügbare Versionshinweise werden angezeigt.",
     "version": "Version"
   },
+  "colorPicker": {
+    "alpha": "Alpha-Transparenz in Prozent",
+    "blue": "Blauanteil (0–255)",
+    "brightness": "Hellwert in Prozent (0–100)",
+    "currentColor": "Aktuelle Farbe: {{color}}",
+    "eyeDropper": "Farbe vom Bildschirm aufnehmen",
+    "format": "Farbformat",
+    "green": "Grünanteil (0–255)",
+    "hex": "Hex-Farbwert",
+    "hue": "Farbton in Grad (0–360)",
+    "lightness": "Helligkeit in Prozent (0–100)",
+    "noSelection": "Keine Farbe ausgewählt",
+    "red": "Rotanteil (0–255)",
+    "saturation": "Sättigung in Prozent (0–100)"
+  },
   "commitHistory": {
     "author": "Autor",
     "current": "Aktuell installiert",
@@ -859,6 +908,7 @@
     "empty": "Kein Commit-Verlauf verfügbar.",
     "emptyMessage": "(Keine Nachricht)",
     "failed": "Verlauf nicht verfügbar. Verbindung wiederherstellen oder Backend aktualisieren und erneut versuchen.",
+    "hash": "Commit-ID",
     "issue": {
       "offline": "Die Verlaufsquelle ist nicht erreichbar.",
       "rateLimited": "GitHub-API-Limit erreicht. Später erneut versuchen.",
@@ -1020,6 +1070,19 @@
     "scrcpyScreenshot": "Bilder aus dem scrcpy-Stream lesen.",
     "uiautomator2Control": "Über den uiautomator2-Dienst auf dem Gerät steuern.",
     "uiautomator2Screenshot": "Über den uiautomator2-Dienst auf dem Gerät aufnehmen."
+  },
+  "connection": {
+    "authenticated": "Sitzung authentifiziert",
+    "authenticating": "Sitzung wird authentifiziert…",
+    "connecting": "Verbindung zum Backend wird hergestellt…",
+    "initializing": "BAAS-Schlüssel wird initialisiert…",
+    "interrupted": "Verbindung zum Backend unterbrochen",
+    "opening": "Sicherer Steuerkanal wird geöffnet…",
+    "reconnecting": "Verbindung zum Backend wird wiederhergestellt…",
+    "resuming": "Verschlüsselte Sitzung wird wiederhergestellt…",
+    "serverVerified": "Server verifiziert. Authentifizierung wird erwartet…",
+    "synchronizing": "Verbindungsstatus wird synchronisiert…",
+    "waitingPassword": "Zum Fortfahren ist eine Authentifizierung erforderlich."
   },
   "edit": {
     "actionFailed": "Die Bearbeitung ist fehlgeschlagen. Bitte die Zwischenablageberechtigung prüfen und erneut versuchen.",

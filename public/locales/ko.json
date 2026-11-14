@@ -3,6 +3,8 @@
     "back": "뒤로",
     "close": "닫기",
     "collapseSidebar": "사이드바 접기",
+    "devServerHint": "이번 개발 세션에서는 BAAS Tauri 데스크톱 창을 사용하세요. 브라우저 주소는 Tauri WebView에 Vite 리소스를 제공합니다.",
+    "devServerTitle": "BAAS Tauri 개발 서버가 실행 중입니다",
     "expandSidebar": "사이드바 펼치기",
     "forward": "앞으로",
     "maximize": "최대화",
@@ -22,6 +24,8 @@
     "mobileSettings": "설정",
     "plugins": "플러그인",
     "scheduler": "스케줄러",
+    "scrollLeft": "왼쪽으로 스크롤",
+    "scrollRight": "오른쪽으로 스크롤",
     "settings": "설정"
   },
   "common": {
@@ -34,6 +38,7 @@
     "delete": "삭제",
     "edit": "편집",
     "execute": "실행",
+    "loading": "불러오는 중…",
     "save": "저장",
     "start": "시작",
     "stop": "정지",
@@ -56,6 +61,7 @@
   },
   "log": {
     "$self": "로그",
+    "copied": "로그를 클립보드에 복사했습니다",
     "empty": {
       "description": "작업을 시작하면 진행 상황이 여기에 표시됩니다.",
       "title": "아직 실행 기록이 없습니다"
@@ -71,7 +77,16 @@
     "noneQueued": "대기열에 작업이 없습니다",
     "noneRunning": "현재 실행 중인 작업이 없습니다",
     "overview": "작업 개요",
-    "running": "실행 중인 작업"
+    "running": "실행 중인 작업",
+    "status": {
+      "failed": "실패",
+      "idle": "대기",
+      "pending": "진행 대기",
+      "running": "실행 중",
+      "skipped": "건너뜀",
+      "stopped": "중지됨",
+      "success": "성공"
+    }
   },
   "notification": {
     "script": {
@@ -178,6 +193,7 @@
       "backgroundImageSelected": "배경 이미지가 설정되었습니다",
       "backgroundImageTooLarge": "배경 이미지는 5MB 이하여야 합니다.",
       "enableBAComet": "BAComet 켜기",
+      "enableBACursors": "BACursors 사용",
       "enableSafeStream": "원격 영상 암호화",
       "enableSystemNotifications": "시스템 알림 활성화",
       "idleAutoUpdate": "유휴 상태에서 스크립트 자동 업데이트",
@@ -295,20 +311,31 @@
     "advancedHint": "언어, 모양, 업데이트 채널 및 연결 방식.",
     "autoEnter": "설치 후 자동으로 열기",
     "autoEnterHint": "끄면 설치 로그가 유지되며, “홈 열기”를 클릭하면 계속 진행합니다.",
+    "autoLoginFailed": "자동 로그인에 실패했습니다. 기존 백엔드 키가 다를 수 있습니다.",
+    "backendNotReady": "백엔드 인증 서비스가 아직 준비되지 않았습니다.",
+    "backToSetup": "설치 설정으로 돌아가기",
     "completed": "설치 완료",
     "directoryHint": "실행 환경과 스크립트 파일이 이 폴더에 설치됩니다.",
+    "duration": "소요 시간",
     "enter": "홈 열기",
     "entering": "여는 중…",
+    "errorHint": "설정으로 돌아가 설치 경로를 변경하거나 다시 시도하세요. 문제를 신고하기 전에 로그를 복사하세요.",
+    "errorTitle": "설치 오류",
     "exit": "설치 취소",
+    "finished": "종료 시간",
     "logs": "설치 로그",
     "noOutput": "아직 터미널 출력이 없습니다.",
+    "noStructuredLogs": "기록된 구조화 로그가 없습니다.",
     "portableHint": "포터블 모드는 앱이 있는 폴더를 사용합니다.",
     "preparing": "터미널 준비 중…",
     "setting": "설치 설정",
     "start": "설치 시작",
+    "started": "시작 시간",
+    "stepProgress": "단계 {{index}}/{{total}}",
     "title": {
       "wizard": "설치 마법사"
-    }
+    },
+    "workflowFailed": "설치 또는 업데이트가 완료되지 않았습니다."
   },
   "auth": {
     "authenticationFailed": "인증할 수 없습니다. Key와 서버 연결을 확인하세요.",
@@ -623,6 +650,8 @@
     "switch": {
       "start": "시작/정지"
     },
+    "triggerFailed": "단축키 실행 실패",
+    "triggerNotReady": "BAAS 제어 연결이 아직 준비되지 않았습니다.",
     "usage": "조합 예시"
   },
   "property": {
@@ -758,11 +787,12 @@
       "inspectFailed": "설치된 게임을 불러올 수 없습니다",
       "live": "실시간",
       "liveDisplay": "{{game}} 실시간 화면",
-      "openOnDevice": "기기에서 게임 열기",
-      "openOnDeviceBusy": "BAAS를 업데이트 중이거나 게임을 이미 수동으로 조작 중입니다.",
-      "openOnDeviceFailed": "기기에서 게임을 열 수 없습니다",
+      "previewAlt": "가상 화면의 게임 영상",
+      "previewConnecting": "게임 화면에 연결 중…",
+      "previewHidden": "게임 미리보기가 더 이상 표시되지 않습니다.",
       "restartFailed": "게임을 다시 시작할 수 없습니다",
       "startBackground": "백그라운드에서 게임 시작",
+      "takeoverBusy": "게임을 이미 수동으로 제어 중이거나 백엔드를 업데이트 중입니다.",
       "takeoverFailed": "전체 화면 게임 모드를 시작할 수 없습니다"
     },
     "start": {
@@ -795,7 +825,9 @@
     }
   },
   "androidSetup": {
+    "authStatus": "인증: {{status}}",
     "awaitingConfirmation": "확인 대기",
+    "backendStatus": "Python 백엔드: {{status}}",
     "channelDev": "Development",
     "channelStable": "Stable",
     "channelTitle": "Choose the update channel",
@@ -803,6 +835,7 @@
     "clientConnect": "Connect to local service",
     "clientSync": "Sync configuration",
     "clientTitle": "App connection",
+    "configStatus": "설정 동기화: {{status}}",
     "confirmInstall": "확인 후 설치",
     "copied": "Copied",
     "copyLogs": "Copy logs",
@@ -811,6 +844,7 @@
     "noLogs": "Waiting for backend output…",
     "progress": "Installation progress",
     "retry": "Retry installation",
+    "startup": "Android 시작 상태",
     "stateDone": "Done",
     "stateFailed": "Failed",
     "statePending": "Waiting",
@@ -852,6 +886,21 @@
     "unavailable": "GitHub에 연결할 수 없어 사용 가능한 노트를 표시합니다.",
     "version": "버전"
   },
+  "colorPicker": {
+    "alpha": "알파 투명도 백분율",
+    "blue": "파란색 성분 (0–255)",
+    "brightness": "밝기 백분율 (0–100)",
+    "currentColor": "현재 색상: {{color}}",
+    "eyeDropper": "화면에서 색상 선택",
+    "format": "색상 형식",
+    "green": "초록색 성분 (0–255)",
+    "hex": "16진수 색상 값",
+    "hue": "색조 각도 (0–360)",
+    "lightness": "명도 백분율 (0–100)",
+    "noSelection": "선택한 색상이 없습니다",
+    "red": "빨간색 성분 (0–255)",
+    "saturation": "채도 백분율 (0–100)"
+  },
   "commitHistory": {
     "author": "작성자",
     "current": "현재 설치됨",
@@ -859,6 +908,7 @@
     "empty": "사용 가능한 커밋 기록이 없습니다.",
     "emptyMessage": "(메시지 없음)",
     "failed": "기록을 불러올 수 없습니다. 다시 연결하거나 백엔드를 업데이트한 후 재시도하세요.",
+    "hash": "커밋 ID",
     "issue": {
       "offline": "기록 데이터 소스에 연결할 수 없습니다.",
       "rateLimited": "GitHub API 요청 한도에 도달했습니다. 나중에 다시 시도하세요.",
@@ -1020,6 +1070,19 @@
     "scrcpyScreenshot": "scrcpy 영상 스트림에서 캡처합니다.",
     "uiautomator2Control": "기기의 uiautomator2 서비스로 조작합니다.",
     "uiautomator2Screenshot": "기기의 uiautomator2 서비스로 캡처합니다."
+  },
+  "connection": {
+    "authenticated": "세션 인증 완료",
+    "authenticating": "세션 인증 중…",
+    "connecting": "백엔드에 연결 중…",
+    "initializing": "BAAS 키를 초기화하는 중…",
+    "interrupted": "백엔드 연결이 끊어졌습니다",
+    "opening": "보안 제어 채널을 여는 중…",
+    "reconnecting": "백엔드에 다시 연결하는 중…",
+    "resuming": "암호화된 세션을 복원 중…",
+    "serverVerified": "서버를 확인했습니다. 인증 대기 중…",
+    "synchronizing": "연결 상태를 동기화하는 중…",
+    "waitingPassword": "계속하려면 인증이 필요합니다."
   },
   "edit": {
     "actionFailed": "편집 작업에 실패했습니다. 클립보드 권한을 확인하고 다시 시도해 주세요.",

@@ -179,5 +179,30 @@
     "teamMethodKey",
     "themeKey",
     "updateMethodKey"
-  ]
+  ],
+  "allowedUiLiterals": {
+    "BAAS": "Product name.",
+    "Blue Archive Auto Script": "Official product name.",
+    "BAAS Raid": "Product name.",
+    "Ctrl+Shift+K": "Literal keyboard shortcut example.",
+    "Alt+S": "Literal keyboard shortcut example.",
+    "F5": "Function key name.",
+    "Ctrl+C": "Literal keyboard shortcut.",
+    "Ctrl+V": "Literal keyboard shortcut.",
+    "Esc": "Keyboard key name.",
+    "/s": "Rate unit suffix.",
+    "null": "JSON null literal.",
+    "ADB": "Android Debug Bridge protocol name.",
+    "Nemu": "Emulator integration name.",
+    "uiautomator2": "Android automation integration name.",
+    "scrcpy": "Screen capture integration name.",
+    "MSS": "Screen capture integration name.",
+    "PyAutoGUI": "Desktop automation integration name.",
+    "https://open.feishu.cn/open-apis/bot/v2/hook/…": "Example webhook endpoint; preserve its protocol and path.",
+    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…": "Example webhook endpoint; preserve its protocol and path.",
+    "http://127.0.0.1:7890": "Example local proxy endpoint.",
+    "https://api.telegram.org": "API endpoint.",
+    "C:\\\\Path\\\\to\\\\emulator.exe": "Example executable path.",
+    "tactical_challenge_coin": "Backend currency identifier used only as the fallback for an unknown currency."
+  }
 }

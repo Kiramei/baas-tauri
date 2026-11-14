@@ -1,22 +1,14 @@
 import React, { useEffect } from "react";
+import { useAppTranslation } from "@/shared/useAppTranslation";
+import { authPhaseText } from "@/shared/AuthPhaseText";
 import { motion } from "framer-motion";
 import PasswordInputModal from "@/components/PasswordInputModal";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
-const reconnectingMessages: Record<string, string> = {
-  idle: "Opening secure control channel...",
-  control_connecting: "Connecting to the backend...",
-  server_verified: "Server verified. Waiting for authentication...",
-  waiting_password: "Authentication required to continue.",
-  resuming: "Restoring encrypted session...",
-  initializing: "Initializing authentication...",
-  authenticating: "Authenticating session...",
-  revoked: "Re-establishing backend connection...",
-};
-
 /** Renders the reconnecting overlay component. */
 const ReconnectingOverlay: React.FC = () => {
+  const { t } = useAppTranslation();
   const authPhase = useWebSocketStore((state) => state._auth_phase);
   const authError = useWebSocketStore((state) => state._auth_error);
   const serverInitialized = useWebSocketStore((state) => state._server_initialized);
@@ -58,13 +50,13 @@ const ReconnectingOverlay: React.FC = () => {
             </div>
 
             <div className="mb-3 rounded-full border border-white/15 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.42em] text-cyan-100 shadow-[0_0_30px_rgba(14,165,233,0.18)] backdrop-blur-md">
-              Backend Link Interrupted
+              {t("connection.interrupted")}
             </div>
             <h1 className="text-4xl font-black tracking-[0.22em] text-white drop-shadow-[0_0_28px_rgba(125,211,252,0.55)] sm:text-6xl">
-              CONNECTING
+              {t("remote.connecting")}
             </h1>
             <p className="mt-5 text-sm font-medium text-cyan-50/85 sm:text-base">
-              {reconnectingMessages[authPhase] ?? "Synchronizing connection state..."}
+              {authPhaseText(authPhase, t)}
             </p>
             {authError && !requiresPassword && (
               <p className="mt-3 max-w-md rounded-full border border-white/10 bg-black/20 px-4 py-2 text-xs text-white/65">

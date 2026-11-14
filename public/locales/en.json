@@ -3,6 +3,8 @@
     "back": "Back",
     "close": "Close",
     "collapseSidebar": "Collapse sidebar",
+    "devServerHint": "Use the BAAS Tauri desktop window for this development session. The browser URL serves Vite assets for the Tauri WebView.",
+    "devServerTitle": "BAAS Tauri dev server is running",
     "expandSidebar": "Expand sidebar",
     "forward": "Forward",
     "maximize": "Maximize",
@@ -22,6 +24,8 @@
     "mobileSettings": "Settings",
     "plugins": "Plugins",
     "scheduler": "Scheduler",
+    "scrollLeft": "Scroll left",
+    "scrollRight": "Scroll right",
     "settings": "Settings"
   },
   "common": {
@@ -34,6 +38,7 @@
     "delete": "Delete",
     "edit": "Edit",
     "execute": "Execute",
+    "loading": "Loading…",
     "save": "Save",
     "start": "Start",
     "stop": "Stop",
@@ -56,6 +61,7 @@
   },
   "log": {
     "$self": "Logs",
+    "copied": "Logs copied to clipboard",
     "empty": {
       "description": "Start a task to see its progress here.",
       "title": "No activity yet"
@@ -71,7 +77,16 @@
     "noneQueued": "No tasks in the queue",
     "noneRunning": "No task is currently running",
     "overview": "Task Overview",
-    "running": "Running Task"
+    "running": "Running Task",
+    "status": {
+      "failed": "Failed",
+      "idle": "Idle",
+      "pending": "Pending",
+      "running": "Running",
+      "skipped": "Skipped",
+      "stopped": "Stopped",
+      "success": "Success"
+    }
   },
   "notification": {
     "script": {
@@ -178,6 +193,7 @@
       "backgroundImageSelected": "Background image set",
       "backgroundImageTooLarge": "Background image must be 5MB or smaller.",
       "enableBAComet": "Enable BAComet",
+      "enableBACursors": "Enable BACursors",
       "enableSafeStream": "Encrypt remote video",
       "enableSystemNotifications": "Enable system notifications",
       "idleAutoUpdate": "Automatically update scripts when idle",
@@ -295,20 +311,31 @@
     "advancedHint": "Language, appearance, update channel and connection.",
     "autoEnter": "Enter automatically after installation",
     "autoEnterHint": "When off, installation logs remain visible until you click “Open Home”.",
+    "autoLoginFailed": "Automatic login failed. The existing backend Key may be different.",
+    "backendNotReady": "Backend authentication endpoint is not ready.",
+    "backToSetup": "Back to setup",
     "completed": "Installation complete",
     "directoryHint": "The runtime and script files will be installed in this directory.",
+    "duration": "Duration",
     "enter": "Open Home",
     "entering": "Opening…",
+    "errorHint": "Return to setup to change the install path or retry. Copy logs before reporting this issue.",
+    "errorTitle": "Setup error",
     "exit": "Cancel Installation",
+    "finished": "Finished",
     "logs": "Installation logs",
     "noOutput": "No terminal output yet.",
+    "noStructuredLogs": "No structured logs captured.",
     "portableHint": "Portable mode uses the directory beside the app.",
     "preparing": "Preparing terminal…",
     "setting": "Installation Settings",
     "start": "Start Installation",
+    "started": "Started",
+    "stepProgress": "Step {{index}}/{{total}}",
     "title": {
       "wizard": "Setup Wizard"
-    }
+    },
+    "workflowFailed": "The installation or update did not complete successfully."
   },
   "auth": {
     "authenticationFailed": "Unable to authenticate. Check your Key and server connection.",
@@ -623,6 +650,8 @@
     "switch": {
       "start": "Start/Stop"
     },
+    "triggerFailed": "Shortcut trigger failed",
+    "triggerNotReady": "BAAS trigger connection is not ready.",
     "usage": "Use combinations like"
   },
   "property": {
@@ -758,11 +787,12 @@
       "inspectFailed": "Unable to read installed games",
       "live": "Live",
       "liveDisplay": "{{game}} live display",
-      "openOnDevice": "Open game on device",
-      "openOnDeviceBusy": "BAAS is updating or the game is already in manual control.",
-      "openOnDeviceFailed": "Could not open the game on this device",
+      "previewAlt": "Game display on the virtual screen",
+      "previewConnecting": "Connecting to the game display…",
+      "previewHidden": "The game preview is no longer visible.",
       "restartFailed": "Unable to restart the game",
       "startBackground": "Start game in background",
+      "takeoverBusy": "The game is already in manual control or a backend update is in progress.",
       "takeoverFailed": "Unable to enter fullscreen game mode"
     },
     "start": {
@@ -795,7 +825,9 @@
     }
   },
   "androidSetup": {
+    "authStatus": "Authentication: {{status}}",
     "awaitingConfirmation": "Awaiting confirmation",
+    "backendStatus": "Python backend: {{status}}",
     "channelDev": "Development",
     "channelStable": "Stable",
     "channelTitle": "Choose the update channel",
@@ -803,6 +835,7 @@
     "clientConnect": "Connect to local service",
     "clientSync": "Sync configuration",
     "clientTitle": "App connection",
+    "configStatus": "Configuration sync: {{status}}",
     "confirmInstall": "Confirm and install",
     "copied": "Copied",
     "copyLogs": "Copy logs",
@@ -811,6 +844,7 @@
     "noLogs": "Waiting for backend output…",
     "progress": "Installation progress",
     "retry": "Retry installation",
+    "startup": "Android startup",
     "stateDone": "Done",
     "stateFailed": "Failed",
     "statePending": "Waiting",
@@ -852,6 +886,21 @@
     "unavailable": "Could not reach GitHub. Showing available release notes.",
     "version": "Version"
   },
+  "colorPicker": {
+    "alpha": "Alpha transparency percentage",
+    "blue": "Blue color component (0–255)",
+    "brightness": "Brightness percentage (0–100)",
+    "currentColor": "Current color: {{color}}",
+    "eyeDropper": "Pick a color from the screen",
+    "format": "Color format",
+    "green": "Green color component (0–255)",
+    "hex": "Hex color value",
+    "hue": "Hue in degrees (0–360)",
+    "lightness": "Lightness percentage (0–100)",
+    "noSelection": "No color selected",
+    "red": "Red color component (0–255)",
+    "saturation": "Saturation percentage (0–100)"
+  },
   "commitHistory": {
     "author": "Author",
     "current": "Currently installed",
@@ -859,6 +908,7 @@
     "empty": "No commit history is available.",
     "emptyMessage": "(No commit message)",
     "failed": "Unable to load history. Reconnect or update the backend, then retry.",
+    "hash": "Commit ID",
     "issue": {
       "offline": "The history source is unreachable.",
       "rateLimited": "GitHub API rate limit reached. Try again later.",
@@ -1020,6 +1070,19 @@
     "scrcpyScreenshot": "Read images from the scrcpy stream.",
     "uiautomator2Control": "Control through the device's uiautomator2 service.",
     "uiautomator2Screenshot": "Capture through the device's uiautomator2 service."
+  },
+  "connection": {
+    "authenticated": "Session authenticated",
+    "authenticating": "Authenticating session…",
+    "connecting": "Connecting to the backend…",
+    "initializing": "Initializing BAAS Key…",
+    "interrupted": "Backend link interrupted",
+    "opening": "Opening secure control channel…",
+    "reconnecting": "Re-establishing backend connection…",
+    "resuming": "Restoring encrypted session…",
+    "serverVerified": "Server verified. Waiting for authentication…",
+    "synchronizing": "Synchronizing connection state…",
+    "waitingPassword": "Authentication required to continue."
   },
   "edit": {
     "actionFailed": "The edit action failed. Check clipboard permissions and try again.",

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { auditUiText, placeholderErrors } from "./i18n-validation.mjs";
 
 const root = process.cwd();
 const localeDir = path.join(root, "public", "locales");
@@ -1090,7 +1091,16 @@ function check(localesByLang, usedKeys, badKeys, disallowedDynamic) {
     }
   }
 
-  errors.push(...badKeys, ...disallowedDynamic);
+  errors.push(...placeholderErrors(localesByLang), ...badKeys, ...disallowedDynamic);
+  for (const file of walkSource(srcDir)) {
+    const relative = path.relative(root, file).replaceAll(path.sep, "/");
+    for (const issue of auditUiText(fs.readFileSync(file, "utf8"), relative, {
+      translationKeys: expected,
+      allowedLiterals: allowlist.allowedUiLiterals,
+    })) {
+      errors.push(`${issue.file}:${issue.line}: untranslated UI text '${issue.text}'`);
+    }
+  }
   if (errors.length) {
     console.error(errors.join("\n"));
     process.exitCode = 1;
