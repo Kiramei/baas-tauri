@@ -837,6 +837,7 @@
     "clientTitle": "App connection",
     "configStatus": "Synchronisation de la configuration : {{status}}",
     "confirmInstall": "Confirmer et installer",
+    "continueLocal": "Continuer avec les ressources locales vérifiées",
     "copied": "Copied",
     "copyLogs": "Copy logs",
     "errorTitle": "Installation stopped",
@@ -857,7 +858,13 @@
     "stepResources": "Préparer les ressources du script",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
+    "stepUpdate": "Vérifier les mises à jour du backend",
     "title": "Set up BAAS",
+    "updateApplying": "Mise à jour des fichiers du backend…",
+    "updateChecking": "Vérification du canal de backend sélectionné…",
+    "updateRestarting": "Redémarrage du backend et préparation des ressources…",
+    "updateRestoring": "Restauration de l’état précédent des scripts…",
+    "updateWaitingIdle": "En attente de l’arrêt des scripts et du contrôle manuel…",
     "waiting": "Working…"
   },
   "applicationShortcutHelp": {

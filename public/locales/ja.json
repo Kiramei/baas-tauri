@@ -837,6 +837,7 @@
     "clientTitle": "App connection",
     "configStatus": "設定の同期：{{status}}",
     "confirmInstall": "確認してインストール",
+    "continueLocal": "検証済みのローカルリソースで続行",
     "copied": "Copied",
     "copyLogs": "Copy logs",
     "errorTitle": "Installation stopped",
@@ -857,7 +858,13 @@
     "stepResources": "スクリプトのリソースを準備",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
+    "stepUpdate": "バックエンドの更新を確認",
     "title": "Set up BAAS",
+    "updateApplying": "バックエンドのファイルを更新中…",
+    "updateChecking": "選択したバックエンドのチャンネルを確認中…",
+    "updateRestarting": "バックエンドを再起動してリソースを準備中…",
+    "updateRestoring": "前回のスクリプト状態を復元中…",
+    "updateWaitingIdle": "スクリプトと手動操作の停止を待機中…",
     "waiting": "Working…"
   },
   "applicationShortcutHelp": {

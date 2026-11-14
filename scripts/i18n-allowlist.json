@@ -167,7 +167,14 @@
     "androidSetup.stateDone",
     "androidSetup.stateFailed",
     "androidSetup.stepOcr",
-    "androidSetup.stepResources"
+    "androidSetup.stepResources",
+    "androidSetup.stepUpdate",
+    "androidSetup.updateChecking",
+    "androidSetup.updateWaitingIdle",
+    "androidSetup.updateApplying",
+    "androidSetup.updateRestarting",
+    "androidSetup.updateRestoring",
+    "androidSetup.continueLocal"
   ],
   "allowedDynamicFunctions": [
     "artifactPhaseKey",
@@ -205,6 +212,66 @@
     "http://127.0.0.1:7890": "Example local proxy endpoint.",
     "https://api.telegram.org": "API endpoint.",
     "C:\\\\Path\\\\to\\\\emulator.exe": "Example executable path.",
-    "tactical_challenge_coin": "Backend currency identifier used only as the fallback for an unknown currency."
+    "tactical_challenge_coin": "Backend currency identifier used only as the fallback for an unknown currency.",
+    "max": {
+      "reason": "Backend purchase-limit sentinel; its display branch already translates configurationCounts.maximumPurchases.",
+      "files": [
+        "src/features/DailySweep.tsx"
+      ]
+    },
+    "all": {
+      "reason": "Diagnostic source/level protocol code. The all sentinel uses the existing translated selector labels.",
+      "files": [
+        "src/components/SystemLogSettings.tsx"
+      ]
+    },
+    "tauri": {
+      "reason": "Diagnostic source/level protocol code. The all sentinel uses the existing translated selector labels.",
+      "files": [
+        "src/components/SystemLogSettings.tsx"
+      ]
+    },
+    "python": {
+      "reason": "Diagnostic source/level protocol code. The all sentinel uses the existing translated selector labels.",
+      "files": [
+        "src/components/SystemLogSettings.tsx"
+      ]
+    },
+    "frontend": {
+      "reason": "Diagnostic source/level protocol code. The all sentinel uses the existing translated selector labels.",
+      "files": [
+        "src/components/SystemLogSettings.tsx"
+      ]
+    },
+    "TRACE": {
+      "reason": "Diagnostic source/level protocol code. The all sentinel uses the existing translated selector labels.",
+      "files": [
+        "src/components/SystemLogSettings.tsx"
+      ]
+    },
+    "DEBUG": {
+      "reason": "Diagnostic source/level protocol code. The all sentinel uses the existing translated selector labels.",
+      "files": [
+        "src/components/SystemLogSettings.tsx"
+      ]
+    },
+    "INFO": {
+      "reason": "Diagnostic source/level protocol code. The all sentinel uses the existing translated selector labels.",
+      "files": [
+        "src/components/SystemLogSettings.tsx"
+      ]
+    },
+    "WARNING": {
+      "reason": "Diagnostic source/level protocol code. The all sentinel uses the existing translated selector labels.",
+      "files": [
+        "src/components/SystemLogSettings.tsx"
+      ]
+    },
+    "ERROR": {
+      "reason": "Diagnostic source/level protocol code. The all sentinel uses the existing translated selector labels.",
+      "files": [
+        "src/components/SystemLogSettings.tsx"
+      ]
+    }
   }
 }

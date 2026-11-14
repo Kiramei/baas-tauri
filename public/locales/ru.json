@@ -837,6 +837,7 @@
     "clientTitle": "App connection",
     "configStatus": "Синхронизация конфигурации: {{status}}",
     "confirmInstall": "Подтвердить и установить",
+    "continueLocal": "Продолжить с проверенными локальными ресурсами",
     "copied": "Copied",
     "copyLogs": "Copy logs",
     "errorTitle": "Installation stopped",
@@ -857,7 +858,13 @@
     "stepResources": "Подготовка ресурсов скрипта",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
+    "stepUpdate": "Проверка обновлений серверной части",
     "title": "Set up BAAS",
+    "updateApplying": "Обновление файлов серверной части…",
+    "updateChecking": "Проверка выбранного канала серверной части…",
+    "updateRestarting": "Перезапуск серверной части и подготовка ресурсов…",
+    "updateRestoring": "Восстановление предыдущего состояния скриптов…",
+    "updateWaitingIdle": "Ожидание остановки скриптов и ручного управления…",
     "waiting": "Working…"
   },
   "applicationShortcutHelp": {

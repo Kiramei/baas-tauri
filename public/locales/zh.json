@@ -837,6 +837,7 @@
     "clientTitle": "应用连接",
     "configStatus": "配置同步：{{status}}",
     "confirmInstall": "确认并安装",
+    "continueLocal": "使用已验证的本地资源继续",
     "copied": "已复制",
     "copyLogs": "复制日志",
     "errorTitle": "安装已中止",
@@ -857,7 +858,13 @@
     "stepResources": "准备脚本资源",
     "stepService": "启动本地服务",
     "stepStorage": "准备应用私有目录",
+    "stepUpdate": "检查后端更新",
     "title": "配置 BAAS",
+    "updateApplying": "正在更新后端文件…",
+    "updateChecking": "正在检查所选后端通道…",
+    "updateRestarting": "正在重启后端并准备资源…",
+    "updateRestoring": "正在恢复之前的脚本状态…",
+    "updateWaitingIdle": "正在等待脚本与手动控制停止…",
     "waiting": "处理中…"
   },
   "applicationShortcutHelp": {

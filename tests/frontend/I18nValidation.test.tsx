@@ -126,6 +126,34 @@ describe("translation validation", () => {
         translationKeys: new Set(["settings.title", "common.save"]),
       }).map((issue: { text: string }) => issue.text)
     ).toEqual(["settings.title", "common.save"]);
+    const scoped = {
+      all: {
+        reason: "A protocol sentinel with a translated display branch.",
+        files: ["diagnostics.tsx"],
+      },
+    };
+    expect(auditUiText("<span>all</span>", "diagnostics.tsx", { allowedLiterals: scoped })).toEqual(
+      []
+    );
+    expect(
+      auditUiText("<span>all</span>", "another-page.tsx", { allowedLiterals: scoped })
+    ).toHaveLength(1);
+  });
+
+  test("literal arrays and joined labels cannot bypass the UI audit", () => {
+    const issues = auditUiText(
+      `
+      const labels = ["Running", "Stopped"];
+      const list = <><span>{labels[index]}</span><span>{["Waiting", "Done"][index]}</span>
+        <span>{labels.join(" and ")}</span>{["Ready"].map(label => <span>{label}</span>)}
+        {["stable", "dev"].map(channel => <span key={channel}>{t(channelKey(channel))}</span>)}
+      </>;
+    `,
+      "fixture.tsx"
+    );
+    expect(new Set(issues.map((issue: { text: string }) => issue.text))).toEqual(
+      new Set(["Running", "Stopped", "Waiting", "Done", "and", "Ready"])
+    );
   });
 
   test("translations and color input accessible names render in every supported language", async () => {

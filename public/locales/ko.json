@@ -837,6 +837,7 @@
     "clientTitle": "App connection",
     "configStatus": "설정 동기화: {{status}}",
     "confirmInstall": "확인 후 설치",
+    "continueLocal": "검증된 로컬 리소스로 계속",
     "copied": "Copied",
     "copyLogs": "Copy logs",
     "errorTitle": "Installation stopped",
@@ -857,7 +858,13 @@
     "stepResources": "스크립트 리소스 준비",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
+    "stepUpdate": "백엔드 업데이트 확인",
     "title": "Set up BAAS",
+    "updateApplying": "백엔드 파일 업데이트 중…",
+    "updateChecking": "선택한 백엔드 채널을 확인하는 중…",
+    "updateRestarting": "백엔드를 다시 시작하고 리소스를 준비하는 중…",
+    "updateRestoring": "이전 스크립트 상태를 복원하는 중…",
+    "updateWaitingIdle": "스크립트 및 수동 제어가 중지되기를 기다리는 중…",
     "waiting": "Working…"
   },
   "applicationShortcutHelp": {
