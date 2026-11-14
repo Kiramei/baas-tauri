@@ -109,7 +109,8 @@ class GitHub:
         delay = max(0, delay)
         if self.clock() + delay >= self.deadline:
             raise MirrorError("Mirror deadline reached while waiting for GitHub")
-        print(f"GitHub retry {attempt + 1}/{self.attempts - 1} after {delay:g}s (HTTP {status or 'network'})")
+        print(f"GitHub retry {attempt + 1}/{self.attempts - 1} after {delay:g}s (HTTP {status or 'network'})",
+              file=sys.stderr, flush=True)
         self.sleep(delay)
         return True
 
