@@ -117,6 +117,12 @@ const GlobalContextMenu: React.FC = () => {
   React.useEffect(() => {
     const onContextMenu = (event: MouseEvent) => {
       if (event.defaultPrevented) return;
+      if (
+        __WITH_ANDROID__ &&
+        event.target instanceof Element &&
+        event.target.closest("[data-android-readonly-log], [data-android-profile-log]")
+      )
+        return;
       event.preventDefault();
       if (event.target instanceof Element && event.target.closest("[data-context-menu]")) return;
       const selectedText = getSelectedText(event.target);

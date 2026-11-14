@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
+import { attachAndroidReadOnlyTerminal } from "@/shared/AndroidReadOnlyTerminal";
 import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
 import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
@@ -175,6 +176,7 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
     const term = new Terminal({
       allowProposedApi: false,
       convertEol: true,
+      disableStdin: __WITH_ANDROID__,
       fontFamily: '"JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace',
       fontSize: 13,
       lineHeight: 1.22,
@@ -189,6 +191,9 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(hostRef.current);
+    const detachReadOnlyLog = __WITH_ANDROID__
+      ? attachAndroidReadOnlyTerminal(term, hostRef.current)
+      : undefined;
 
     termRef.current = term;
     fitRef.current = fit;
@@ -197,6 +202,7 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
 
     return () => {
       stopObserving();
+      detachReadOnlyLog?.();
       fit.dispose();
       term.dispose();
       termRef.current = null;
