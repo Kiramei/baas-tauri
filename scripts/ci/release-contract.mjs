@@ -21,15 +21,12 @@ export function validateAssets(kind, tag, names) {
       "x64-setup.exe",
       "arm64_fixed_webview2-setup.exe",
       "x64_fixed_webview2-setup.exe",
-    ];
-    const standalone = [
-      "aarch64.dmg",
-      "x64.dmg",
       "x64_portable.exe",
       "arm64_portable.exe",
       "x64_fixed_webview2_portable.zip",
       "arm64_fixed_webview2_portable.zip",
     ];
+    const standalone = ["aarch64.dmg", "x64.dmg"];
     expected = [...signed.flatMap((s) => [s, s + ".sig"]), ...standalone].map(
       (s) => `BAAS.Tauri_${version}_${s}`
     );

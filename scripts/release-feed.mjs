@@ -54,6 +54,8 @@ const standardPlatforms = {
   "android_arm64-v8a.apk": ["android-arm64-v8a"],
   "x64-setup.exe": ["windows-x86_64", "win64"],
   "arm64-setup.exe": ["windows-aarch64"],
+  "x64_portable.exe": ["windows-x86_64-portable"],
+  "arm64_portable.exe": ["windows-aarch64-portable"],
   "x86-setup.exe": ["windows-x86", "windows-i686"],
   "aarch64.app.tar.gz": ["darwin-aarch64"],
   "x64.app.tar.gz": ["darwin-x86_64", "darwin-intel", "darwin"],
@@ -62,6 +64,8 @@ const standardPlatforms = {
 const fixedWebViewPlatforms = {
   "x64_fixed_webview2-setup.exe": ["windows-x86_64"],
   "arm64_fixed_webview2-setup.exe": ["windows-aarch64"],
+  "x64_fixed_webview2_portable.zip": ["windows-x86_64-portable"],
+  "arm64_fixed_webview2_portable.zip": ["windows-aarch64-portable"],
   "x86_fixed_webview2-setup.exe": ["windows-x86", "windows-i686"],
 };
 

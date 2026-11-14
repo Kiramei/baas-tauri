@@ -233,6 +233,22 @@ jobs:
 
           Get-ChildItem $dst -File | Sort-Object Name
 
+      - name: Sign Windows portable executable
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $file = "release-assets/BAAS.Tauri_${version}_${{ matrix.dist_arch }}_portable.exe"
+          bun tauri signer sign "$file"
+          if ($LASTEXITCODE -ne 0) { throw "Portable executable signing failed" }
+          if (-not (Test-Path "$file.sig") -or (Get-Item "$file.sig").Length -eq 0) {
+            throw "Portable executable signature is missing"
+          }
+
       - name: Normalize macOS artifacts
         if: contains(matrix.target, 'apple-darwin')
         shell: bash
@@ -678,6 +694,21 @@ jobs:
       - name: Portable Bundle
         run: bun run portable-fixed-webview2 ${{ matrix.target }}
 
+      - name: Sign fixed WebView2 portable bundle
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $file = "BAAS.Tauri_${version}_${{ matrix.arch }}_fixed_webview2_portable.zip"
+          bun tauri signer sign "$file"
+          if ($LASTEXITCODE -ne 0) { throw "Portable bundle signing failed" }
+          if (-not (Test-Path "$file.sig") -or (Get-Item "$file.sig").Length -eq 0) {
+            throw "Portable bundle signature is missing"
+          }
+
       - name: Upload fixed WebView2 portable bundle
         uses: softprops/action-gh-release@v3
         with:
@@ -688,7 +719,9 @@ jobs:
           draft: true
           prerelease: ${{ contains(github.ref_name, '.rc') }}
           overwrite_files: true
-          files: BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip
+          files: |
+            BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip
+            BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip.sig
 
   update_tag:
     name: Update tag
