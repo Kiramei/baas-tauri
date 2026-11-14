@@ -1043,5 +1043,124 @@
       "Source inspection and offline tests do not establish a successful Windows portable installation or recovery on real hardware.",
       "This source-inspection audit did not execute a runtime updater, validate a network CDK, operate a native window or device, or access private credentials. Physical-device observations are recorded separately."
     ]
+  },
+  "clientPackagingSupplement": {
+    "checkedAt": "2026-11-14T18:56:06.588235+00:00",
+    "verificationKind": "code inspection and automated release, packaging, source-selection and persistence contracts",
+    "runtimeUpdateExecuted": false,
+    "scope": [
+      "Client packaging only; BAASX distribution support is unchanged",
+      "Linux x64 and ARM64 AppImages, original-file updater selection and persistent storage outside APPDIR",
+      "Standard Windows installer and portable EXE preservation; no new fixed-runtime or Linux ARM32 client artifacts",
+      "Persistent per-architecture macOS archive signature metadata without archive .sig attachments",
+      "Historical release contracts remain readable; documentation and download selectors reflect current supported packages"
+    ],
+    "primaryReferences": [
+      "https://v2.tauri.app/plugin/updater/",
+      "https://v2.tauri.app/distribute/appimage/"
+    ],
+    "sources": [
+      {
+        "file": ".github/workflows/release-app.yml",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "c7846991eddbbfcf5d2d120907eb1fcccf5600947d7801b4de8e12c4fa08a613",
+        "gitContentVerified": true
+      },
+      {
+        "file": "docs/components/ReleaseDownloadPanel.tsx",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "621ea3af2bc2aa1705a84a6d0c30ccf01a142b3b7786601d57f8fad6b3acf15f",
+        "gitContentVerified": true
+      },
+      {
+        "file": "scripts/archive-signatures.mjs",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "c14d7cedb62c63aacecd0475d0878db2caa853410cbfebb0191ee7a70bd137c0",
+        "gitContentVerified": true
+      },
+      {
+        "file": "scripts/ci/release-contract.mjs",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "114f2203465a4491334b26a4f627ade7ace560801d8f82e367ce90988dfd0cf0",
+        "gitContentVerified": true
+      },
+      {
+        "file": "scripts/normalize-linux-release.mjs",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "cd92b41014cec9e5edb78e72e1e519bcbcbbe29a73094998bc2633bd5fbe0138",
+        "gitContentVerified": true
+      },
+      {
+        "file": "scripts/release-feed.mjs",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "94ca5e0d25bb28d25544fc6ce723deb2dd564d7b75f9fa30a01d14db6668585b",
+        "gitContentVerified": true
+      },
+      {
+        "file": "scripts/updater.mjs",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "261e1d126ed5b76df075ad34e86d9e0943805b0e1d2ef56a8aaafc05735c1651",
+        "gitContentVerified": true
+      },
+      {
+        "file": "scripts/verify-macos-bundles.py",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "6440e1e70ad775d150e1655b9cbd20ec85d078c1981f7ab0218fcad3f1ae368e",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/src/commands.rs",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "9803b6b1d81e0e62f7a95e5ddc6ed6e0a1ae38e0fd3b64c80ae88faa0e3487f2",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/src/lib.rs",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "65838b20f84cff26f368cd2f17188f7a51f2001e237f623f29a6967d64ed9ea6",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/src/platform/desktop.rs",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "9eaa172f48cf532dfb6eb8aa001478b2946a3002485a016d675238603ce590a8",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/src/platform/linux_package.rs",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "dd7ccd3fca53a414b20a8cf8e4b9edb829e870996a305e30a1029e26daf56ee9",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/src/platform/windows/client_update.rs",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "15cd4a43f73b9d84a05d4a563ce46ac1d3bc00ba4a74dd3378b133e17d036695",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/src/platform/windows/portable_transaction.rs",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "ac94a1f993bdcb70f83fe42bff392499bae73805fa0a126474b7aa0eaf87d625",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/tauri.linux.conf.json",
+        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
+        "sha256": "11389d81d3c7e9ee7daa3c5cdf519a9be9dff2e18e61f6781342303097e52d91",
+        "gitContentVerified": true
+      }
+    ],
+    "testedPages": {
+      "README.md": "835dd3e182255cd3d1bfd11d7a141fe84affae60b67cbf550911fb159200b873",
+      "README_zh.md": "1cc060983beb645af717c335c183900b72314303a33bbda202adafb4b2f3af76",
+      "docs/content/docs/en/features/update.mdx": "b9c69c72531837f254c58fa70f6daf0d5bc45487f76b4d3cc813b93237b0207d",
+      "docs/content/docs/en/guide/install.mdx": "d14bbe68da263df02c810f0fe8b607ede66456444c7794242e04ab76c24e3334",
+      "docs/content/docs/en/reference/updater-internals.mdx": "0e7ef86ff3a9923cf97de1007f43120f35d2cba392d1b270885c69a87fe2c624",
+      "docs/content/docs/zh/features/update.mdx": "00807e7d0d08a070fef03a947bd800c397acc0fd2b0744111a221dd846731325",
+      "docs/content/docs/zh/guide/install.mdx": "eaef5a2d0470612adb811f9aeed7b358494778160fdf6b98c6dc91b86729c862",
+      "docs/content/docs/zh/reference/updater-internals.mdx": "1a71f29509fd236060e3df287e6bed6e77cca2bdfba3f1644fc668185d71f052",
+      "docs/development/CI-JOBS.md": "e08859433c8ce866b99bd5b5704dee5cf039e42a450f9de9473acf34af4c13ab"
+    }
   }
 }
