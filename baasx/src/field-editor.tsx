@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Box, Text, useInput } from "ink";
+import { Box, Text } from "ink";
+import { useCurrentInput, useInputState } from "./input-hooks";
 import { HitBox, Marquee } from "./terminal-components";
 import { translate } from "./i18n";
 import { displayWidth, terminalText } from "./ui";
@@ -73,25 +74,27 @@ function BasicFieldEditor({
         : field.max !== undefined
           ? t("至多 {max}").replace("{max}", String(field.max))
           : t("请输入有效数字");
-  const [draft, setDraft] = useState<unknown>(() =>
+  const [draft, setDraft, draftRef] = useInputState<unknown>(() =>
     structuredClone(
       field.editorValue ??
         field.value ??
         (["rows", "list", "multiselect"].includes(field.type) ? [] : "")
     )
   );
-  const [selected, setSelected] = useState(() =>
+  const [selected, setSelected, selectedRef] = useInputState(() =>
     Math.max(
       0,
       field.options?.findIndex((option) => equal(option.value, field.editorValue ?? field.value)) ||
         0
     )
   );
-  const [replace, setReplace] = useState(true);
+  const [, setReplace, replaceRef] = useInputState(true);
   const [error, setError] = useState("");
-  const [row, setRow] = useState<number>();
-  const [child, setChild] = useState<{ field: EditableField; save: (value: unknown) => void }>();
-  const [saving, setSaving] = useState(false);
+  const [row, setRow, rowRef] = useInputState<number | undefined>(undefined);
+  const [child, setChild, childRef] = useInputState<
+    { field: EditableField; save: (value: unknown) => void } | undefined
+  >(undefined);
+  const [saving, setSaving, savingRef] = useInputState(false);
   const rows = Array.isArray(draft) ? draft : [];
   const isChoices =
     field.type === "select" ||
@@ -106,8 +109,9 @@ function BasicFieldEditor({
         (typeof value === "boolean"
           ? t(value ? "开启" : "关闭")
           : terminalText(String(value ?? ""))));
-  const items =
-    row !== undefined
+  const itemsFor = (draft: unknown, row: number | undefined) => {
+    const rows = Array.isArray(draft) ? draft : [];
+    return row !== undefined
       ? (field.columns || []).map((column) => ({ label: column.label, value: column.key }))
       : isChoices
         ? options
@@ -127,6 +131,9 @@ function BasicFieldEditor({
               value: index,
             }))
           : [];
+  };
+  const items = itemsFor(draft, row);
+  const currentRows = () => (Array.isArray(draftRef.current) ? draftRef.current : []);
   const compact = height < 10;
   const contentHeight = Math.max(
     1,
@@ -135,13 +142,13 @@ function BasicFieldEditor({
   const limit = contentHeight;
   const offset = Math.max(0, Math.min(selected - Math.floor(limit / 2), items.length - limit));
   const safeSet = (value: unknown) => {
-    if (field.readOnly || saving || !active) return;
+    if (field.readOnly || savingRef.current || !active) return;
     setDraft(value);
     setError("");
   };
   const save = async () => {
-    if (saving || field.readOnly || !active) return;
-    let value = draft;
+    if (savingRef.current || field.readOnly || !active) return;
+    let value = draftRef.current;
     if (field.type === "number") {
       if (String(value).trim() === "" || !Number.isFinite(Number(value))) {
         setError(t("请输入有效数字"));
@@ -163,7 +170,7 @@ function BasicFieldEditor({
     }
     try {
       setSaving(true);
-      await onSave(value);
+      await onSave(structuredClone(value));
     } catch (error) {
       setError(t((error as Error).message));
     } finally {
@@ -171,7 +178,9 @@ function BasicFieldEditor({
     }
   };
   const select = (index: number) => {
-    const item = items[index];
+    const rows = currentRows();
+    const row = rowRef.current;
+    const item = itemsFor(draftRef.current, row)[index];
     if (!item) return;
     setSelected(index);
     if (row !== undefined) {
@@ -179,7 +188,7 @@ function BasicFieldEditor({
       setChild({
         field: { ...column, value: rows[row]?.[column.key] },
         save: (value) => {
-          const next = structuredClone(rows);
+          const next = structuredClone(currentRows());
           next[row] = { ...next[row], [column.key]: value };
           safeSet(next);
           setChild(undefined);
@@ -201,13 +210,14 @@ function BasicFieldEditor({
       setChild({
         field: { label: t("编辑条目"), type: "text", value: rows[index] },
         save: (value) => {
-          safeSet(rows.map((v, i) => (i === index ? value : v)));
+          safeSet(currentRows().map((v, i) => (i === index ? value : v)));
           setChild(undefined);
         },
       });
   };
   const add = () => {
     if (field.readOnly || field.allowAdd === false) return;
+    const rows = currentRows();
     if (field.type === "rows") {
       safeSet([...rows, structuredClone(field.defaultRow || {})]);
       setRow(rows.length);
@@ -217,8 +227,9 @@ function BasicFieldEditor({
         field: { label: t("添加条目"), type: "text", value: "" },
         save: (value) => {
           if (String(value).trim()) {
-            safeSet([...rows, value]);
-            setSelected(rows.length);
+            const current = currentRows();
+            safeSet([...current, value]);
+            setSelected(current.length);
           }
           setChild(undefined);
         },
@@ -226,18 +237,25 @@ function BasicFieldEditor({
   };
   const remove = () => {
     if (!field.readOnly && field.allowRemove !== false) {
-      safeSet(rows.filter((_, i) => i !== selected));
-      setSelected(Math.max(0, selected - 1));
+      safeSet(currentRows().filter((_, i) => i !== selectedRef.current));
+      setSelected(Math.max(0, selectedRef.current - 1));
     }
   };
   const back = () => {
-    if (row !== undefined) {
+    if (rowRef.current !== undefined) {
       setRow(undefined);
       setSelected(0);
     } else onCancel();
   };
-  useInput(
+  useCurrentInput(
     (text, key) => {
+      if (!active || childRef.current || savingRef.current) return;
+      const draft = draftRef.current;
+      const selected = selectedRef.current;
+      const replace = replaceRef.current;
+      const row = rowRef.current;
+      const rows = currentRows();
+      const items = itemsFor(draft, row);
       if (key.escape) {
         back();
         return;

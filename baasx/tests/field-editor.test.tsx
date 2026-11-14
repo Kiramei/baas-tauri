@@ -1,10 +1,11 @@
-import React from "react";
+import React, { act } from "react";
 import { test, expect } from "bun:test";
 import { PassThrough, Writable } from "node:stream";
 import { render } from "ink";
 import { FieldEditor, type EditableField } from "../src/field-editor";
 import { terminalText } from "../src/ui";
-async function mount(field: EditableField) {
+import { MouseBus, terminalSession } from "../src/terminal";
+async function mount(field: EditableField, options: { terminal?: boolean } = {}) {
   const writes: unknown[] = [];
   let frame = "";
   const stdout = Object.assign(
@@ -23,6 +24,14 @@ async function mount(field: EditableField) {
     ref() {},
     unref() {},
   });
+  const session = options.terminal
+    ? terminalSession(
+        stdin as unknown as NodeJS.ReadStream,
+        stdout as unknown as NodeJS.WriteStream,
+        new MouseBus()
+      )
+    : undefined;
+  const input = session?.input ?? stdin;
   const app = render(
     <FieldEditor
       field={field}
@@ -36,7 +45,7 @@ async function mount(field: EditableField) {
     />,
     {
       stdout: stdout as unknown as NodeJS.WriteStream,
-      stdin: stdin as unknown as NodeJS.ReadStream,
+      stdin: input as unknown as NodeJS.ReadStream,
       debug: true,
       patchConsole: false,
       maxFps: 1000,
@@ -53,21 +62,113 @@ async function mount(field: EditableField) {
       stdin.write(text);
       await settle();
     },
+    async burst(...chunks: string[]) {
+      const environment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+      const previous = environment.IS_REACT_ACT_ENVIRONMENT;
+      environment.IS_REACT_ACT_ENVIRONMENT = true;
+      try {
+        await act(async () => {
+          for (const chunk of chunks) {
+            stdin.write(chunk);
+            input.emit("readable");
+          }
+          await Bun.sleep(0);
+        });
+      } finally {
+        if (previous === undefined) delete environment.IS_REACT_ACT_ENVIRONMENT;
+        else environment.IS_REACT_ACT_ENVIRONMENT = previous;
+      }
+      await settle();
+    },
     async waitFor(predicate: () => boolean) {
       const deadline = Date.now() + 2_000;
       while (!predicate()) {
-        if (Date.now() >= deadline) throw new Error(`Editor did not reach the expected state:\n${frame}`);
+        if (Date.now() >= deadline)
+          throw new Error(`Editor did not reach the expected state:\n${frame}`);
         await Bun.sleep(10);
       }
     },
     close() {
       app.unmount();
       app.cleanup();
+      session?.close();
       stdin.destroy();
       stdout.destroy();
     },
   };
 }
+
+const rapidFields: Array<{ field: EditableField; keys: string[]; value: unknown }> = [
+  { field: { label: "Number", type: "number", value: 1 }, keys: ["2", "3", "\r"], value: 23 },
+  {
+    field: { label: "Text", type: "text", value: "old" },
+    keys: ["老师👩‍💻é", "\r"],
+    value: "老师👩‍💻é",
+  },
+  { field: { label: "Switch", type: "switch", value: false }, keys: [" ", "\r"], value: true },
+  {
+    field: {
+      label: "Select",
+      type: "select",
+      value: 1,
+      options: [
+        { label: "Number", value: 1 },
+        { label: "String", value: "1" },
+      ],
+    },
+    keys: ["\x1b[B", "\r"],
+    value: "1",
+  },
+  {
+    field: {
+      label: "Multiple",
+      type: "multiselect",
+      value: [1],
+      options: [
+        { label: "Number", value: 1 },
+        { label: "String", value: "1" },
+      ],
+    },
+    keys: ["\x1b[B", " ", "\x13"],
+    value: [1, "1"],
+  },
+];
+test.each(
+  rapidFields.flatMap((sample) => [false, true].map((coalesced) => ({ ...sample, coalesced })))
+)("framed field input saves its current value: %j", async ({ field, keys, value, coalesced }) => {
+  const ui = await mount(field, { terminal: true });
+  try {
+    await ui.burst(...(coalesced ? [keys.join("")] : keys));
+    expect(ui.writes).toEqual([value]);
+  } finally {
+    ui.close();
+  }
+});
+
+test("a framed save locks another save in the same batch", async () => {
+  const ui = await mount({ label: "Number", type: "number", value: 1 }, { terminal: true });
+  try {
+    await ui.burst("2\r\x13");
+    expect(ui.writes).toEqual([2]);
+  } finally {
+    ui.close();
+  }
+});
+
+test("an oversized bracketed paste preserves the entire original field draft", async () => {
+  const ui = await mount({ label: "Text", type: "text", value: "original" }, { terminal: true });
+  try {
+    await ui.burst("\x1b[200~" + "x".repeat(8193));
+    await ui.burst("trailing\r\x13\x1b[201~");
+    expect(ui.writes).toEqual([]);
+    expect(ui.frame).toContain("❯ original");
+    await ui.burst("\r");
+    expect(ui.writes).toEqual(["original"]);
+  } finally {
+    ui.close();
+  }
+});
+
 test("select shows a display label and saves its independent typed wire value", async () => {
   const ui = await mount({
     label: "截图方法",

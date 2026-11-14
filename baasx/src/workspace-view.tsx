@@ -28,7 +28,6 @@ import {
 } from "./terminal-components";
 import React, {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -36,7 +35,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Box, Text as InkText, render, useApp, useInput, useStdin, useStdout } from "ink";
+import { Box, Text as InkText, render, useApp, useStdin, useStdout } from "ink";
+import { useCurrentInput, useInputState } from "./input-hooks";
 import { isRuntimeOperation, Workspace, type WorkspaceOptions } from "./workspace";
 import { displayWidth, terminalText, truncateText } from "./ui";
 import manifest from "../package.json";
@@ -45,22 +45,6 @@ import { ONE_OFF_TASKS, isOneOffTask } from "./oneoff-tasks";
 import { WorkbenchHelp } from "./workbench-help";
 
 const LanguageContext = createContext("zh");
-
-function useCurrentInput(
-  handler: Parameters<typeof useInput>[0],
-  options: Parameters<typeof useInput>[1]
-) {
-  const current = useRef(handler);
-  // Ink replaces input callbacks in a passive effect. A key arriving after a
-  // committed frame must observe that frame's prompt and selection immediately.
-  useLayoutEffect(() => {
-    current.current = handler;
-  });
-  useInput(
-    useCallback((text, key) => current.current(text, key), []),
-    options
-  );
-}
 
 function Text(props: React.ComponentProps<typeof InkText>) {
   const language = useContext(LanguageContext);
@@ -530,11 +514,11 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
   const [view, setView] = useState<View>(
     state.chooseLanguage ? "language" : state.setupNeeded ? "setup" : "home"
   );
-  const [input, setInput] = useState("");
+  const [input, setInput, inputRef] = useInputState("");
   const [inputSensitive, setInputSensitive] = useState(false);
-  const [cursor, setCursor] = useState(0);
-  const [selected, setSelected] = useState(0);
-  const [suggested, setSuggested] = useState(0);
+  const [cursor, setCursor, cursorRef] = useInputState(0);
+  const [selected, setSelected, selectedRef] = useInputState(0);
+  const [suggested, setSuggested, suggestedRef] = useInputState(0);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [draft, setDraft] = useState("");
@@ -676,7 +660,7 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
           .join(" · "),
       };
     });
-  const configItems: Choice[] =
+  const configItemsFor = (searchingConfig: boolean): Choice[] =>
     !configSection && !searchingConfig
       ? sections.map((section) => ({
           id: `section:${section.id}`,
@@ -746,14 +730,15 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
                     detail: `${id}${id === state.profile ? " · 当前" : ""}${state.status[id]?.running ? " · 运行中" : ""}`,
                   }))
                 : view === "config"
-                  ? configItems
+                  ? configItemsFor(searchingConfig)
                   : [];
-  const choices = filterChoices(
-    baseChoices,
-    input.startsWith("/") || editing || prompt ? "" : input
-  );
+  const choicesFor = (input: string) => {
+    const items =
+      view === "config" ? configItemsFor(!!input && !input.startsWith("/")) : baseChoices;
+    return filterChoices(items, input.startsWith("/") || editing || prompt ? "" : input);
+  };
+  const choices = choicesFor(input);
   const selectedIndex = Math.max(0, Math.min(selected, choices.length - 1));
-  const commandQuery = input.startsWith("/") ? input.slice(1) : "";
   const commandItems = [
     ...COMMANDS,
     ...state.packs.map((pack) => ({
@@ -762,9 +747,9 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
       detail: pack.description,
     })),
   ];
-  const argumentMatch = /^\/(run|use)\s+(.*)$/.exec(input);
-  const suggestions =
-    !prompt && !editing && input.startsWith("/")
+  const suggestionsFor = (value: string) => {
+    const argumentMatch = /^\/(run|use)\s+(.*)$/.exec(value);
+    return !prompt && !editing && value.startsWith("/")
       ? argumentMatch
         ? filterChoices(
             argumentMatch[1] === "run"
@@ -776,8 +761,10 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
             id: `${argumentMatch[1]} ${item.id}`,
             label: `/${argumentMatch[1]} ${item.id}`,
           }))
-        : commandItems.filter((c) => c.id.startsWith(commandQuery))
+        : commandItems.filter((c) => c.id.startsWith(value.slice(1)))
       : [];
+  };
+  const suggestions = suggestionsFor(input);
   const suggestionIndex = Math.min(suggested, Math.max(0, suggestions.length - 1));
   const headerRows = rows < 20 ? 2 : compact ? 4 : 6;
   const contentGap = view === "home" ? 0 : 1;
@@ -917,7 +904,9 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
     } else setView("home");
     await workspace.execute(command);
   };
-  const choose = async (index = selectedIndex) => {
+  const choose = async (index?: number) => {
+    const choices = choicesFor(inputRef.current);
+    index ??= Math.max(0, Math.min(selectedRef.current, choices.length - 1));
     const item = choices[index];
     if (!item) return;
     resetInput();
@@ -1104,6 +1093,11 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
   };
   useCurrentInput(
     (text, key) => {
+      const input = inputRef.current;
+      const cursor = cursorRef.current;
+      const choices = choicesFor(input);
+      const suggestions = suggestionsFor(input);
+      const suggestionIndex = Math.min(suggestedRef.current, Math.max(0, suggestions.length - 1));
       if (!prompt && !state.busy && key.ctrl && text === "r") {
         void operation(() => workspace.reload());
         return;
@@ -1270,9 +1264,10 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
       const safe = clean(text).replace(/\r/g, " ");
       if (!safe || input.length + safe.length > 8192) return;
       if (secret) setInputSensitive(true);
+      const beforeCursor = parts.slice(0, cursor).join("") + safe;
       parts.splice(cursor, 0, ...chars(safe));
       setInput(parts.join(""));
-      setCursor(cursor + chars(safe).length);
+      setCursor(chars(beforeCursor).length);
       setSelected(0);
       setSuggested(0);
       setNotice("");
