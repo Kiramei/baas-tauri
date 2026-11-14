@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import report from "../evidence/android-game-validation.json";
@@ -76,7 +77,11 @@ test("physical-device supplement separates APK failures, measured progress and m
   for (const source of current.sources) {
     expect(source.revision).toBe(current.runs[3].sourceRevision);
     expect(source.gitContentVerified).toBe(true);
-    expect(hash(read(source.file))).toBe(source.sha256);
+    // Each physical observation belongs to its tested APK, not later source edits.
+    const pinned = execFileSync("git", ["show", `${source.revision}:${source.file}`], {
+      cwd: new URL("../../", import.meta.url), encoding: "utf8",
+    }).replaceAll("\r\n", "\n");
+    expect(hash(pinned)).toBe(source.sha256);
   }
   expect(current.limitations.join(" ")).toContain("No complete pre-install configuration-byte baseline");
   expect(current.limitations.join(" ")).toContain("preservation is not claimed");
