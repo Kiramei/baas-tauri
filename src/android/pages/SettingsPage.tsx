@@ -4,6 +4,7 @@ import { useSettingsSearchHighlight } from "@/shared/useSettingsSearchHighlight"
 import { useSettingsSearch } from "@/shared/useSettingsSearch";
 import { FormSelect } from "@/components/ui/FormSelect";
 import { MirrorCdkField } from "@/components/settings/MirrorCdkField";
+import { ReloadSettingsRow } from "@/components/settings/ReloadSettingsRow";
 import { useMirrorCdkSource } from "@/shared/useMirrorCdkSource";
 import { VersionOverview } from "@/components/settings/VersionOverview";
 import { CommitHistorySettings } from "@/components/settings/CommitHistory";
@@ -19,8 +20,6 @@ import {
 import { useTheme } from "@/context/ThemeProvider";
 import { Theme } from "@/types/app";
 import { ThemeSelector } from "@/components/ui/ThemeSelector";
-import { FormInput } from "@/components/ui/FormInput.tsx";
-import CButton from "@/components/ui/CButton.tsx";
 import { toast } from "sonner";
 import { ImagePlus, Palette, Trash2 } from "lucide-react";
 import { useWebSocketStore } from "@/store/WebsocketStore";
@@ -667,6 +666,7 @@ const SettingsPage: React.FC = () => {
                         setUiSettings((state) => ({ ...state, lowPerformanceMode: value }))
                       }
                     />
+                    <ReloadSettingsRow />
                   </SettingsGroup>
                   {__WITH_TAURI__ && !__WITH_ANDROID__ && (
                     <SettingsGroup title={t("settings.groups.desktop")}>

@@ -199,6 +199,7 @@
       "idleAutoUpdate": "Automatically update scripts when idle",
       "lowPerformanceMode": "Reduced effects",
       "player": "Video decoder",
+      "reloadInterface": "Reload interface",
       "storageFailed": "Unable to save preferences in this browser. Free up site storage or choose a smaller background image.",
       "themeColor": "Theme color",
       "themeColorInvalid": "Enter a theme color in #RRGGBB format.",
@@ -756,8 +757,6 @@
   },
   "contextMenu": {
     "copy": "Copy",
-    "inspect": "Inspect",
-    "inspectWebuiHint": "Press F12 to open developer tools.",
     "paste": "Paste",
     "pasteFailed": "Clipboard is not available.",
     "reload": "Reload"

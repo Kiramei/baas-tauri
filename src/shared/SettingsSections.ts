@@ -9,6 +9,8 @@ export const SETTINGS_SECTIONS = [
     keywords: [
       "language",
       "settings.ui.lowPerformanceMode",
+      "settings.ui.reloadInterface",
+      "contextMenu.reload",
       "settings.ui.enableSystemNotifications",
       "workflow.minimizeToTray",
     ],

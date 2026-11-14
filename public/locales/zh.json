@@ -199,6 +199,7 @@
       "idleAutoUpdate": "空闲时自动更新脚本",
       "lowPerformanceMode": "低性能模式",
       "player": "画面解码器",
+      "reloadInterface": "重载界面",
       "storageFailed": "无法在此浏览器保存偏好设置，请清理站点存储或选择更小的背景图片。",
       "themeColor": "主题色",
       "themeColorInvalid": "请输入 #RRGGBB 格式的主题色。",
@@ -756,8 +757,6 @@
   },
   "contextMenu": {
     "copy": "复制",
-    "inspect": "检查",
-    "inspectWebuiHint": "请按 F12 打开开发者工具。",
     "paste": "粘贴",
     "pasteFailed": "剪贴板不可用。",
     "reload": "重载"

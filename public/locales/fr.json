@@ -199,6 +199,7 @@
       "idleAutoUpdate": "Mettre à jour les scripts au repos",
       "lowPerformanceMode": "Effets réduits",
       "player": "Décodeur vidéo",
+      "reloadInterface": "Recharger l’interface",
       "storageFailed": "Impossible d’enregistrer les préférences dans ce navigateur. Libérez de l’espace pour ce site ou choisissez une image de fond plus petite.",
       "themeColor": "Couleur du theme",
       "themeColorInvalid": "Saisissez une couleur de theme au format #RRGGBB.",
@@ -756,8 +757,6 @@
   },
   "contextMenu": {
     "copy": "Copier",
-    "inspect": "Inspecter",
-    "inspectWebuiHint": "Appuyez sur F12 pour ouvrir les outils dev.",
     "paste": "Coller",
     "pasteFailed": "Le presse-papiers n'est pas disponible.",
     "reload": "Recharger"

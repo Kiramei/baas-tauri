@@ -199,6 +199,7 @@
       "idleAutoUpdate": "Skripte im Leerlauf automatisch aktualisieren",
       "lowPerformanceMode": "Reduzierte Effekte",
       "player": "Videodecoder",
+      "reloadInterface": "Oberfläche neu laden",
       "storageFailed": "Einstellungen konnten in diesem Browser nicht gespeichert werden. Geben Sie Website-Speicher frei oder wählen Sie ein kleineres Hintergrundbild.",
       "themeColor": "Designfarbe",
       "themeColorInvalid": "Geben Sie eine Designfarbe im Format #RRGGBB ein.",
@@ -756,8 +757,6 @@
   },
   "contextMenu": {
     "copy": "Kopieren",
-    "inspect": "Pruefen",
-    "inspectWebuiHint": "F12 druecken, um Entwicklertools zu oeffnen.",
     "paste": "Einfuegen",
     "pasteFailed": "Zwischenablage ist nicht verfuegbar.",
     "reload": "Neu laden"

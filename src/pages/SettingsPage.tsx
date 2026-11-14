@@ -8,6 +8,7 @@ import {
   SettingsSelect,
 } from "@/components/settings/SettingsControls";
 import { MirrorCdkField } from "@/components/settings/MirrorCdkField";
+import { ReloadSettingsRow } from "@/components/settings/ReloadSettingsRow";
 import { useMirrorCdkSource } from "@/shared/useMirrorCdkSource";
 import { VersionOverview } from "@/components/settings/VersionOverview";
 import { CommitHistorySettings } from "@/components/settings/CommitHistory";
@@ -673,6 +674,7 @@ const SettingsPage: React.FC = () => {
                         setUiSettings((state) => ({ ...state, lowPerformanceMode: value }))
                       }
                     />
+                    <ReloadSettingsRow />
                   </SettingsGroup>
                   <PluginSettingsEntry />
                   {__WITH_WEBUI__ && <KeyResetSettings />}
