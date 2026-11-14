@@ -112,7 +112,15 @@ Native clients check the stable backend revision using public metadata and use t
 
 ### Windows Portable Client
 
-The client identifies portable mode separately from an installed application. A portable update uses the signed executable payload, or the matching fixed-WebView2 bundle, and replaces only client-managed files beside the executable. User configuration and backend data are outside the replacement set. An update helper stages and verifies files, retains a rollback copy, restarts the same portable executable and waits for the updated React interface to acknowledge startup before removing the backup. Replacement or startup failure triggers recovery; an installed application continues using its installer path.
+The client identifies portable mode separately from an installed application. A portable update uses the signed executable payload and replaces only client-managed files beside the executable. User configuration and backend data are outside the replacement set. An update helper stages and verifies files, retains a rollback copy, restarts the same portable executable and waits for the updated React interface to acknowledge startup before removing the backup. Replacement or startup failure triggers recovery; an installed application continues using its installer path.
+
+### macOS update archives
+
+New macOS `.app.tar.gz` updates keep their Minisign signature in persistent `updater-signatures-aarch64.json` or `updater-signatures-x64.json` release metadata. The feed checks the exact release tag and archive filename before using the signature; the client still cryptographically verifies the downloaded archive. Archives contain no `.sig` files and have no public `.tar.gz.sig` attachment. Historical releases through 0.0.10 remain readable with their original signature files.
+
+### Linux AppImage
+
+The client explicitly selects `linux-x86_64-appimage` or `linux-aarch64-appimage` from the running bundle marker. Tauri’s updater verifies the raw AppImage signature and replaces the absolute original `APPIMAGE` file, preserving permissions and restoring its backup if replacement fails. Relaunch uses Tauri’s captured original AppImage path. This does not provide the Windows helper’s UI-ready rollback after a successful replacement. Backend configuration resolves beside the original file for portable mode, or under the selected persistent root; the mounted `APPDIR` is never used as its setup root.
 
 ### Android APK
 

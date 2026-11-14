@@ -122,6 +122,12 @@ jobs:
             target: x86_64-unknown-linux-gnu
             deb_arch: amd64
             rpm_arch: x86_64
+            appimage_arch: x86_64
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            deb_arch: arm64
+            rpm_arch: aarch64
+            appimage_arch: aarch64
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -138,7 +144,7 @@ jobs:
           save-cache: "true"
 
       - name: Install dependencies (ubuntu only)
-        if: matrix.os == 'ubuntu-22.04'
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           sudo apt-get update
@@ -148,7 +154,8 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
-            rpm
+            rpm \
+            libfuse2
 
       - name: Install x86 OpenSSL (macOS only)
         if: matrix.target == 'x86_64-apple-darwin'
@@ -230,11 +237,6 @@ jobs:
             Copy-Item $sig.FullName "$dst\BAAS.Tauri_${version}_${arch}-setup.exe.sig" -Force
           }
 
-          $zip = Get-ChildItem $src -File -Filter "*.nsis.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($zip) {
-            Copy-Item $zip.FullName "$dst\BAAS.Tauri_${version}_${arch}-setup.nsis.zip" -Force
-          }
-
           Get-ChildItem $dst -File | Sort-Object Name
 
       - name: Sign Windows portable executable
@@ -286,10 +288,11 @@ jobs:
             FOUND=1
           fi
 
-          APP_TAR_SIG="$(find "$SRC/macos" -maxdepth 1 -type f -name '*.app.tar.gz.sig' | head -n 1 || true)"
-          if [ -n "$APP_TAR_SIG" ]; then
-            cp -v "$APP_TAR_SIG" "$DST/BAAS.Tauri_${VERSION}_${ARCH}.app.tar.gz.sig"
-          fi
+          node scripts/archive-signatures.mjs \
+            --tag "$GITHUB_REF_NAME" --arch "$ARCH" \
+            --archive "$DST/BAAS.Tauri_${VERSION}_${ARCH}.app.tar.gz" \
+            --signature "$APP_TAR.sig" \
+            --output "$DST/updater-signatures-${ARCH}.json"
 
           if [ "$FOUND" -eq 0 ]; then
             echo "::error::No macOS bundle found in $SRC/dmg or $SRC/macos"
@@ -309,141 +312,28 @@ jobs:
             --version "${GITHUB_REF_NAME#v}"
 
       - name: Normalize Linux artifacts
-        if: matrix.os == 'ubuntu-22.04'
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          node scripts/normalize-linux-release.mjs \
+            --version "${GITHUB_REF_NAME#v}" \
+            --target "${{ matrix.target }}" \
+            --bundle-dir "target/${{ matrix.target }}/release/bundle" \
+            --assets-dir release-assets
+
+      - name: Verify AppImage filesystem
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           set -euo pipefail
-
-          VERSION="${GITHUB_REF_NAME#v}"
-          SRC="target/${{ matrix.target }}/release/bundle"
-          DST="release-assets"
-
-          rm -rf "$DST"
-          mkdir -p "$DST"
-
-          DEB="$(find "$SRC/deb" -maxdepth 1 -type f -name '*.deb' | head -n 1 || true)"
-          if [ -z "$DEB" ]; then
-            echo "::error::No deb package found in $SRC/deb"
-            exit 1
-          fi
-          cp -v "$DEB" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb"
-
-          cp -v "$DEB.sig" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb.sig"
-
-          RPM="$(find "$SRC/rpm" -maxdepth 1 -type f -name '*.rpm' | head -n 1 || true)"
-          if [ -z "$RPM" ]; then
-            echo "::error::No rpm package found in $SRC/rpm"
-            exit 1
-          fi
-          cp -v "$RPM" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm"
-
-          cp -v "$RPM.sig" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm.sig"
-
-          find "$DST" -maxdepth 1 -type f -print | sort
+          IMAGE="$GITHUB_WORKSPACE/release-assets/BAAS.Tauri_${GITHUB_REF_NAME#v}_${{ matrix.appimage_arch }}.AppImage"
+          VERIFY_DIR="$(mktemp -d)"
+          trap 'rm -rf "$VERIFY_DIR"' EXIT
+          cd "$VERIFY_DIR"
+          "$IMAGE" --appimage-extract >/dev/null
+          test -x squashfs-root/AppRun
 
       - name: Attest release bundles
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: release-assets/*
-
-      - name: Upload normalized release assets
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: "BAAS Tauri App ${{ github.ref_name }}"
-          body: "Draft release, will be updated later."
-          token: ${{ secrets.GITHUB_TOKEN }}
-          draft: true
-          prerelease: ${{ contains(github.ref_name, '.rc') }}
-          overwrite_files: true
-          files: release-assets/*
-
-  release-for-linux-arm:
-    name: Release Build for Linux ARM
-    needs: [create_release, generate_fonts]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-22.04
-            target: aarch64-unknown-linux-gnu
-            arch: arm64
-            deb_arch: arm64
-            rpm_arch: aarch64
-            multiarch_triplet: aarch64-linux-gnu
-          - os: ubuntu-22.04
-            target: armv7-unknown-linux-gnueabihf
-            arch: armhf
-            deb_arch: armhf
-            rpm_arch: armv7hl
-            multiarch_triplet: arm-linux-gnueabihf
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Setup Tauri build environment
-        uses: ./.github/actions/setup-tauri-build-env
-        with:
-          target: ${{ matrix.target }}
-          save-cache: "true"
-
-      - uses: ./.github/actions/setup-linux-arm
-        with:
-          arch: ${{ matrix.arch }}
-          triplet: ${{ matrix.multiarch_triplet }}
-          target: ${{ matrix.target }}
-
-      - name: Refresh bundled release notes
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun scripts/update-client-release-history.mjs
-
-      - name: Tauri build
-        shell: bash
-        env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        run: bun tauri build --target ${{ matrix.target }}
-
-      - name: Normalize Linux ARM artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          VERSION="${GITHUB_REF_NAME#v}"
-          SRC="target/${{ matrix.target }}/release/bundle"
-          DST="release-assets"
-
-          rm -rf "$DST"
-          mkdir -p "$DST"
-
-          DEB="$(find "$SRC/deb" -maxdepth 1 -type f -name '*.deb' | head -n 1 || true)"
-          if [ -z "$DEB" ]; then
-            echo "::error::No deb package found in $SRC/deb"
-            exit 1
-          fi
-          cp -v "$DEB" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb"
-
-          cp -v "$DEB.sig" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb.sig"
-
-          RPM="$(find "$SRC/rpm" -maxdepth 1 -type f -name '*.rpm' | head -n 1 || true)"
-          if [ -z "$RPM" ]; then
-            echo "::error::No rpm package found in $SRC/rpm"
-            exit 1
-          fi
-          cp -v "$RPM" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm"
-
-          cp -v "$RPM.sig" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm.sig"
-
-          find "$DST" -maxdepth 1 -type f -print | sort
-
-      - name: Attest Linux bundles
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: release-assets/*
@@ -587,152 +477,12 @@ jobs:
           overwrite_files: true
           files: release-assets/*
 
-  release-for-fixed-webview2:
-    name: Release Build for Fixed WebView2
-    needs: [create_release, generate_fonts]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            arch: x64
-          - os: windows-latest
-            target: aarch64-pc-windows-msvc
-            arch: arm64
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Setup Tauri build environment
-        uses: ./.github/actions/setup-tauri-build-env
-        with:
-          target: ${{ matrix.target }}
-          cache-variant: fixed-webview2
-          save-cache: "true"
-
-      - name: Download WebView2 Runtime
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          $version = "133.0.3065.92"
-          $arch = "${{ matrix.arch }}"
-          $cab = "Microsoft.WebView2.FixedVersionRuntime.$version.$arch.cab"
-          $url = "https://github.com/westinyang/WebView2RuntimeArchive/releases/download/$version/$cab"
-
-          Invoke-WebRequest -Uri $url -OutFile $cab
-          expand.exe ".\$cab" -F:* ".\src-tauri"
-
-          Remove-Item ".\src-tauri\tauri.windows.conf.json" -Force
-          Rename-Item ".\src-tauri\webview2.$arch.json" "tauri.windows.conf.json"
-
-      - name: Refresh bundled release notes
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun scripts/update-client-release-history.mjs
-
-      - name: Tauri build
-        shell: bash
-        env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        run: bun tauri build --target ${{ matrix.target }}
-
-      - name: Normalize fixed WebView2 artifacts
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          $version = "${{ github.ref_name }}" -replace '^v', ''
-          $arch = "${{ matrix.arch }}"
-          $src = "target\${{ matrix.target }}\release\bundle\nsis"
-          $dst = "release-assets"
-
-          if (Test-Path $dst) {
-            Remove-Item $dst -Recurse -Force
-          }
-          New-Item -ItemType Directory -Force -Path $dst | Out-Null
-
-          $exe = Get-ChildItem $src -File -Filter "*-setup.exe" | Select-Object -First 1
-          if (-not $exe) {
-            throw "No NSIS setup exe found in $src"
-          }
-          Copy-Item $exe.FullName "$dst\BAAS.Tauri_${version}_${arch}_fixed_webview2-setup.exe" -Force
-
-          $sig = Get-ChildItem $src -File -Filter "*-setup.exe.sig" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($sig) {
-            Copy-Item $sig.FullName "$dst\BAAS.Tauri_${version}_${arch}_fixed_webview2-setup.exe.sig" -Force
-          }
-
-          $zip = Get-ChildItem $src -File -Filter "*.nsis.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($zip) {
-            Copy-Item $zip.FullName "$dst\BAAS.Tauri_${version}_${arch}_fixed_webview2-setup.nsis.zip" -Force
-          }
-
-          Get-ChildItem $dst -File | Sort-Object Name
-
-      - name: Attest Windows bundles
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: release-assets/*
-
-      - name: Upload fixed WebView2 release assets
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: "BAAS Tauri App ${{ github.ref_name }}"
-          body: "Draft release, will be updated later."
-          token: ${{ secrets.GITHUB_TOKEN }}
-          draft: true
-          prerelease: ${{ contains(github.ref_name, '.rc') }}
-          overwrite_files: true
-          files: release-assets/*
-
-      - name: Portable Bundle
-        run: bun run portable-fixed-webview2 ${{ matrix.target }}
-
-      - name: Sign fixed WebView2 portable bundle
-        shell: pwsh
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          $version = $env:GITHUB_REF_NAME -replace '^v', ''
-          $file = "BAAS.Tauri_${version}_${{ matrix.arch }}_fixed_webview2_portable.zip"
-          bun tauri signer sign "$file"
-          if ($LASTEXITCODE -ne 0) { throw "Portable bundle signing failed" }
-          if (-not (Test-Path "$file.sig") -or (Get-Item "$file.sig").Length -eq 0) {
-            throw "Portable bundle signature is missing"
-          }
-
-      - name: Upload fixed WebView2 portable bundle
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: "BAAS Tauri App ${{ github.ref_name }}"
-          body: "Draft release, will be updated later."
-          token: ${{ secrets.GITHUB_TOKEN }}
-          draft: true
-          prerelease: ${{ contains(github.ref_name, '.rc') }}
-          overwrite_files: true
-          files: |
-            BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip
-            BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip.sig
-
   update_tag:
-    if: ${{ always() && !cancelled() && ((github.event_name == 'push' && needs.release.result == 'success' && needs.release-for-linux-arm.result == 'success' && needs.release-android.result == 'success' && needs.release-for-fixed-webview2.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs['publish-existing'] && !inputs['dry-run'] && github.ref == 'refs/heads/main')) }}
+    if: ${{ always() && !cancelled() && ((github.event_name == 'push' && needs.release.result == 'success' && needs.release-android.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs['publish-existing'] && !inputs['dry-run'] && github.ref == 'refs/heads/main')) }}
     name: Update tag
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    needs: [release, release-for-linux-arm, release-android, release-for-fixed-webview2]
+    needs: [release, release-android]
     outputs:
       tag: ${{ steps.source.outputs.tag }}
       source-sha: ${{ steps.source.outputs.source-sha }}
@@ -822,8 +572,6 @@ jobs:
           - [Windows x64 portable](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_portable.exe)
           - [Windows arm64 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_arm64-setup.exe)
           - [Windows arm64 portable](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_arm64_portable.exe)
-          - [Windows x64 fixed WebView2 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_fixed_webview2-setup.exe)
-          - [Windows x64 fixed WebView2 portable](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_fixed_webview2_portable.zip)
 
           ### macOS
           - [macOS Apple Silicon DMG](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_aarch64.dmg)
@@ -832,12 +580,12 @@ jobs:
           - [macOS Intel updater archive](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64.app.tar.gz)
 
           ### Linux
+          - [Linux x86_64 AppImage](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x86_64.AppImage)
+          - [Linux aarch64 AppImage](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_aarch64.AppImage)
           - [Linux amd64 DEB](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_amd64.deb)
           - [Linux x86_64 RPM](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x86_64.rpm)
           - [Linux arm64 DEB](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_arm64.deb)
           - [Linux aarch64 RPM](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_aarch64.rpm)
-          - [Linux armhf DEB](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_armhf.deb)
-          - [Linux armv7hl RPM](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_armv7hl.rpm)
 
           ### Android
           - [Android arm64 APK](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_android_arm64-v8a.apk)
@@ -910,12 +658,6 @@ jobs:
 
       - name: Publish standard updater manifest
         run: bun run updater
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish fixed WebView2 updater manifest
-        if: ${{ !contains(needs.update_tag.outputs.tag, '.rc') }}
-        run: bun run updater-fixed-webview2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

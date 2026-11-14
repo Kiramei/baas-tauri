@@ -13,6 +13,9 @@ use baas_updater::mirrorc_credentials;
 mod mirrorc_validation;
 mod behavior;
 mod client_version;
+#[cfg(target_os = "linux")]
+#[path = "platform/linux_package.rs"]
+mod linux_package;
 #[cfg(not(mobile))]
 mod commands;
 mod file_commands;

@@ -4,6 +4,7 @@ import { resolveUpdateLog, resolveUpdateLogDefault } from "./update-log.mjs";
 import {
   listPublishedReleases,
   releaseFeedVersion,
+  releaseFeedVariants,
   selectPublishedReleases,
   signedReleasePlatforms,
 } from "./release-feed.mjs";
@@ -50,29 +51,7 @@ async function processRelease(github, options, release, isAlpha) {
       platforms: await signedReleasePlatforms(release),
     };
 
-    // Generate a proxy update file for accelerated GitHub resources
-    const updateDataNew = JSON.parse(JSON.stringify(updateData));
-
-    Object.entries(updateDataNew.platforms).forEach(([key, value]) => {
-      if (value.url) {
-        updateDataNew.platforms[key].url = "https://gh-proxy.org/" + value.url;
-      } else {
-        console.log(`[Error]: updateDataNew.platforms.${key} is null`);
-      }
-    });
-
-    const updateDataCNB = JSON.parse(JSON.stringify(updateData));
-
-    Object.entries(updateDataCNB.platforms).forEach(([key, value]) => {
-      if (value.url) {
-        updateDataCNB.platforms[key].url = value.url.replace(
-          "https://github.com/Kiramei/baas-tauri",
-          "https://cnb.cool/kiramei/baas-tauri/-"
-        );
-      } else {
-        console.log(`[Error]: updateDataCNB.platforms.${key} is null`);
-      }
-    });
+    const { proxy: updateDataNew, cnb: updateDataCNB } = releaseFeedVariants(updateData);
 
     // Get the appropriate updater release based on isAlpha flag
     const releaseTag = isAlpha ? ALPHA_TAG_NAME : UPDATE_TAG_NAME;

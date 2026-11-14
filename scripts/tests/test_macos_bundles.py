@@ -8,6 +8,7 @@ cases. Native fixtures need no Apple account or updater signing secret.
 from contextlib import redirect_stderr, redirect_stdout
 import importlib.util
 import io
+import json
 from pathlib import Path
 import platform
 import plistlib
@@ -76,9 +77,12 @@ class BundleValidationTests(unittest.TestCase):
         self.assets = self.root / "release-assets"
         self.assets.mkdir()
         self.artifacts = [self.assets / ("BAAS.Tauri_{}_aarch64".format(VERSION) + suffix)
-                          for suffix in (".app.tar.gz", ".app.tar.gz.sig", ".dmg")]
+                          for suffix in (".app.tar.gz", ".dmg")]
         for artifact in self.artifacts:
             artifact.write_bytes(b"fixture artifact")
+        metadata = self.assets / "updater-signatures-aarch64.json"
+        metadata.write_text(json.dumps({"schema_version": 1, "tag": VERSION, "signatures": {self.artifacts[0].name: "fixture updater signature"}}))
+        self.artifacts.append(metadata)
         self.quiet = redirect_stdout(io.StringIO())
         self.quiet.__enter__()
         self.addCleanup(self.quiet.__exit__, None, None, None)
@@ -106,6 +110,21 @@ class BundleValidationTests(unittest.TestCase):
         with mock.patch.object(VERIFY, "run_tool") as tool:
             with self.assertRaisesRegex(VERIFY.VerificationError, "CodeResources"):
                 VERIFY.verify_app(self.app, "arm64")
+
+    def test_archive_metadata_rejects_other_tags_and_architectures_before_bundle_verification(self):
+        metadata = self.assets / "updater-signatures-aarch64.json"
+        for data in [[], {"schema_version": 1, "tag": "other", "signatures": {}},
+                     {"schema_version": 1, "tag": VERSION, "signatures": {"other.app.tar.gz": "sig"}}]:
+            metadata.write_text(json.dumps(data))
+            with mock.patch.object(VERIFY, "verify_app") as app_check:
+                with self.assertRaisesRegex(VERIFY.VerificationError, "metadata"):
+                    VERIFY.verify_bundles(TARGET, self.root / "bundle", self.assets, VERSION)
+                app_check.assert_not_called()
+
+    def test_public_archive_sig_attachment_is_rejected(self):
+        self.artifacts[0].with_name(self.artifacts[0].name + ".sig").write_text("signature")
+        with self.assertRaisesRegex(VERIFY.VerificationError, "separate archive .sig"):
+            VERIFY.verify_bundles(TARGET, self.root / "bundle", self.assets, VERSION)
             tool.assert_not_called()
 
     def test_wrong_architecture_and_universal_binary_are_rejected(self):
@@ -159,6 +178,7 @@ class BundleValidationTests(unittest.TestCase):
 
     def test_unsafe_archives_are_rejected_without_writing_outside_app(self):
         cases = {
+            "signature file": [(APP_NAME + "/update.sig", "file", "signature")],
             "parent traversal": [("../outside", "file", "bad")],
             "absolute path": [("/tmp/outside", "file", "bad")],
             "extra root": [(APP_NAME + "/file", "file", "ok"), ("Other.app/file", "file", "bad")],
@@ -249,7 +269,7 @@ class NativeMacBundleTests(unittest.TestCase):
         with tarfile.open(assets / (prefix + ".app.tar.gz"), "w:gz") as archive:
             archive.add(app, arcname=app.name)
         # These tests concern Apple code signing, not updater cryptography.
-        (assets / (prefix + ".app.tar.gz.sig")).write_text("fixture updater signature\n", encoding="utf-8")
+        (assets / ("updater-signatures-" + cls.dist_arch + ".json")).write_text(json.dumps({"schema_version": 1, "tag": VERSION, "signatures": {prefix + ".app.tar.gz": "fixture updater signature"}}), encoding="utf-8")
         cls.command(["hdiutil", "create", "-quiet", "-volname", "BAAS bundle verification", "-srcfolder", app.parent, "-format", "UDZO", assets / (prefix + ".dmg")])
 
     def setUp(self):

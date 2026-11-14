@@ -58,12 +58,11 @@ Installers are published on [GitHub Releases](https://github.com/Kiramei/baas-ta
 | ---------------------------- | --------------------------------------------- |
 | Windows x64                  | `BAAS.Tauri_*_x64-setup.exe`                  |
 | Windows ARM64                | `BAAS.Tauri_*_arm64-setup.exe`                |
-| Windows x64 fixed WebView2   | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe`   |
-| Windows ARM64 fixed WebView2 | `BAAS.Tauri_*_arm64_fixed_webview2-setup.exe` |
 | macOS Apple Silicon          | `BAAS.Tauri_*_aarch64.dmg`                    |
 | macOS Intel                  | `BAAS.Tauri_*_x64.dmg`                        |
 | Linux Debian/Ubuntu          | `BAAS.Tauri_*_amd64.deb` or `*_arm64.deb`     |
 | Linux Fedora/RHEL            | `BAAS.Tauri_*_x86_64.rpm` or `*_aarch64.rpm`  |
+| Linux x64 / ARM64 AppImage | `BAAS.Tauri_*_x86_64.AppImage` / `*_aarch64.AppImage` |
 
 The documentation site also includes a dynamic download panel that reads the latest GitHub Release and lists direct installer links.
 
