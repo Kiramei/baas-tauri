@@ -4,6 +4,7 @@ import {
   resolveSettingsSection,
   SETTINGS_SECTIONS,
   WEBUI_SETTINGS_SECTIONS,
+  ANDROID_SETTINGS_SECTIONS,
 } from "../../src/shared/SettingsSections";
 import type { TranslationKey } from "../../src/types/i18n";
 import zh from "../../public/locales/zh.json";
@@ -23,6 +24,14 @@ function translator(locale: Record<string, unknown>) {
 }
 
 describe("global settings categories", () => {
+  test("BACursors is searchable on desktop and WebUI, with no Android-only dead end", () => {
+    const t = translator(en);
+    for (const sections of [SETTINGS_SECTIONS, WEBUI_SETTINGS_SECTIONS])
+      expect(filterSettingsSections("BACursors", t, sections).map(({ id }) => id)).toEqual([
+        "appearance",
+      ]);
+    expect(filterSettingsSections("BACursors", t, ANDROID_SETTINGS_SECTIONS)).toEqual([]);
+  });
   test("missing or old persisted selection opens General", () => {
     for (const value of [undefined, null, "removed", "", {}]) {
       expect(resolveSettingsSection(value).id).toBe("general");

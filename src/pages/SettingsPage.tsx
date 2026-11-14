@@ -894,6 +894,13 @@ const SettingsPage: React.FC = () => {
                       }
                     />
                     <SettingsToggle
+                      label={t("settings.ui.enableBACursors")}
+                      checked={uiSettings.enableBACursors ?? true}
+                      onChange={(value) =>
+                        setUiSettings((state) => ({ ...state, enableBACursors: value }))
+                      }
+                    />
+                    <SettingsToggle
                       label={t("settings.ui.enableBAComet")}
                       checked={uiSettings.enableBAComet}
                       onChange={(value) =>
