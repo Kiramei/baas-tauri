@@ -1,6 +1,6 @@
 use self::portable_transaction::{
-    apply_transaction, reject_link, rollback_transaction, runtime_name, stage_payload,
-    Architecture, PackageKind, ReadySignal as Signal, Swap, SwapFileSystem,
+    apply_transaction, reject_link, rollback_transaction, stage_payload, Architecture,
+    ReadySignal as Signal, Swap, SwapFileSystem,
 };
 #[path = "portable_transaction.rs"]
 mod portable_transaction;
@@ -32,12 +32,6 @@ const HELPER_FLAG: &str = "--baas-client-update-helper";
 const READY_FLAG: &str = "--baas-client-update-ready";
 const ROLLBACK_FLAG: &str = "--baas-client-update-rollback";
 const LOCK_NAME: &str = ".baas-client-update.lock";
-pub const FIXED_ENDPOINTS: &[&str] = &[
-    "https://cnb.cool/kiramei/baas-tauri/-/releases/download/updater/update-fixed-webview2-cnb.json",
-    "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-fixed-webview2-proxy.json",
-    "https://github.com/Kiramei/baas-tauri/releases/download/updater/update-fixed-webview2.json",
-];
-
 fn architecture() -> Result<Architecture, String> {
     match std::env::consts::ARCH {
         "x86_64" => Ok(Architecture::X64),
@@ -53,28 +47,6 @@ fn same_path(left: &Path, right: &Path) -> bool {
         _ => false,
     }
 }
-fn fixed_runtime(app: &AppHandle) -> Result<Option<String>, String> {
-    if let tauri::utils::config::WebviewInstallMode::FixedRuntime { path } =
-        &app.config().bundle.windows.webview_install_mode
-    {
-        let name = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .ok_or("Invalid fixed WebView2 runtime path")?;
-        if !runtime_name(name, architecture()?) {
-            return Err("Unsupported fixed WebView2 runtime directory".into());
-        }
-        return Ok(Some(name.to_string()));
-    }
-    Ok(None)
-}
-pub fn uses_fixed_runtime(app: &AppHandle) -> bool {
-    matches!(
-        app.config().bundle.windows.webview_install_mode,
-        tauri::utils::config::WebviewInstallMode::FixedRuntime { .. }
-    )
-}
-
 /// Backend data layout is deliberately independent from client distribution.
 pub fn is_portable_client(app: &AppHandle) -> bool {
     if !matches!(
@@ -138,20 +110,12 @@ pub fn portable_target() -> Result<&'static str, String> {
     }
 }
 
-pub fn validate_download(app: &AppHandle, url: &url::Url) -> Result<(), String> {
+pub fn validate_download(_app: &AppHandle, url: &url::Url) -> Result<(), String> {
     let name = url
         .path_segments()
         .and_then(|mut parts| parts.next_back())
         .ok_or("Missing portable package filename")?;
-    portable_transaction::validate_package_name(
-        name,
-        if uses_fixed_runtime(app) {
-            PackageKind::FixedWebview
-        } else {
-            PackageKind::RawExe
-        },
-        architecture()?,
-    )
+    portable_transaction::validate_package_name(name, architecture()?)
 }
 
 fn hex_digest(bytes: &[u8]) -> String {
@@ -169,57 +133,6 @@ fn hash_file(path: &Path) -> Result<String, String> {
             break;
         }
         hash.update(&bytes[..size]);
-    }
-    Ok(hex_digest(&hash.finalize()))
-}
-fn hash_tree(path: &Path) -> Result<String, String> {
-    reject_link(path)?;
-    if path.is_file() {
-        return hash_file(path);
-    }
-    if !path.is_dir() {
-        return Err("Portable component is not a regular file or directory".into());
-    }
-    fn visit(
-        root: &Path,
-        path: &Path,
-        entries: &mut Vec<(String, String)>,
-        depth: usize,
-    ) -> Result<(), String> {
-        if depth > 32 {
-            return Err("Portable component nesting exceeds the safe limit".into());
-        }
-        reject_link(path)?;
-        if entries.len() > portable_transaction::MAX_ARCHIVE_ENTRIES {
-            return Err("Portable component has too many files".into());
-        }
-        for entry in fs::read_dir(path).map_err(|error| error.to_string())? {
-            let path = entry.map_err(|error| error.to_string())?.path();
-            reject_link(&path)?;
-            if path.is_dir() {
-                visit(root, &path, entries, depth + 1)?;
-            } else if path.is_file() {
-                entries.push((
-                    path.strip_prefix(root)
-                        .map_err(|error| error.to_string())?
-                        .to_string_lossy()
-                        .replace('\\', "/"),
-                    hash_file(&path)?,
-                ));
-            } else {
-                return Err("Portable component contains a special file".into());
-            }
-        }
-        Ok(())
-    }
-    let mut entries = Vec::new();
-    visit(path, path, &mut entries, 0)?;
-    entries.sort();
-    let mut hash = Sha256::new();
-    for (name, value) in entries {
-        hash.update((name.len() as u64).to_le_bytes());
-        hash.update(name.as_bytes());
-        hash.update(value.as_bytes());
     }
     Ok(hex_digest(&hash.finalize()))
 }
@@ -301,29 +214,18 @@ fn load_plan(path: &Path, hash: &str, nonce: &str) -> Result<Plan, String> {
         || plan.helper != plan.private.join("helper.exe")
         || path != plan.private.join("plan.json")
         || plan.private.file_name().and_then(|name| name.to_str()) != Some(nonce)
-        || plan.entries.is_empty()
-        || plan.entries.len() > 4
+        || plan.entries.len() != 1
     {
         return Err("Portable update ownership/path mismatch".into());
     }
-    let arch = match plan.arch.as_str() {
-        "x64" => Architecture::X64,
-        "arm64" => Architecture::Arm64,
+    match plan.arch.as_str() {
+        "x64" | "arm64" => (),
         _ => return Err("Unknown portable architecture".into()),
     };
     let mut targets = std::collections::HashSet::new();
     for entry in &plan.entries {
-        let name = entry
-            .swap
-            .target
-            .file_name()
-            .and_then(|name| name.to_str())
-            .ok_or("Invalid client component name")?;
         if entry.swap.target.parent() != Some(root)
-            || (!same_path(&entry.swap.target, &plan.executable)
-                && entry.swap.target != plan.executable
-                && name != "WebView2Loader.dll"
-                && !runtime_name(name, arch))
+            || entry.swap.target != plan.executable
             || entry.swap.backup.parent() != Some(plan.stage.join("backup").as_path())
             || !targets.insert(entry.swap.target.clone())
         {
@@ -482,49 +384,8 @@ pub fn prepare(app: &AppHandle, bytes: Vec<u8>, version: String) -> Result<(), S
     let result = (|| {
         fs::create_dir(&stage).map_err(|error| error.to_string())?;
         fs::create_dir(stage.join("backup")).map_err(|error| error.to_string())?;
-        let old_runtime = fixed_runtime(app)?;
-        let payload = stage_payload(
-            &bytes,
-            &stage.join("payload"),
-            if old_runtime.is_some() {
-                PackageKind::FixedWebview
-            } else {
-                PackageKind::RawExe
-            },
-            architecture()?,
-        )?;
+        let payload = stage_payload(&bytes, &stage.join("payload"), architecture()?)?;
         let mut swaps = Vec::new();
-        if let Some((name, staged)) = payload.runtime {
-            if old_runtime.as_deref() != Some(&name)
-                && root
-                    .join(&name)
-                    .try_exists()
-                    .map_err(|error| error.to_string())?
-            {
-                return Err("New WebView2 runtime destination is already occupied".into());
-            }
-            swaps.push(Swap {
-                target: root.join(&name),
-                staged: Some(staged),
-                backup: stage.join("backup/runtime"),
-            });
-            if let Some(old) = &old_runtime {
-                if old != &name {
-                    swaps.push(Swap {
-                        target: root.join(old),
-                        staged: None,
-                        backup: stage.join("backup/old-runtime"),
-                    });
-                }
-            }
-        }
-        if let Some(loader) = payload.loader {
-            swaps.push(Swap {
-                target: root.join("WebView2Loader.dll"),
-                staged: Some(loader),
-                backup: stage.join("backup/loader.dll"),
-            });
-        }
         swaps.push(Swap {
             target: executable.clone(),
             staged: Some(payload.executable),
@@ -534,11 +395,11 @@ pub fn prepare(app: &AppHandle, bytes: Vec<u8>, version: String) -> Result<(), S
             .into_iter()
             .map(|swap| {
                 let old = if Disk.exists(&swap.target)? {
-                    Some(hash_tree(&swap.target)?)
+                    Some(hash_file(&swap.target)?)
                 } else {
                     None
                 };
-                let new = swap.staged.as_deref().map(hash_tree).transpose()?;
+                let new = swap.staged.as_deref().map(hash_file).transpose()?;
                 Ok(Entry { swap, old, new })
             })
             .collect::<Result<Vec<_>, String>>()?;
@@ -649,7 +510,7 @@ fn run_helper(path: &Path, digest: &str, nonce: &str) -> Result<(), String> {
         let parent = parent_handle(&plan)?;
         for entry in &plan.entries {
             if let Some(staged) = &entry.swap.staged {
-                if Some(hash_tree(staged)?) != entry.new {
+                if Some(hash_file(staged)?) != entry.new {
                     return Err("Staged portable component changed".into());
                 }
             }
@@ -669,7 +530,7 @@ fn run_helper(path: &Path, digest: &str, nonce: &str) -> Result<(), String> {
         parent_exited = true;
         for entry in &plan.entries {
             let old = if Disk.exists(&entry.swap.target)? {
-                Some(hash_tree(&entry.swap.target)?)
+                Some(hash_file(&entry.swap.target)?)
             } else {
                 None
             };
@@ -733,7 +594,7 @@ fn run_helper(path: &Path, digest: &str, nonce: &str) -> Result<(), String> {
     if result.is_err() && parent_exited {
         let restored = plan.entries.iter().all(|entry| {
             let actual = if Disk.exists(&entry.swap.target).unwrap_or(false) {
-                hash_tree(&entry.swap.target).ok()
+                hash_file(&entry.swap.target).ok()
             } else {
                 None
             };

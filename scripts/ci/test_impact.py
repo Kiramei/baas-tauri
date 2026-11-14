@@ -42,7 +42,7 @@ class Routing(unittest.TestCase):
             "src-tauri/src/platform/windows/portable_transaction.rs": {"native:windows"},
             "src-tauri/tests/portable_client_update.rs": {"native:windows"},
             "src-tauri/src/shm_native/macos.rs": {"native:macos"},
-            "src-tauri/webview2.arm64.json": {"native:windows:arm64"},
+            "src-tauri/src/platform/windows/arm64/adapter.rs": {"native:windows:arm64"},
             "src-tauri/gen/android/app/src/main/python/adapter.py": {"android-tests"},
             "crates/baas-notifier/src/platform/windows.rs": {"native:windows"},
             "crates/baas-notifier/src/platform/android.rs": {"android:arm64", "android-tests"},
@@ -65,8 +65,26 @@ class Routing(unittest.TestCase):
         self.assertFalse(result["android"] or result["frontend"] or result["baasx-platform"])
         self.assertFalse(result["site"] or result["readme"])
 
+    def test_linux_package_runtime_uses_both_linux_client_architectures(self):
+        for path in ("src-tauri/src/platform/linux_package.rs", "src-tauri/tests/linux_client_package.rs"):
+            result = classify([path])
+            self.assertEqual({item["target"] for item in result["desktop"]},
+                             {"x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"})
+            self.assertFalse(result["android"] or result["frontend"] or result["baasx-platform"])
+        full = classify([], full=True)
+        self.assertFalse(any("armv7" in row["target"] for row in full["desktop"]))
+        with self.assertRaisesRegex(ValueError, "No native target"):
+            owners("src-tauri/src/platform/linux/armv7/adapter.rs")
+
+    def test_manual_appimage_packaging_selects_only_two_linux_native_clients(self):
+        selected = plan({"inputs": {"mode": "appimage-package"}}, "workflow_dispatch", "")
+        self.assertEqual({item["target"] for item in selected["desktop"]},
+                         {"x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"})
+        self.assertEqual([name for name, enabled in jobs(selected).items() if enabled], ["client-native"])
+        self.assertFalse(selected["frontend"] or selected["android"] or selected["baasx-platform"] or selected["site"])
+
     def test_targets_and_mixed_changes(self):
-        result = classify(["src-tauri/webview2.arm64.json", "src/android/App.tsx", "baasx/src/platform/windows/process-tree.ts"])
+        result = classify(["src-tauri/src/platform/windows/arm64/adapter.rs", "src/android/App.tsx", "baasx/src/platform/windows/process-tree.ts"])
         self.assertEqual(result["desktop"], [dict(os="windows-11-arm", target="aarch64-pc-windows-msvc")])
         self.assertEqual(result["frontend"], ["android"])
         self.assertEqual({(p["os"], p["rust"], p["js"]) for p in result["baasx-platform"]},

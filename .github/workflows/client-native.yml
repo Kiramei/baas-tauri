@@ -11,6 +11,10 @@ on:
       android-tests:
         required: true
         type: boolean
+      appimage-smoke:
+        description: Build and extract local Linux AppImages without signing or publishing
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -41,7 +45,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(inputs.desktop) }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: ${{ inputs.appimage-smoke && 90 || 45 }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -53,12 +57,12 @@ jobs:
         with:
           target: ${{ matrix.target }}
           download-fonts: "false"
-          install-frontend: "false"
+          install-frontend: ${{ inputs.appimage-smoke && runner.os == 'Linux' && 'true' || 'false' }}
           cache-variant: workspace-tests
           save-cache: "false"
 
       - name: Install Linux Tauri dependencies
-        if: runner.os == 'Linux' && matrix.target != 'armv7-unknown-linux-gnueabihf'
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           sudo apt-get update
@@ -67,18 +71,45 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
-      - if: matrix.target == 'armv7-unknown-linux-gnueabihf'
-        uses: ./.github/actions/setup-linux-arm
-        with:
-          arch: armhf
-          triplet: arm-linux-gnueabihf
-          target: ${{ matrix.target }}
-      - name: Cross-check the 32-bit ARM client and tests
-        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
-        run: cargo check --workspace --exclude baasx-runtime --exclude baas-cli-runtime --all-targets --locked --target ${{ matrix.target }}
+      - name: Install optional AppImage tooling
+        if: inputs.appimage-smoke && runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get install -y --no-install-recommends patchelf xdg-utils file binutils
+          for tool in xdg-mime xdg-open patchelf file readelf glib-compile-schemas; do
+            command -v "$tool"
+          done
+
       - name: Run Rust tests
-        if: matrix.target != 'armv7-unknown-linux-gnueabihf'
         run: cargo test --workspace --exclude baasx-runtime --exclude baas-cli-runtime --all-targets --locked --target ${{ matrix.target }}
+
+      - name: Build and extract AppImage smoke artifact
+        if: inputs.appimage-smoke && runner.os == 'Linux'
+        shell: bash
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          printf '<!doctype html><title>AppImage packaging smoke</title>' > dist/index.html
+          bun tauri build --debug --ci --bundles appimage --target '${{ matrix.target }}' \
+            --config '{"build":{"beforeBuildCommand":""},"bundle":{"createUpdaterArtifacts":false}}'
+          IMAGE="$(find "$GITHUB_WORKSPACE/target/${{ matrix.target }}/debug/bundle/appimage" -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+          test -n "$IMAGE"
+          VERIFY_DIR="$(mktemp -d)"
+          trap 'rm -rf "$VERIFY_DIR"' EXIT
+          cd "$VERIFY_DIR"
+          "$IMAGE" --appimage-extract >/dev/null
+          test -x squashfs-root/AppRun
+          test -x squashfs-root/usr/bin/baas-tauri
+
+      - name: Upload AppImage smoke artifact
+        if: inputs.appimage-smoke && runner.os == 'Linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: appimage-smoke-${{ matrix.target }}
+          path: target/${{ matrix.target }}/debug/bundle/appimage/*.AppImage
+          if-no-files-found: error
 
       - name: Test macOS release bundle verification
         if: runner.os == 'macOS'

@@ -2,34 +2,39 @@ import { platforms } from "../../baasx/scripts/distribution-platforms.mjs";
 import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 import { selectPublishedReleases } from "../release-feed.mjs";
+import { historicalClientRelease } from "../archive-signatures.mjs";
 
 export function validateAssets(kind, tag, names) {
   let expected;
   if (kind === "app") {
     const version = tag.replace(/^v/, "");
+    // Keep already published release snapshots verifiable without rebuilding or rewriting them.
+    const historical = historicalClientRelease(tag);
+    if (!historical && names.some(name => /\.(?:zip|tgz|tar\.gz)\.sig$/i.test(name)))
+      throw new Error("Archive signatures belong in persistent updater metadata, not public .sig assets");
+    const retired = names.filter(name => name.startsWith(`BAAS.Tauri_${version}_`) &&
+      (name.includes("_fixed_webview2") || /_(?:armhf\.deb|armv7hl\.rpm)(?:\.sig)?$/.test(name)));
+    if (!historical && retired.length) throw new Error("Retired client release assets: " + retired.join(", "));
     const signed = [
       "amd64.deb",
       "arm64.deb",
-      "armhf.deb",
       "x86_64.rpm",
       "aarch64.rpm",
-      "armv7hl.rpm",
+      ...(historical ? ["armhf.deb", "armv7hl.rpm"] : ["x86_64.AppImage", "aarch64.AppImage"]),
       "android_arm64-v8a.apk",
-      "aarch64.app.tar.gz",
-      "x64.app.tar.gz",
+      ...(historical ? ["aarch64.app.tar.gz", "x64.app.tar.gz"] : []),
       "arm64-setup.exe",
       "x64-setup.exe",
-      "arm64_fixed_webview2-setup.exe",
-      "x64_fixed_webview2-setup.exe",
       "x64_portable.exe",
       "arm64_portable.exe",
-      "x64_fixed_webview2_portable.zip",
-      "arm64_fixed_webview2_portable.zip",
+      ...(historical ? ["arm64_fixed_webview2-setup.exe", "x64_fixed_webview2-setup.exe",
+        "x64_fixed_webview2_portable.zip", "arm64_fixed_webview2_portable.zip"] : []),
     ];
-    const standalone = ["aarch64.dmg", "x64.dmg"];
+    const standalone = ["aarch64.dmg", "x64.dmg", ...(historical ? [] : ["aarch64.app.tar.gz", "x64.app.tar.gz"])];
     expected = [...signed.flatMap((s) => [s, s + ".sig"]), ...standalone].map(
       (s) => `BAAS.Tauri_${version}_${s}`
     );
+    if (!historical) expected.push("updater-signatures-aarch64.json", "updater-signatures-x64.json");
   } else if (kind === "baasx") {
     const version = tag.replace(/^baasx-v/, "");
     expected = platforms
@@ -39,14 +44,7 @@ export function validateAssets(kind, tag, names) {
       );
     expected.push("SHA256SUMS");
   } else if (kind === "updater") {
-    expected = [
-      "",
-      "-proxy",
-      "-cnb",
-      "-fixed-webview2",
-      "-fixed-webview2-proxy",
-      "-fixed-webview2-cnb",
-    ].map((s) => "update" + s + ".json");
+    expected = ["", "-proxy", "-cnb"].map((s) => "update" + s + ".json");
   } else {
     throw new Error("Unknown release asset contract");
   }

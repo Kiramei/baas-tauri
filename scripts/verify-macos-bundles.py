@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Verify the exact macOS bundles that will be uploaded, without changing them.
 
-This checks Apple ad-hoc code signatures and bundle contents. The updater .sig
-must be present; its separate updater cryptographic signature is not checked here.
+This checks Apple ad-hoc code signatures and bundle contents. Persistent updater
+signature metadata must be present; updater cryptography is not checked here.
 No Apple certificate, notarization credentials, or third-party Python modules are
 required.
 """
 
 import argparse
+import json
 from contextlib import contextmanager
 import os
 from pathlib import Path, PurePosixPath
@@ -116,6 +117,8 @@ def extract_app_archive(archive_path, destination):
         paths = {}
         roots = set()
         for member in members:
+            if member.name.lower().endswith(".sig"):
+                raise VerificationError("Updater archives must not contain .sig files")
             path = PurePosixPath(member.name)
             if path.is_absolute() or not path.parts or ".." in path.parts:
                 raise VerificationError("Unsafe archive member: {}".format(member.name))
@@ -206,10 +209,20 @@ def verify_bundles(target, bundle_dir, assets_dir, version):
     app = single_app(bundle_dir / "macos")
     prefix = "BAAS.Tauri_{}_{}".format(version, archive_arch)
     archive = assets_dir / (prefix + ".app.tar.gz")
-    signature = assets_dir / (prefix + ".app.tar.gz.sig")
+    metadata = assets_dir / ("updater-signatures-" + archive_arch + ".json")
     dmg = assets_dir / (prefix + ".dmg")
-    for path in (archive, signature, dmg):
+    for path in (archive, metadata, dmg):
         require_file(path)
+    data = json.loads(metadata.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise VerificationError("Invalid archive signature metadata object")
+    signatures = data.get("signatures")
+    if (data.get("schema_version") != 1 or data.get("tag") not in (version, "v" + version)
+            or not isinstance(signatures, dict) or set(signatures) != {archive.name}
+            or not isinstance(signatures.get(archive.name), str) or not signatures[archive.name].strip()):
+        raise VerificationError("Archive signature metadata does not match the release archive")
+    if (archive.with_name(archive.name + ".sig")).exists():
+        raise VerificationError("Do not publish a separate archive .sig asset")
     verify_app(app, executable_arch)
     with tempfile.TemporaryDirectory(prefix="baas-macos-verify-") as temporary:
         temporary_path = Path(temporary)
@@ -228,7 +241,7 @@ def verify_bundles(target, bundle_dir, assets_dir, version):
                 raise VerificationError("DMG application name differs from built application")
             verify_app(disk_app, executable_arch)
     log("Verified built app, updater archive, and DMG for {}.".format(target))
-    log("Updater .sig is present and nonempty; this check does not verify its separate updater signature.")
+    log("Persistent updater signature metadata is present; this check does not verify updater cryptography.")
 
 
 def main(argv=None):

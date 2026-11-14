@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   selectPublishedReleases,
   releaseFeedVersion,
+  releaseFeedVariants,
   signedReleasePlatforms,
 } from "../../scripts/release-feed.mjs";
 import { parseUpdateLog } from "../../scripts/update-log.mjs";
@@ -13,7 +14,7 @@ import {
   checkReleaseVersion,
   nativeReleaseVersions,
 } from "../../scripts/release-version-files.mjs";
-import { parseReleaseVersion } from "../../src/shared/ReleaseVersion.mjs";
+import { compareReleaseVersions, parseReleaseVersion } from "../../src/shared/ReleaseVersion.mjs";
 import { validateAssets } from "../../scripts/ci/release-contract.mjs";
 import { existingRelease, parseAppReleaseTag, publishExistingRelease, uploadedAssets } from "../../scripts/release-publication.mjs";
 
@@ -28,9 +29,11 @@ function publicationFixture(tag = "0.0.10", options: { published?: boolean; newe
   temporary.push(root);
   const notes = path.join(root, "notes.md");
   fs.writeFileSync(notes, "Original version notes\n\nWindows, macOS, Linux and Android downloads.\n");
-  const suffixes = ["amd64.deb", "arm64.deb", "armhf.deb", "x86_64.rpm", "aarch64.rpm", "armv7hl.rpm", "android_arm64-v8a.apk", "aarch64.app.tar.gz", "x64.app.tar.gz", "arm64-setup.exe", "x64-setup.exe", "arm64_fixed_webview2-setup.exe", "x64_fixed_webview2-setup.exe", "x64_portable.exe", "arm64_portable.exe", "x64_fixed_webview2_portable.zip", "arm64_fixed_webview2_portable.zip"];
-  const names = [...suffixes.flatMap(name => [name, name + ".sig"]), "aarch64.dmg", "x64.dmg"];
-  const assets = names.map((name, i) => ({ id: i + 1, name: `BAAS.Tauri_${tag.replace(/^v/, "")}_${name}`, state: "uploaded", size: 100 + i, digest: "sha256:" + "a".repeat(64), updated_at: "stable" }));
+  const historical = compareReleaseVersions(parseReleaseVersion(tag, { allowLegacy: true })!.canonical, "0.0.10") <= 0;
+  const suffixes = ["amd64.deb", "arm64.deb", "x86_64.rpm", "aarch64.rpm", "android_arm64-v8a.apk", "arm64-setup.exe", "x64-setup.exe", "x64_portable.exe", "arm64_portable.exe",
+    ...(historical ? ["aarch64.app.tar.gz", "x64.app.tar.gz", "armhf.deb", "armv7hl.rpm", "arm64_fixed_webview2-setup.exe", "x64_fixed_webview2-setup.exe", "x64_fixed_webview2_portable.zip", "arm64_fixed_webview2_portable.zip"] : ["x86_64.AppImage", "aarch64.AppImage"])];
+  const names = [...suffixes.flatMap(name => [name, name + ".sig"]), "aarch64.dmg", "x64.dmg", ...(historical ? [] : ["aarch64.app.tar.gz", "x64.app.tar.gz", "updater-signatures-aarch64.json", "updater-signatures-x64.json"])];
+  const assets = names.map((name, i) => ({ id: i + 1, name: name.startsWith("updater-signatures-") ? name : `BAAS.Tauri_${tag.replace(/^v/, "")}_${name}`, state: "uploaded", size: 100 + i, digest: "sha256:" + "a".repeat(64), updated_at: "stable" }));
   const source = { id: 500, tag_name: tag, draft: !options.published, prerelease: tag.includes(".rc"), body: "Original published text", name: "Original title" };
   const writes: Record<string, unknown>[] = [];
   const calls: string[][] = [];
@@ -72,11 +75,18 @@ function publicationFixture(tag = "0.0.10", options: { published?: boolean; newe
 
 test("existing-release publication verifies all paginated signed assets and only patches the verified draft", () => {
   const fixture = publicationFixture();
-  expect(uploadedAssets("0.0.10", [fixture.assets.slice(0, 30), fixture.assets.slice(30)])).toHaveLength(36);
+  expect(uploadedAssets("0.0.10", [fixture.assets.slice(0, 15), fixture.assets.slice(15)])).toHaveLength(36);
   expect(fixture.publish()).toMatchObject({ tag: "0.0.10", id: 500, assets: 36, changed: true, makeLatest: true });
   expect(fixture.writes).toEqual([{ name: "BAAS Tauri App 0.0.10", body: "Original version notes\n\nWindows, macOS, Linux and Android downloads.\n", draft: false, prerelease: false, make_latest: "true" }]);
   expect(fixture.calls.filter(args => args.includes("PATCH"))).toHaveLength(1);
   expect(fixture.calls.some(args => args.some(value => ["POST", "DELETE", "PUT"].includes(value)))).toBe(false);
+});
+
+test("the next client schema validates AppImages without requiring discontinued packages", () => {
+  const fixture = publicationFixture("0.0.11");
+  expect(uploadedAssets("0.0.11", [fixture.assets])).toHaveLength(28);
+  expect(fixture.publish()).toMatchObject({ tag: "0.0.11", assets: 28, changed: true });
+  for (const name of fixture.assets.map(asset => asset.name)) expect(name).not.toMatch(/fixed_webview2|armhf|armv7hl/);
 });
 
 test("publication recovery rejects malformed tags, missing/duplicate releases and incomplete or changing assets without writing", () => {
@@ -154,8 +164,8 @@ test("updater targets use the signed installer for their OS, architecture and bu
     "linux-x86_64-rpm": "x86_64.rpm",
     "linux-aarch64-deb": "arm64.deb",
     "linux-aarch64-rpm": "aarch64.rpm",
-    "linux-armv7-deb": "armhf.deb",
-    "linux-armv7-rpm": "armv7hl.rpm",
+    "linux-x86_64-appimage": "x86_64.AppImage",
+    "linux-aarch64-appimage": "aarch64.AppImage",
     "android-arm64-v8a": "android_arm64-v8a.apk",
     "darwin-aarch64": "aarch64.app.tar.gz",
     "windows-x86_64": "x64-setup.exe",
@@ -165,16 +175,14 @@ test("updater targets use the signed installer for their OS, architecture and bu
   };
   const base = "BAAS.Tauri_1.2.3.post1_";
   const asset = (name: string) => ({ name, browser_download_url: `https://example.com/${name}` });
-  const assets = [
-    ...new Set([
-      ...Object.values(targets),
-      "x64_fixed_webview2-setup.exe",
-      "x64_fixed_webview2_portable.zip",
-      "arm64_fixed_webview2_portable.zip",
-    ]),
-  ].flatMap((suffix) => [asset(base + suffix), asset(base + suffix + ".sig")]);
+  const assets = [...new Set(Object.values(targets))].flatMap((suffix) => [
+    asset(base + suffix), asset(base + suffix + ".sig"),
+  ]);
+  assets.push(asset("updater-signatures-aarch64.json"));
   const version = { tag_name: "v1.2.3.post1", assets: assets.reverse() };
-  const fetchSignature = async (url: string) => new Response("signed:" + url + "\n");
+  const fetchSignature = async (url: string) => url.endsWith(".json")
+    ? Response.json({ schema_version: 1, tag: version.tag_name, signatures: { [base + "aarch64.app.tar.gz"]: "signed:" + asset(base + "aarch64.app.tar.gz.sig").browser_download_url } })
+    : new Response("signed:" + url + "\n");
   const payload = (suffix: string) => ({
     url: asset(base + suffix).browser_download_url,
     signature: "signed:" + asset(base + suffix + ".sig").browser_download_url,
@@ -182,11 +190,6 @@ test("updater targets use the signed installer for their OS, architecture and bu
   expect(await signedReleasePlatforms(version, { fetchSignature })).toEqual(
     Object.fromEntries(Object.entries(targets).map(([target, suffix]) => [target, payload(suffix)]))
   );
-  expect(await signedReleasePlatforms(version, { fixedWebView2: true, fetchSignature })).toEqual({
-    "windows-x86_64": payload("x64_fixed_webview2-setup.exe"),
-    "windows-x86_64-portable": payload("x64_fixed_webview2_portable.zip"),
-    "windows-aarch64-portable": payload("arm64_fixed_webview2_portable.zip"),
-  });
 });
 
 test("partial historical assets are omitted and signature download errors stop publication", async () => {
@@ -210,13 +213,30 @@ test("partial historical assets are omitted and signature download errors stop p
   ).rejects.toThrow("Empty updater signature");
 });
 
-test("unsigned portable payloads are never advertised in either updater feed", async () => {
+test("GitHub, CNB and proxy feeds retain AppImage format, architecture and signatures", () => {
+  const data = {
+    version: "1.2.3",
+    platforms: Object.fromEntries(["x86_64", "aarch64"].map(arch => [
+      `linux-${arch}-appimage`, {
+        url: `https://github.com/Kiramei/baas-tauri/releases/download/1.2.3/BAAS.Tauri_1.2.3_${arch}.AppImage`,
+        signature: "signature:" + arch,
+      },
+    ])),
+  };
+  const variants = releaseFeedVariants(data);
+  for (const arch of ["x86_64", "aarch64"]) {
+    const key = `linux-${arch}-appimage`;
+    expect(variants.github.platforms[key]).toEqual(data.platforms[key]);
+    expect(variants.proxy.platforms[key]).toEqual({ ...data.platforms[key], url: "https://gh-proxy.org/" + data.platforms[key].url });
+    expect(variants.cnb.platforms[key]).toEqual({ ...data.platforms[key], url: data.platforms[key].url.replace("https://github.com/Kiramei/baas-tauri/", "https://cnb.cool/kiramei/baas-tauri/-/") });
+  }
+});
+
+test("unsigned portable payloads are never advertised in the updater feed", async () => {
   const tag_name = "1.2.3";
   const assets = [
     "x64_portable.exe",
     "arm64_portable.exe",
-    "x64_fixed_webview2_portable.zip",
-    "arm64_fixed_webview2_portable.zip",
   ].map((suffix) => ({
     name: `BAAS.Tauri_${tag_name}_${suffix}`,
     browser_download_url: `https://example.com/${suffix}`,
@@ -227,9 +247,6 @@ test("unsigned portable payloads are never advertised in either updater feed", a
     return new Response("invalid");
   };
   expect(await signedReleasePlatforms({ tag_name, assets }, { fetchSignature })).toEqual({});
-  expect(
-    await signedReleasePlatforms({ tag_name, assets }, { fixedWebView2: true, fetchSignature })
-  ).toEqual({});
   expect(fetches).toBe(0);
 });
 
@@ -237,29 +254,28 @@ test("publishing fails when any portable updater signature is missing", () => {
   const portable = [
     "x64_portable.exe",
     "arm64_portable.exe",
-    "x64_fixed_webview2_portable.zip",
-    "arm64_fixed_webview2_portable.zip",
   ];
   const signed = [
     "amd64.deb",
     "arm64.deb",
-    "armhf.deb",
     "x86_64.rpm",
     "aarch64.rpm",
-    "armv7hl.rpm",
+    "x86_64.AppImage",
+    "aarch64.AppImage",
     "android_arm64-v8a.apk",
-    "aarch64.app.tar.gz",
-    "x64.app.tar.gz",
     "arm64-setup.exe",
     "x64-setup.exe",
-    "arm64_fixed_webview2-setup.exe",
-    "x64_fixed_webview2-setup.exe",
     ...portable,
   ];
-  const names = [...signed.flatMap((name) => [name, `${name}.sig`]), "aarch64.dmg", "x64.dmg"].map(
+  const names = [...signed.flatMap((name) => [name, `${name}.sig`]), "aarch64.dmg", "x64.dmg", "aarch64.app.tar.gz", "x64.app.tar.gz"].map(
     (name) => `BAAS.Tauri_1.2.3_${name}`
   );
+  names.push("updater-signatures-aarch64.json", "updater-signatures-x64.json");
   expect(() => validateAssets("app", "1.2.3", names)).not.toThrow();
+  expect(() => validateAssets("app", "1.2.3", [...names, "BAAS.Tauri_1.2.3_x64.app.tar.gz.sig"])).toThrow("persistent updater metadata");
+  for (const suffix of ["armhf.deb", "armv7hl.rpm", "x64_fixed_webview2-setup.exe"]) {
+    expect(() => validateAssets("app", "1.2.3", [...names, `BAAS.Tauri_1.2.3_${suffix}`])).toThrow("Retired client release assets");
+  }
   for (const file of portable) {
     const signature = `BAAS.Tauri_1.2.3_${file}.sig`;
     expect(() =>

@@ -59,19 +59,17 @@ const evaluate = (expression: string | undefined, ref: string): unknown => {
 };
 
 test("release gates classify optional-v rc/post tags and keep every major-zero release out of Winget", () => {
-  const fixed = step(app, "release-update", "Publish fixed WebView2 updater manifest");
   for (const prefix of ["", "v"]) {
-    for (const [version, winget, stable] of [
-      ["0.0.9", false, true],
-      ["0.0.9.rc1", false, false],
-      ["0.0.9.post2", false, true],
-      ["1.0.0.rc1", false, false],
-      ["1.0.0", true, true],
-      ["1.0.0.post2", true, true],
+    for (const [version, winget] of [
+      ["0.0.9", false],
+      ["0.0.9.rc1", false],
+      ["0.0.9.post2", false],
+      ["1.0.0.rc1", false],
+      ["1.0.0", true],
+      ["1.0.0.post2", true],
     ] as const) {
       const ref = `refs/tags/${prefix}${version}`;
       expect(evaluate(app.jobs["submit-to-winget"].if, ref), ref).toBe(winget);
-      expect(evaluate(fixed.if, ref), ref).toBe(stable);
       expect(evaluate(app.jobs["release-update"].if, ref), ref).toBe(true);
     }
   }
@@ -83,7 +81,52 @@ test("Winget keeps the real release tag separate from the public version", () =>
   expect(winget.with!.version).toBe("${{ env.VERSION }}");
 });
 
+test("Linux releases build each native 64-bit target once with signed DEB, RPM and AppImage output", () => {
+  const release = app.jobs.release as typeof app.jobs.release & {
+    strategy: { matrix: { include: { os: string; target: string; appimage_arch?: string }[] } };
+  };
+  const linux = release.strategy.matrix.include.filter(row => row.target.endsWith("unknown-linux-gnu"));
+  expect(linux.map(row => [row.os, row.target, row.appimage_arch])).toEqual([
+    ["ubuntu-22.04", "x86_64-unknown-linux-gnu", "x86_64"],
+    ["ubuntu-22.04-arm", "aarch64-unknown-linux-gnu", "aarch64"],
+  ]);
+  expect(new Set(release.strategy.matrix.include.map(row => row.target)).size).toBe(release.strategy.matrix.include.length);
+  const config = JSON.parse(fs.readFileSync(new URL("../../src-tauri/tauri.linux.conf.json", import.meta.url), "utf8"));
+  expect(config.bundle.targets).toEqual(["deb", "rpm", "appimage"]);
+  const baseConfig = JSON.parse(fs.readFileSync(new URL("../../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
+  expect(baseConfig.bundle.createUpdaterArtifacts).toBe(true);
+  expect(step(app, "release", "Normalize Linux artifacts").run).toContain("scripts/normalize-linux-release.mjs");
+  expect(step(app, "release", "Verify AppImage filesystem").run).toContain("--appimage-extract");
+  expect(release.steps.filter(item => item.name === "Tauri build")).toHaveLength(1);
+  expect(Object.keys(app.jobs).some(id => id.includes("fixed-webview2") || id === "release-for-linux-arm")).toBe(false);
+  const notes = step(app, "update_tag", "Generate release notes").run!;
+  for (const arch of ["x86_64", "aarch64"]) expect(notes).toContain(`_${arch}.AppImage`);
+  expect(notes).not.toMatch(/armhf|armv7hl|fixed_webview2/);
+});
+
 const shellTest = process.platform === "win32" ? test.skip : test;
+test("manual native verification can package AppImages without release writes or signing credentials", () => {
+  const native = workflow("client-native");
+  const quality = workflow("code-quality") as Workflow & { on: { workflow_dispatch: { inputs: Record<string, { default: unknown }> } } };
+  expect(quality.on.workflow_dispatch.inputs["appimage-smoke"].default).toBe(false);
+  const smoke = step(native, "desktop-rust", "Build and extract AppImage smoke artifact");
+  expect(smoke.if).toBe("inputs.appimage-smoke && runner.os == 'Linux'");
+  expect(smoke.run).toContain('"createUpdaterArtifacts":false');
+  expect(smoke.run).toContain("--appimage-extract");
+  expect(smoke.run).not.toMatch(/release create|action-gh-release|SIGNING_PRIVATE_KEY|\.sig/);
+  for (const preparation of [
+    step(native, "desktop-rust", "Install optional AppImage tooling").run!,
+    step(app, "release", "Install dependencies (ubuntu only)").run!,
+  ]) {
+    expect(preparation).toContain("xdg-utils");
+    expect(preparation).toContain("xdg-mime");
+    expect(preparation).toContain("xdg-open");
+    expect(preparation).toContain("glib-compile-schemas");
+  }
+  expect(step(app, "release", "Normalize macOS artifacts").run).toContain("scripts/archive-signatures.mjs");
+  expect(step(app, "release", "Normalize macOS artifacts").run).not.toContain('cp -v "$APP_TAR_SIG"');
+});
+
 shellTest("Docker recovery resolves existing main-ancestor tags and keeps default branch publication", () => {
   const script = step(docker, "prepare", "Resolve and validate image source").run!;
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "baas-docker-source-"));
@@ -360,7 +403,7 @@ test("publication recovery requires an explicit main write request and resumes o
     return results;
   };
   const success = simulate("0.0.10");
-  for (const id of ["check_tag_version", "create_release", "generate_fonts", "release", "release-for-linux-arm", "release-android", "release-for-fixed-webview2"]) expect(success[id].result).toBe("skipped");
+  for (const id of ["check_tag_version", "create_release", "generate_fonts", "release", "release-android"]) expect(success[id].result).toBe("skipped");
   for (const id of ["update_tag", "release-update", "sync-to-cnb-release", "mirrorchyan-uploading", "mirrorchyan-release-note", "notify-qq"]) expect(success[id].result, id).toBe("success");
   expect(success["submit-to-winget"].result).toBe("skipped");
   expect(simulate("1.0.0")["submit-to-winget"].result).toBe("success");
@@ -371,7 +414,7 @@ test("publication recovery requires an explicit main write request and resumes o
   for (const results of [simulate("0.0.10", true, true), simulate("0.0.10", true, false, "refs/heads/dev"), simulate("0.0.10", true, false, "refs/heads/main", "update_tag")]) {
     for (const id of ["release-update", "sync-to-cnb-release", "mirrorchyan-uploading", "mirrorchyan-release-note", "notify-qq", "mirror-to-upstream"]) expect(results[id].result, id).toBe("skipped");
   }
-  const builds = ["release", "release-for-linux-arm", "release-android", "release-for-fixed-webview2"];
+  const builds = ["release", "release-android"];
   const automatic = (failed: string, result: string) => releaseJobAllowed(mirrorWorkflow.jobs.update_tag.if, { event_name: "push", ref: "refs/tags/0.0.10" }, Object.fromEntries(builds.map(id => [id, { result: id === failed ? result : "success" }])));
   expect(automatic("", "success")).toBe(true);
   for (const id of builds) for (const result of ["failure", "skipped", "cancelled"]) expect(automatic(id, result)).toBe(false);

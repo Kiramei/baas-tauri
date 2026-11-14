@@ -8,7 +8,7 @@ use baas_shortcut::{
 use baas_term::types::SessionMetadata;
 use baas_updater::{
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
-    config::{exe_adjacent_config_path, BackendTransport, ConfigManager, UpdaterConfig},
+    config::{BackendTransport, ConfigManager, UpdaterConfig},
     environ::{
         backend_pid_path, launch_backend_command, launch_backend_pipe_command,
         launch_backend_shm_command, validate_backend_shm_support, HttpSourceProbe,
@@ -508,7 +508,7 @@ pub fn updater_path_exists_non_empty(path: PathBuf) -> bool {
 #[tauri::command]
 pub fn updater_get_storage_state(app: AppHandle) -> Result<StorageStartupState, String> {
     system_log("DEBUG", "storage", "Frontend storage state requested");
-    let portable = is_portable_install();
+    let portable = is_portable_install(&app);
     let storage_file_path = storage_file_path(&app, portable)?;
     Ok(StorageStartupState {
         store_path: if portable {
@@ -588,7 +588,7 @@ impl Drop for BackendProcessManager {
 #[tauri::command]
 pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, String> {
     system_log("DEBUG", "updater", "Updater startup state requested");
-    let portable = is_portable_install();
+    let portable = is_portable_install(&app);
     let default_install_path = default_install_path();
     let stored_install_path = if portable {
         None
@@ -638,7 +638,7 @@ pub fn updater_update_config(
                 .is_some_and(|value| !value.is_empty())
         ),
     );
-    let portable = is_portable_install();
+    let portable = is_portable_install(&app);
     let request_baas_root_path = if portable {
         Some(PathBuf::from("."))
     } else {
@@ -922,10 +922,6 @@ pub async fn tauri_client_download_and_install(
 }
 
 fn client_update_endpoints(app: &AppHandle) -> &'static [&'static str] {
-    #[cfg(windows)]
-    if crate::portable_client_update::uses_fixed_runtime(app) {
-        return crate::portable_client_update::FIXED_ENDPOINTS;
-    }
     let _ = app;
     TAURI_UPDATE_ENDPOINTS
 }
@@ -936,6 +932,27 @@ fn client_updater_builder(app: &AppHandle) -> Result<tauri_plugin_updater::Updat
     if crate::portable_client_update::is_portable_client(app) {
         return Ok(builder.target(crate::portable_client_update::portable_target()?));
     }
+    #[cfg(target_os = "linux")]
+    {
+        use crate::linux_package::{self, Package};
+        use tauri::utils::config::BundleType;
+        let package = match tauri::utils::platform::bundle_type() {
+            Some(BundleType::AppImage) => Package::AppImage,
+            Some(BundleType::Deb) => Package::Deb,
+            Some(BundleType::Rpm) => Package::Rpm,
+            _ => return Err("Client updates require an AppImage, DEB or RPM installation".into()),
+        };
+        let builder = if matches!(package, Package::AppImage) {
+            let env = app.env();
+            let original = env.appimage.as_deref().map(Path::new)
+                .ok_or("The original APPIMAGE path is missing; launch the AppImage file to update")?;
+            builder.executable_path(linux_package::original_appimage(
+                original, env.appdir.as_deref().map(Path::new),
+            )?)
+        } else { builder };
+        return Ok(builder.target(linux_package::update_target(std::env::consts::ARCH, package)?));
+    }
+    #[cfg(not(target_os = "linux"))]
     Ok(builder)
 }
 
@@ -1107,7 +1124,7 @@ pub fn updater_start_workflow(
             request.install_path, request.launch
         ),
     );
-    let portable = is_portable_install();
+    let portable = is_portable_install(&app);
     let initial_config_manager = ensure_default_config(&app)?;
     let install_path = request
         .install_path
@@ -1630,7 +1647,7 @@ fn resolve_blue_archive_package(serial: &str, log: &mut Vec<String>) -> Result<S
 
 /// Returns the active setup.toml manager without using app-data setup storage.
 pub fn ensure_default_config(app: &AppHandle) -> Result<ConfigManager, String> {
-    let portable = is_portable_install();
+    let portable = is_portable_install(app);
     let default_install_path = default_install_path();
     let install_path = startup_install_path(app, portable, &default_install_path)?;
     config_manager_for_install_path(app, &install_path, portable)
@@ -1641,7 +1658,7 @@ fn ensure_config_for_install_path(
     app: &AppHandle,
     install_path: Option<&Path>,
 ) -> Result<ConfigManager, String> {
-    let portable = is_portable_install();
+    let portable = is_portable_install(app);
     if portable {
         return config_manager_for_install_path(app, Path::new("."), true);
     }
@@ -1665,7 +1682,8 @@ fn config_manager_for_install_path(
     install_path: &Path,
     portable: bool,
 ) -> Result<ConfigManager, String> {
-    let path = if portable { portable_config_path()? } else { install_path.join("setup.toml") };
+    let path = if portable { portable_config_path(app)? } else { install_path.join("setup.toml") };
+    validate_persistent_client_path(app, &path)?;
     let mut manager = load_config_recovering_invalid(path)?;
     mirrorc_credentials::migrate(&mut manager, &mirrorc_dir(app)?)?;
     if portable {
@@ -1745,11 +1763,11 @@ fn startup_install_path(
 }
 
 /// Handles the configure portable working dir workflow.
-pub fn configure_portable_working_dir() -> Result<(), String> {
-    if !is_portable_install() {
+pub fn configure_portable_working_dir(app: &AppHandle) -> Result<(), String> {
+    if !is_portable_install(app) {
         return Ok(());
     }
-    let Some(dir) = current_exe_dir() else {
+    let Some(dir) = current_exe_dir(app) else {
         return Ok(());
     };
     std::env::set_current_dir(&dir).map_err(|error| error.to_string())
@@ -1777,28 +1795,47 @@ fn persisted_baas_root_path(path: &Path, portable: bool) -> String {
 }
 
 /// Returns the is portable install result.
-fn is_portable_install() -> bool {
-    exe_adjacent_config_path()
-        .map(|path| path.exists())
+fn is_portable_install(app: &AppHandle) -> bool {
+    portable_config_path(app)
+        .map(|path| path.is_file())
         .unwrap_or(false)
 }
 
 /// Handles the portable config path workflow.
-fn portable_config_path() -> Result<PathBuf, String> {
-    exe_adjacent_config_path().map_err(|error| error.message())
+fn portable_config_path(app: &AppHandle) -> Result<PathBuf, String> {
+    current_exe_dir(app).map(|directory| directory.join("setup.toml"))
+        .ok_or_else(|| "Cannot locate a persistent directory beside this client".into())
 }
 
 /// Handles the current exe dir workflow.
-fn current_exe_dir() -> Option<PathBuf> {
+fn current_exe_dir(app: &AppHandle) -> Option<PathBuf> {
+    #[cfg(target_os = "linux")]
+    if matches!(tauri::utils::platform::bundle_type(), Some(tauri::utils::config::BundleType::AppImage)) {
+        let env = app.env();
+        return env.appimage.as_deref().map(Path::new)
+            .and_then(|path| crate::linux_package::original_appimage(path, env.appdir.as_deref().map(Path::new)).ok())
+            .and_then(|path| path.parent().map(Path::to_path_buf));
+    }
+    let _ = app;
     std::env::current_exe()
         .ok()
         .and_then(|path| path.parent().map(Path::to_path_buf))
 }
 
+fn validate_persistent_client_path(app: &AppHandle, path: &Path) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    {
+        let env = app.env();
+        crate::linux_package::persistent_path(path, env.appdir.as_deref().map(Path::new))?;
+    }
+    let _ = (app, path);
+    Ok(())
+}
+
 /// Handles the storage file path workflow.
 fn storage_file_path(app: &AppHandle, portable: bool) -> Result<PathBuf, String> {
     if portable {
-        return Ok(current_exe_dir()
+        return Ok(current_exe_dir(app)
             .unwrap_or_else(|| PathBuf::from("."))
             .join(STORAGE_FILE_NAME));
     }
@@ -1824,7 +1861,8 @@ fn read_stored_install_path(app: &AppHandle, portable: bool) -> Result<Option<Pa
         .and_then(serde_json::Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .map(PathBuf::from))
+        .map(PathBuf::from)
+        .filter(|path| validate_persistent_client_path(app, path).is_ok()))
 }
 
 /// Handles the default install path workflow.

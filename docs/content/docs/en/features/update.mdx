@@ -99,7 +99,9 @@ Before updating it durably records each profile's running/stopped state and back
 
 On Android, the automatic-update preference controls startup checking. Its coordinator awaits `stop_all_tasks`, runs repository synchronization and schedules a real backend restart before restoring prior state. Failure remains on the preparation page with logs. Native cancellation still cannot guarantee immediate interruption of an in-flight git2 synchronization; retry only after checking the operation state.
 
-Windows portable clients keep their portable mode when updating: verified client files are replaced beside the executable, and a recovery copy remains until the new interface confirms startup. Fixed-WebView2 editions update the matching runtime bundle. Configuration and backend data are retained; installed editions continue using the installer path.
+Windows portable clients keep their portable mode when updating: verified client files are replaced beside the executable, and a recovery copy remains until the new interface confirms startup. Configuration and backend data are retained; installed editions continue using the installer path.
+
+Linux AppImage updates use the running bundle format, verify the signed AppImage, replace its original file and restart that file. Backend scripts, `setup.toml` and user data are retained outside the mount. DEB and RPM clients continue receiving their matching package formats.
 
 ## After Updating
 

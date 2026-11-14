@@ -48,11 +48,19 @@ test("updater documentation pins inspected sources without claiming a runtime up
   for (const source of integration.sources) {
     expect(source.gitContentVerified).toBe(true);
     expect(source.revision).toMatch(/^[a-f0-9]{40}$/);
+  }
+  const packaging = audit.clientPackagingSupplement;
+  expect(packaging.verificationKind).toContain("code inspection");
+  expect(packaging.runtimeUpdateExecuted).toBe(false);
+  expect(packaging.sources.some(source => source.file === "src-tauri/src/platform/linux_package.rs")).toBe(true);
+  for (const source of new Map([...integration.sources, ...packaging.sources].map(source => [source.file, source])).values()) {
+    expect(source.gitContentVerified).toBe(true);
+    expect(source.revision).toMatch(/^[a-f0-9]{40}$/);
     expect(sha(read(source.file))).toBe(source.sha256);
   }
   // Preserve the historical pinned audit; later source inspections supersede
   // only the pages they reviewed.
-  for (const [file, expected] of Object.entries({ ...audit.testedPages, ...mirror.testedPages, ...integration.testedPages }))
+  for (const [file, expected] of Object.entries({ ...audit.testedPages, ...mirror.testedPages, ...integration.testedPages, ...packaging.testedPages }))
     expect(sha(read(file))).toBe(expected);
   expect(audit.historySupplement.revision).toBe("7cb82895bcb78adb82b8f185199f51ef18b57cfa");
   expect(audit.historySupplement.sources).toHaveLength(3);
