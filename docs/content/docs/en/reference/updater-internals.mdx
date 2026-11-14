@@ -16,9 +16,9 @@ Backend code, the Python environment and client packages update separately. A ve
 | Android service and bootstrap | The separate `:baas_backend` process owns Python, loaded modules and service ports; bootstrap prepares files and startup adapters |
 | Native client update | Desktop invokes Tauri updater; Android verifies the APK and hands it to the system installer, separately from repository synchronization |
 
-Desktop and WebUI manual sidebar entry sends `stop_all_tasks` and waits for stopped state. Desktop then reloads into native startup; WebUI invokes backend `update_to_latest_stream`. Android's `Sidebar.tsx` branch returns before `stopAllTasks` and directly starts its own workflow. That manual entry contains no task-stop step.
+Desktop and WebUI manual sidebar entry sends `stop_all_tasks` through `stopAllTasks` and waits for stopped state. Desktop then reloads into native startup; WebUI invokes backend `update_to_latest_stream`. Android now uses its startup coordinator and hides the separate bottom update-log entry.
 
-`IdleBackendUpdater.tsx` / `IdleUpdateState.ts` coordinate idle updates. After authentication, profile snapshots and status are ready, a different remote commit is known, and all profiles have remained idle for at least three seconds, they durably save the root and per-profile running flags, then send and await the `stop_all_tasks` response. A continuous scheduler can be idle while still running; a running single-task session is excluded. Failures back off for five minutes, and client updating prevents new idle attempts.
+Desktop `IdleBackendUpdater.tsx` / `IdleUpdateState.ts` coordinate idle updates. After authentication, snapshots and a newer commit are available, three seconds of stable idle precede saving scheduler state and awaiting `stop_all_tasks`. Desktop failures back off for five minutes. Android uses `AndroidStartupUpdateCoordinator`: after verified OCR/script resources and authenticated snapshots, it checks the saved channel, waits for idle/manual-control release and performs the update while the startup page remains visible. Both preserve running/stopped states; scheduler restoration is separate from code rollback.
 
 Desktop attempts recorded-backend cleanup at app startup, before updating, during transport startup/authentication reset and on exit. The PID file is shared by installation root; termination checks use a PID and `main.service.py` in the command line, without a process-creation identity token or cross-instance exclusive lock. This provides no exclusive OS process ownership or discovery of every unrecorded service. Workflow-task cancellation and detached-backend cleanup are separate operations.
 
@@ -30,12 +30,12 @@ Desktop attempts recorded-backend cleanup at app startup, before updating, durin
 | Native version lookup | Reads local HEAD or a recorded SHA, tries the configured SHA method first, then other usable Git lookup sources; reports the method and remote SHA |
 | Native Git transfer | Derives candidate URLs by repository/channel and selects separately through `SourceSelector`; the SHA preference does not pin the download URL |
 | Channel and ref | `stable` / `dev` select main-repository source groups, both currently on `master`; Cpp/OCR branches depend on platform/architecture |
-| Desktop MirrorC | A nonempty CDK selects archives; `mirrorc_latest_url` ignores its channel argument and requests `stable` |
-| Android repository workflow | Forces `git_backend = "git2"`, clears the CDK and uses embedded Python; it installs no desktop UV/venv and uses no MirrorC archive |
+| MirrorChyan | A local CDK enables archive delivery of the stable main backend. Development and OCR use their respective Git sources. |
+| Android repository workflow | Uses embedded Python, MirrorChyan for a configured stable main backend, and git2 for Git sources. |
 
 `SourceSelector` first reuses a persisted successful URL. Otherwise it races enabled probes and takes the first successful response. Only a successful real operation promotes a source; failures disable sources, and exhaustion re-enables them for up to three complete failed cycles. Records live under `.baas-updater/source-ranking/`: desktop repositories use `main.json` / `cpp.json`, Android uses `android-main.json` / `android-cpp.json`. UV, CPython, PyPI and client packages have separate source records.
 
-Settings SHA connectivity tests produce lookup results without selecting the actual download source. A fast response, equal SHA or preferred-URL record establishes neither archive integrity, installation consistency nor loaded service code. Android's fetch-skip predicate also accepts equality between the recorded and remote SHA; it does not validate local files individually.
+Preferences SHA connectivity tests produce lookup results without selecting the actual download source. A fast response, equal SHA or preferred-URL record establishes neither archive integrity, installation consistency nor loaded service code. Android's fetch-skip predicate also accepts equality between the recorded and remote SHA; it does not validate local files individually.
 
 ## Workflow Stages
 
@@ -48,14 +48,14 @@ flowchart TD
   D --> E["Prepare UV / Python / venv when needed"]
   R --> F["Place fresh clones / persist versions"]
   E --> F
-  F --> P["Compile and sync dependencies / retain cache"]
+  F --> P["Compile and sync dependencies / clean owned UV cache"]
   P --> L["If launch enabled: detached start / readiness probe"]
-  Entry -->|"Android"| A["Load config / force git2 / clear CDK"]
+  Entry -->|"Android"| A["Load config / select stable archive or Git"]
   A --> G["Sync main and Android Cpp/OCR in parallel"]
   G --> S["Persist both repository SHAs"]
-  S --> H["Frontend ensures service / restart deferred / WebView reload"]
+  S --> H["Request backend restart / verify fresh OCR and resources"]
   L -->|"Service launched"| C["Authentication and snapshots / idle-entry scheduler recovery"]
-  H -->|"Existing service can survive"| C
+  H -->|"Fresh backend verified"| C
   R -->|"Failure"| X["Inspect logs and disk state / no code rollback"]
   F -->|"Failure"| X
   P -->|"Failure"| X
@@ -66,7 +66,13 @@ Desktop configuration determines repository targets and validates a nonempty CDK
 
 Desktop startup requests `/auth/remember`; an HTTP response satisfies that layer's readiness probe. Authentication, profile synchronization, device connectivity and task execution remain separate checks.
 
-Android's repository workflow consists of configuration, two parallel repository tasks and SHA persistence: four tasks in total. After success, both manual and idle entries call `updater_reset_backend_auth_and_restart`. That implementation only ensures the service exists and returns `restarted: false`, `restart_deferred: true`. The following WebView reload can reconnect to the existing Python process. Disk replacement does not unload its imported modules. Activating new code requires an actual backend service-process restart and file load, which this command does not perform.
+Android’s native repository workflow still consists of configuration, parallel main/Cpp tasks and SHA persistence. The current frontend startup path then calls `updater_restart_backend`, waits for the old readiness cycle to disappear and a fresh resource check to complete, and restores recorded scheduler state. The legacy `updater_reset_backend_auth_and_restart` command only ensures service existence and returns `restarted: false`, `restart_deferred: true`; it does not unload existing Python modules.
+
+### Managed UV Cache
+
+After successful managed dependency synchronization, the updater runs UV's own cache-clean command against this installation's `<toolkit_path>/uv/cache`, including startup when requirements are unchanged. Synchronization installs with hard links, so clearing cached wheels does not remove installed packages. Actual space reclaimed depends on files still referenced by those hard links.
+
+Failed or cancelled dependency setup retains the cache for diagnosis and retry. Custom Python, external/shared cache paths, cache paths overlapping the virtual environment or managed Python, and environments depending on cache symlinks are not cleaned. Cleanup failure is reported as a warning and does not discard a working environment. This policy applies to desktop managed environments; Android uses its embedded Python runtime.
 
 ### Android Service Overlay
 
@@ -102,11 +108,15 @@ Android `fetch_and_reset_git2` points the branch at `FETCH_HEAD` and hard-resets
 
 ### MirrorC
 
-CDK checks handle server-reported key status, quota and expiry, separately from archive-byte verification. `MirrorLatest.sha256` is parsed into the response structure, but the update path downloads and extracts/applies the archive without computing and comparing its SHA256. It also performs no Minisign verification of backend archives. A valid CDK, readable ZIP and saved version establish neither archive provenance nor integrity. Requests carry the CDK, so logs and reports still require secret handling.
+Native clients check the stable backend revision using public metadata and use the stored CDK for MirrorChyan download authorization. The updater compares the downloaded archive against `MirrorLatest.sha256` before extraction or application. Development test keys stay in the developer workspace and are never loaded by the application.
+
+### Windows Portable Client
+
+The client identifies portable mode separately from an installed application. A portable update uses the signed executable payload, or the matching fixed-WebView2 bundle, and replaces only client-managed files beside the executable. User configuration and backend data are outside the replacement set. An update helper stages and verifies files, retains a rollback copy, restarts the same portable executable and waits for the updated React interface to acknowledge startup before removing the backup. Replacement or startup failure triggers recovery; an installed application continues using its installer path.
 
 ### Android APK
 
-The install command fetches metadata again, requires a remote version newer than the current client, an HTTPS download URL and a nonempty signature, then checks the ZIP/APK header and verifies downloaded bytes with Minisign using the embedded public key. Only after verification does it write the app-private cache and invoke Kotlin `installPackage`. Kotlin checks that the file is in private cache/files storage and hands it to the system installer through FileProvider.
+The installer refetches the stable manifest and checks the device ABI and version. It streams the APK to private temporary storage while verifying its Minisign signature, then publishes the verified file and opens the system installer via FileProvider. A retry can reuse a cached APK after verifying it again.
 
 On Android 8 and later, missing permission to install from this app opens authorization settings and returns an error; another update attempt is required after authorization. Once the system installer opens, the command returns success and emits `Finished`, without an installation-result callback. The user can cancel installation there. Closing progress also offers no interface to abort the blocking download. Signature verification establishes package-byte authenticity; a subsequent client launch and version check establish installation and the running version.
 
@@ -124,6 +134,8 @@ On Android 8 and later, missing permission to install from this app opens author
 Idle recovery records contain only schema, root and per-profile running booleans. If stopping or updating throws, restoration of the original scheduler states is attempted, and the record is cleared only after successful restoration. Reconnection also validates the record before restoring both running and stopped states. Failed restoration can leave the record for another attempt; disabling automatic updates does not remove a valid pending record. Android idle updating waits up to thirty minutes for terminal completion, then requests abort on timeout, subject to the cancellation limits above. The checkpoint contains no old code, dependency snapshot or in-game execution position.
 
 ## Source Index
+
+The linked revisions below preserve the original lifecycle inspection. The current source audit additionally checks device-local CDKs, `cleanup_uv_cache_after_sync` in `environ.rs`, and the Windows portable updater under `src-tauri/src/platform/windows/`; these inspections do not claim a real installation or recovery test.
 
 | Scope | Implementation |
 | --- | --- |

@@ -346,7 +346,10 @@ pub struct SourceSelector {
 impl SourceSelector {
     /// Loads a persisted preferred source, or starts with an unranked source set.
     pub fn load(path: Option<&Path>, expected_urls: &[String]) -> UpdaterResult<Self> {
-        let persisted = load_ranking(path, expected_urls)?;
+        // The retry budget belongs to one operation. A later check must be able
+        // to recover after the device comes back online.
+        let persisted = load_ranking(path, expected_urls)?
+            .filter(|ranking| !(ranking.all_disabled() && ranking.all_failed_cycles >= MAX_SOURCE_FAILURE_CYCLES));
         Ok(Self {
             ranking: persisted
                 .clone()
@@ -2562,6 +2565,20 @@ mod tests {
         let message = error.message();
         assert!(message.contains("failed after 3 complete cycles"));
         assert!(message.contains(tls_error));
+    }
+
+    #[test]
+    fn a_new_check_retries_sources_after_an_offline_check_exhausted_its_budget() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ranking.json");
+        let url = "https://source.example".to_string();
+        let urls = vec![url.clone()];
+        let probes = vec![(url.clone(), url.clone())];
+        assert!(SourceSelector::load(Some(&path), &urls).unwrap()
+            .next_source(&probes, &Probe { ok: vec![] }, &crate::NoopOutput, "test").is_err());
+        let selected = SourceSelector::load(Some(&path), &urls).unwrap()
+            .next_source(&probes, &Probe { ok: urls }, &crate::NoopOutput, "test").unwrap();
+        assert_eq!(selected, url);
     }
 
     /// Source selection returns on the first successful response without

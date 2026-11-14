@@ -4,6 +4,7 @@ use super::{Inspection, Progress, inspect, install};
 use baas_updater::{
     RepositoryKind, UpdateChannel, UpdaterError, UpdaterResult,
     config::ConfigManager,
+    mirrorc::{MirrorCClient, ReqwestMirrorHttp, supports_mirror_package},
     repo::{GitExecutor, RealGitExecutor, repository_branch, repository_urls},
 };
 use serde::{Deserialize, Serialize};
@@ -35,9 +36,9 @@ pub struct UpdateCheck {
 
 fn require_managed(root: &Path) -> UpdaterResult<Inspection> {
     let state = inspect(root)?;
-    if !state.installed || !state.managed || state.channel != UpdateChannel::Dev {
+    if !state.installed || !state.managed {
         return Err(UpdaterError::Environment(
-            "updates require a complete CLI-managed dev runtime".into(),
+            "updates require a complete CLI-managed runtime".into(),
         ));
     }
     Ok(state)
@@ -58,7 +59,7 @@ pub fn check_update(
         .timeout(Duration::from_secs(20))
         .connect_timeout(Duration::from_secs(8))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent("BAAS-CLI-runtime")
+        .user_agent("BAASX-runtime")
         .build()
         .map_err(|error| UpdaterError::Network(error.to_string()))?;
     check_with(root, cancelled, emit, |url, branch| {
@@ -139,7 +140,26 @@ fn check_with(
             .unwrap_or_else(|| "unknown".into())
             .to_ascii_lowercase();
         let urls = repository_urls(kind, state.channel);
-        let remote_version = remote(&urls[0], &repository_branch(kind)?)?;
+        let remote_version = if supports_mirror_package(kind, state.channel)
+            && (!manager.config.general.mirrorc_cdk.trim().is_empty()
+                || !baas_updater::mirrorc_credentials::load(&state.root.join(".baas-updater"))
+                    .map_err(UpdaterError::Config)?
+                    .is_empty())
+        {
+            let latest =
+                MirrorCClient::new(ReqwestMirrorHttp).latest(kind, state.channel, &local, "")?;
+            if !latest.is_success() {
+                return Err(UpdaterError::MirrorC(format!(
+                    "MirrorC version check failed (code {})",
+                    latest.code
+                )));
+            }
+            latest
+                .latest_version_name
+                .ok_or_else(|| UpdaterError::MirrorC("MirrorC response missing version".into()))?
+        } else {
+            remote(&urls[0], &repository_branch(kind)?)?
+        };
         if cancelled.load(Ordering::Relaxed) {
             return Err(UpdaterError::Cancelled);
         }
@@ -221,11 +241,17 @@ mod tests {
     }
 
     #[test]
-    fn version_check_reads_actual_installation_and_does_not_modify_it() {
+    fn version_checks_use_the_installed_channel_and_leave_it_unmodified() {
+        for channel in [UpdateChannel::Stable, UpdateChannel::Dev] {
+            verify_managed_update(channel);
+        }
+    }
+
+    fn verify_managed_update(channel: UpdateChannel) {
         let temp = tempfile::tempdir().unwrap();
         let state = super::super::install_with(
             temp.path(),
-            UpdateChannel::Dev,
+            channel,
             &AtomicBool::new(false),
             &mut |_| {},
             |root, _| {
@@ -253,15 +279,21 @@ mod tests {
                     "c".repeat(40)
                 })
             },
-        )
-        .unwrap();
-        assert!(checked.available);
-        assert!(!checked.repositories[0].available);
-        assert!(checked.repositories[1].available);
+        );
+        let ocr_branch = repository_branch(RepositoryKind::Cpp);
+        if let Err(error) = &ocr_branch {
+            assert_eq!(checked.unwrap_err(), *error);
+        } else {
+            let checked = checked.unwrap();
+            assert_eq!(checked.channel, channel);
+            assert!(checked.available);
+            assert!(!checked.repositories[0].available);
+            assert!(checked.repositories[1].available);
+        }
         assert_eq!(
             sources[0],
             (
-                "https://github.com/Kiramei/baas-dev.git".into(),
+                repository_urls(RepositoryKind::Main, channel)[0].clone(),
                 "master".into()
             )
         );
@@ -273,12 +305,12 @@ mod tests {
             .open(state.root.join(".baas-cli-install.lock"))
             .unwrap();
         assert!(lock.try_lock().is_err());
-        assert!(
-            update(&state.root, &AtomicBool::new(false), &mut |_| {})
-                .unwrap_err()
-                .message()
-                .contains("another installer")
-        );
+        let blocked = update(&state.root, &AtomicBool::new(false), &mut |_| {}).unwrap_err();
+        if let Err(error) = ocr_branch {
+            assert_eq!(blocked, error);
+        } else {
+            assert!(blocked.message().contains("another installer"));
+        }
         drop(lease);
         assert!(lock.try_lock().is_ok());
     }

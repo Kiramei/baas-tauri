@@ -16,6 +16,7 @@ use flate2::read::GzDecoder;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
+    collections::BTreeSet,
     fs,
     io::{Cursor, Read},
     path::{Path, PathBuf},
@@ -564,7 +565,7 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
                 if requirements_compile_cached(config, &requirements, url)? {
                     output.line(
                         OutputStyle::Success,
-                        "requirements unchanged; skipping uv compile, sync, and cache clean",
+                        "requirements unchanged; skipping uv compile and sync",
                     );
                     return Ok(false);
                 }
@@ -577,13 +578,10 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
                 Ok(true)
             },
         )?;
-        if !dependencies_changed {
-            return Ok(());
+        if dependencies_changed {
+            save_requirements_cache(config, &requirements, &pypi_index)?;
         }
-        // Keep downloaded/built wheels available for the next requirements
-        // change. Clearing the entire cache here adds filesystem work to this
-        // launch and makes the next sync download unchanged packages again.
-        save_requirements_cache(config, &requirements, &pypi_index)?;
+        cleanup_uv_cache_after_sync(config, output, |command| self.runner.run(command, output))?;
         Ok(())
     }
 
@@ -750,6 +748,10 @@ pub fn uv_sync_command(config: &UpdaterConfig) -> CommandSpec {
 pub fn uv_sync_command_with_index(config: &UpdaterConfig, pypi_index: &str) -> CommandSpec {
     uv_pip_command_with_index(config, pypi_index)
         .arg("sync")
+        // A cache-independent environment remains valid after successful cleanup,
+        // even when the caller's environment or uv.toml requests symlinks.
+        .arg("--link-mode")
+        .arg("hardlink")
         .arg(
             config
                 .baas_root()
@@ -762,20 +764,154 @@ pub fn uv_sync_command_with_index(config: &UpdaterConfig, pypi_index: &str) -> C
         )
 }
 
-/// Builds an explicit UV cache clean command for manual maintenance.
-///
-/// Normal dependency synchronization retains the cache for subsequent updates.
+/// Builds a UV-owned cleanup command scoped to this installation's cache.
 pub fn uv_cache_clean_command(config: &UpdaterConfig) -> CommandSpec {
+    let cache = uv_cache_dir(config);
+    let cache = cache.canonicalize().unwrap_or(cache);
     CommandSpec::new(uv_executable(config))
         .arg("--no-progress")
+        .arg("--cache-dir")
+        .arg(cache.to_string_lossy())
         .arg("cache")
         .arg("clean")
-        .env("UV_CACHE_DIR", uv_cache_dir(config).to_string_lossy())
+        .env("UV_CACHE_DIR", cache.to_string_lossy())
+        .env("UV_LOCK_TIMEOUT", "5")
         .env(
             "UV_PYTHON_INSTALL_DIR",
             uv_python_install_dir(config).to_string_lossy().as_ref(),
         )
         .cwd(config.baas_root())
+}
+
+/// Successful installs may release wheel/build artifacts, including older retained
+/// caches on the requirements fast path. Failed/cancelled dependency sync never calls this.
+/// UV owns its locking and removal; never recursively delete its cache ourselves.
+pub fn cleanup_uv_cache_after_sync(
+    config: &UpdaterConfig,
+    output: &(impl OutputSink + ?Sized),
+    run: impl FnOnce(&CommandSpec) -> UpdaterResult<()>,
+) -> UpdaterResult<bool> {
+    let command = match checked_uv_cache_clean_command(config) {
+        Ok(Some(command)) => command,
+        Ok(None) => return Ok(false),
+        Err(error) => {
+            output.line(
+                OutputStyle::Warning,
+                &format!("UV cache retained: {}", error.message()),
+            );
+            return Ok(false);
+        }
+    };
+    match run(&command) {
+        Ok(()) => {
+            output.line(
+                OutputStyle::Success,
+                "Installed dependencies are ready; UV cache cleaned",
+            );
+            Ok(true)
+        }
+        Err(UpdaterError::Cancelled) => Err(UpdaterError::Cancelled),
+        Err(error) => {
+            output.line(
+                OutputStyle::Warning,
+                &format!(
+                    "Dependencies are installed; UV cache cleanup deferred: {}",
+                    error.message()
+                ),
+            );
+            Ok(false)
+        }
+    }
+}
+
+fn checked_uv_cache_clean_command(config: &UpdaterConfig) -> UpdaterResult<Option<CommandSpec>> {
+    if !uses_managed_runtime(config) {
+        return Ok(None);
+    }
+    let cache = uv_cache_dir(config);
+    if !cache.try_exists()? {
+        return Ok(None);
+    }
+    let metadata = fs::symlink_metadata(&cache)?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(UpdaterError::Environment(
+            "cache path is not an owned directory".to_string(),
+        ));
+    }
+    let root = config.baas_root().canonicalize()?;
+    let cache = cache.canonicalize()?;
+    if cache == root || !cache.starts_with(&root) {
+        return Err(UpdaterError::Environment(
+            "cache resolves outside the installation".to_string(),
+        ));
+    }
+    for protected in [
+        config.baas_root().join(".venv"),
+        uv_python_install_dir(config),
+    ] {
+        if protected.try_exists()? {
+            let protected = protected.canonicalize()?;
+            if cache.starts_with(&protected) || protected.starts_with(&cache) {
+                return Err(UpdaterError::Environment(
+                    "cache overlaps the installed Python environment".to_string(),
+                ));
+            }
+        }
+    }
+    // UV leaves these control files after a successful clean. Avoid launching a
+    // maintenance process on every warm start when no package artifacts remain.
+    if !fs::read_dir(&cache)?.any(|entry| match entry {
+        Ok(entry) => !matches!(
+            entry.file_name().to_str(),
+            Some(".lock" | "CACHEDIR.TAG" | ".gitignore")
+        ),
+        Err(_) => true,
+    }) {
+        return Ok(None);
+    }
+    let venv = config.baas_root().join(".venv");
+    if venv.try_exists()? {
+        let venv = venv.canonicalize()?;
+        if !venv.starts_with(&root) {
+            return Err(UpdaterError::Environment(
+                "virtual environment resolves outside the installation".to_string(),
+            ));
+        }
+        let mut directories = vec![venv.clone()];
+        let mut visited = BTreeSet::new();
+        while let Some(directory) = directories.pop() {
+            let directory = directory.canonicalize()?;
+            if !directory.starts_with(&venv) {
+                return Err(UpdaterError::Environment(
+                    "virtual environment contains an external linked directory".to_string(),
+                ));
+            }
+            if !visited.insert(directory.clone()) {
+                continue;
+            }
+            for entry in fs::read_dir(directory)? {
+                let entry = entry?;
+                let kind = entry.file_type()?;
+                if kind.is_symlink() {
+                    let target = entry.path().canonicalize()?;
+                    if target.starts_with(&cache) {
+                        return Err(UpdaterError::Environment(
+                            "the existing virtual environment still uses cache symlinks"
+                                .to_string(),
+                        ));
+                    }
+                    if target.is_dir() && !target.starts_with(&venv) {
+                        return Err(UpdaterError::Environment(
+                            "virtual environment contains an external linked directory".to_string(),
+                        ));
+                    }
+                } else if kind.is_dir() {
+                    directories.push(entry.path());
+                }
+            }
+        }
+    }
+    Ok(Some(uv_cache_clean_command(config)))
 }
 
 /// Builds the backend launch command.
@@ -1688,7 +1824,14 @@ mod tests {
         assert!(sync.env.iter().any(|(key, _)| key == "VIRTUAL_ENV"));
         assert!(!sync.args.contains(&"--no-progress".to_string()));
         assert!(sync.args.contains(&"sync".to_string()));
+        assert!(
+            sync.args
+                .windows(2)
+                .any(|args| args == ["--link-mode", "hardlink"])
+        );
         assert!(clean.args.contains(&"--no-progress".to_string()));
+        assert!(clean.args.windows(2).any(|args| args == ["cache", "clean"]));
+        assert_eq!(clean.args[1], "--cache-dir");
     }
 
     /// Handles the command spec appends serial commands workflow.
@@ -1738,7 +1881,7 @@ mod tests {
     }
 
     #[test]
-    fn dependency_sync_retains_wheels_and_reuses_requirements_cache() {
+    fn dependency_sync_cleans_only_cache_and_reuses_requirements_cache() {
         struct LockfileRunner {
             commands: Arc<Mutex<Vec<CommandSpec>>>,
         }
@@ -1753,11 +1896,12 @@ mod tests {
                 if let Some(index) = command.args.iter().position(|arg| arg == "-o") {
                     fs::write(&command.args[index + 1], "package==1\n")?;
                 }
-                // Model the destructive effect of the old post-sync command.
                 if command.args.iter().any(|arg| arg == "clean") {
-                    return Err(UpdaterError::Environment(
-                        "normal sync must not clear the wheel cache".to_string(),
-                    ));
+                    // Simulate UV's scoped cleanup, including its persistent lock.
+                    let cache = &command.args[2];
+                    fs::remove_dir_all(cache)?;
+                    fs::create_dir_all(cache)?;
+                    fs::write(Path::new(cache).join(".lock"), "")?;
                 }
                 Ok(())
             }
@@ -1770,6 +1914,15 @@ mod tests {
         let wheel = uv_cache_dir(&config).join("cached-wheel");
         fs::create_dir_all(wheel.parent().unwrap()).unwrap();
         fs::write(&wheel, "reusable wheel").unwrap();
+        let installed = root.path().join(".venv/lib/package.py");
+        fs::create_dir_all(installed.parent().unwrap()).unwrap();
+        fs::hard_link(&wheel, &installed).unwrap();
+        let user_config = root.path().join("config/account.json");
+        fs::create_dir_all(user_config.parent().unwrap()).unwrap();
+        fs::write(&user_config, "keep user configuration").unwrap();
+        let python = uv_python_install_dir(&config).join("interpreter");
+        fs::create_dir_all(python.parent().unwrap()).unwrap();
+        fs::write(&python, "keep managed Python").unwrap();
         let ranking_dir = root.path().join("ranking");
         let urls = environment_source_urls(EnvironmentSourceKind::Pypi, &config).unwrap();
         let mut ranking = SourceRanking::from_urls(&urls);
@@ -1786,14 +1939,162 @@ mod tests {
         manager
             .sync_dependencies_with_ranking(&config, Some(&ranking_dir), &crate::NoopOutput)
             .unwrap();
-        assert_eq!(commands.lock().unwrap().len(), 2);
-        assert_eq!(fs::read_to_string(&wheel).unwrap(), "reusable wheel");
+        assert_eq!(commands.lock().unwrap().len(), 3);
+        assert!(!wheel.exists());
+        assert_eq!(fs::read_to_string(&installed).unwrap(), "reusable wheel");
+        assert_eq!(
+            fs::read_to_string(&user_config).unwrap(),
+            "keep user configuration"
+        );
+        assert_eq!(fs::read_to_string(&python).unwrap(), "keep managed Python");
         assert!(requirements_compile_cached(&config, &requirements, &urls[0]).unwrap());
 
         manager
             .sync_dependencies_with_ranking(&config, Some(&ranking_dir), &crate::NoopOutput)
             .unwrap();
-        assert_eq!(commands.lock().unwrap().len(), 2);
+        assert_eq!(
+            commands.lock().unwrap().len(),
+            3,
+            "empty cache needs no process"
+        );
+        fs::write(&wheel, "older retained download").unwrap();
+        manager
+            .sync_dependencies_with_ranking(&config, Some(&ranking_dir), &crate::NoopOutput)
+            .unwrap();
+        assert_eq!(
+            commands.lock().unwrap().len(),
+            4,
+            "cache hit still cleans retained artifacts"
+        );
+        assert!(!wheel.exists());
+        assert_eq!(fs::read_to_string(&installed).unwrap(), "reusable wheel");
+    }
+
+    #[test]
+    fn cache_cleanup_failure_is_nonfatal_but_cancellation_is_preserved() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let wheel = uv_cache_dir(&config).join("diagnostic-wheel");
+        fs::create_dir_all(wheel.parent().unwrap()).unwrap();
+        fs::write(&wheel, "keep on maintenance failure").unwrap();
+        assert!(
+            !cleanup_uv_cache_after_sync(&config, &crate::NoopOutput, |_| {
+                Err(UpdaterError::Environment("cache busy".to_string()))
+            })
+            .unwrap()
+        );
+        assert!(wheel.exists());
+        assert!(matches!(
+            cleanup_uv_cache_after_sync(&config, &crate::NoopOutput, |_| {
+                Err(UpdaterError::Cancelled)
+            }),
+            Err(UpdaterError::Cancelled)
+        ));
+        assert!(wheel.exists());
+    }
+
+    #[test]
+    fn invalid_install_does_not_run_cache_cleanup() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let wheel = uv_cache_dir(&config).join("diagnostic-wheel");
+        fs::create_dir_all(wheel.parent().unwrap()).unwrap();
+        fs::write(&wheel, "retain failure evidence").unwrap();
+        let runner = MockRunner::default();
+        let commands = Arc::clone(&runner.commands);
+        assert!(
+            EnvironmentManager::new(runner, EmptyDownloader)
+                .sync_dependencies(&config, &crate::NoopOutput)
+                .is_err()
+        );
+        assert!(commands.lock().unwrap().is_empty());
+        assert!(wheel.exists());
+    }
+
+    #[test]
+    fn cleanup_does_not_use_external_toolkit_cache() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let mut config = config(root.path());
+        config.paths.toolkit_path = outside.path().to_string_lossy().into_owned();
+        let cache = uv_cache_dir(&config);
+        fs::create_dir_all(&cache).unwrap();
+        fs::write(cache.join("shared-wheel"), "external cache").unwrap();
+        assert!(
+            !cleanup_uv_cache_after_sync(&config, &crate::NoopOutput, |_| panic!(
+                "external cache must be retained"
+            ))
+            .unwrap()
+        );
+        assert!(cache.join("shared-wheel").exists());
+    }
+
+    #[test]
+    fn cleanup_does_not_remove_cache_overlapping_the_virtual_environment() {
+        let root = tempfile::tempdir().unwrap();
+        let mut config = config(root.path());
+        config.paths.toolkit_path = ".venv".to_string();
+        let cache = uv_cache_dir(&config);
+        fs::create_dir_all(&cache).unwrap();
+        fs::write(cache.join("installed-file"), "keep installed Python").unwrap();
+        assert!(
+            !cleanup_uv_cache_after_sync(&config, &crate::NoopOutput, |_| panic!(
+                "cache overlaps venv"
+            ))
+            .unwrap()
+        );
+        assert!(cache.join("installed-file").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cleanup_retains_symlinked_cache_and_legacy_cache_dependent_venv() {
+        use std::os::unix::fs::symlink;
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let cache = uv_cache_dir(&config);
+        fs::create_dir_all(&cache).unwrap();
+        let wheel = cache.join("wheel");
+        fs::write(&wheel, "installed source").unwrap();
+        let package = root.path().join(".venv/lib/package.py");
+        fs::create_dir_all(package.parent().unwrap()).unwrap();
+        symlink(&wheel, &package).unwrap();
+        assert!(
+            !cleanup_uv_cache_after_sync(&config, &crate::NoopOutput, |_| panic!(
+                "legacy symlink packages depend on cache"
+            ))
+            .unwrap()
+        );
+        assert_eq!(fs::read_to_string(&package).unwrap(), "installed source");
+        fs::remove_file(&package).unwrap();
+        let shared_packages = tempfile::tempdir().unwrap();
+        symlink(&wheel, shared_packages.path().join("shared-package.py")).unwrap();
+        let shared_link = root.path().join(".venv/lib/shared");
+        symlink(shared_packages.path(), &shared_link).unwrap();
+        assert!(
+            !cleanup_uv_cache_after_sync(&config, &crate::NoopOutput, |_| panic!(
+                "external package directory cannot be verified"
+            ))
+            .unwrap()
+        );
+        assert!(wheel.exists());
+        fs::remove_file(&shared_link).unwrap();
+        let internal_link = root.path().join(".venv/lib64");
+        symlink(root.path().join(".venv/lib"), &internal_link).unwrap();
+        assert!(checked_uv_cache_clean_command(&config).unwrap().is_some());
+        fs::remove_file(internal_link).unwrap();
+        fs::remove_file(&wheel).unwrap();
+        fs::remove_dir(&cache).unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        fs::write(outside.path().join("shared-wheel"), "shared").unwrap();
+        symlink(outside.path(), &cache).unwrap();
+        assert!(
+            !cleanup_uv_cache_after_sync(&config, &crate::NoopOutput, |_| panic!(
+                "symlinked cache must be retained"
+            ))
+            .unwrap()
+        );
+        assert!(outside.path().join("shared-wheel").exists());
     }
 
     /// Handles the launch command uses custom runtime when configured workflow.

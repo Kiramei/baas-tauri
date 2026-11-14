@@ -1,0 +1,77 @@
+name: Prepare Linux ARM cross compiler
+description: Install the Jammy sysroot and configure Cargo for a Linux ARM target
+inputs:
+  arch:
+    description: Debian architecture
+    required: true
+  triplet:
+    description: GNU compiler triplet
+    required: true
+  target:
+    description: Rust target triple
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Setup Linux ARM cross dependencies
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        sudo mkdir -p /etc/apt/sources.list.d.disabled
+        sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) \
+          -exec mv {} /etc/apt/sources.list.d.disabled/ \;
+
+        cat > /tmp/sources.list <<'EOF'
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main multiverse universe restricted
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-security main multiverse universe restricted
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main multiverse universe restricted
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-backports main multiverse universe restricted
+
+        deb [arch=${{ inputs.arch }}] http://ports.ubuntu.com/ubuntu-ports jammy main multiverse universe restricted
+        deb [arch=${{ inputs.arch }}] http://ports.ubuntu.com/ubuntu-ports jammy-security main multiverse universe restricted
+        deb [arch=${{ inputs.arch }}] http://ports.ubuntu.com/ubuntu-ports jammy-updates main multiverse universe restricted
+        deb [arch=${{ inputs.arch }}] http://ports.ubuntu.com/ubuntu-ports jammy-backports main multiverse universe restricted
+        EOF
+
+        if [ -f /etc/apt/sources.list ]; then
+          sudo cp /etc/apt/sources.list /etc/apt/sources.list.default
+        fi
+        sudo mv /tmp/sources.list /etc/apt/sources.list
+
+        sudo dpkg --add-architecture ${{ inputs.arch }}
+        sudo apt-get update
+
+        sudo apt-get install -y --no-install-recommends \
+          gcc-${{ inputs.triplet }} \
+          g++-${{ inputs.triplet }} \
+          pkg-config \
+          libxslt1.1:${{ inputs.arch }} \
+          libcups2:${{ inputs.arch }} \
+          libgtk-3-dev:${{ inputs.arch }} \
+          libwebkit2gtk-4.1-dev:${{ inputs.arch }} \
+          libayatana-appindicator3-dev:${{ inputs.arch }} \
+          libssl-dev:${{ inputs.arch }} \
+          librsvg2-dev:${{ inputs.arch }} \
+          patchelf \
+          rpm
+
+    - name: Configure Linux ARM cross env
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        echo "PKG_CONFIG_ALLOW_CROSS=1" >> "$GITHUB_ENV"
+        echo "PKG_CONFIG_PATH=/usr/lib/${{ inputs.triplet }}/pkgconfig" >> "$GITHUB_ENV"
+        echo "PKG_CONFIG_LIBDIR=/usr/lib/${{ inputs.triplet }}/pkgconfig:/usr/share/pkgconfig" >> "$GITHUB_ENV"
+        echo "PKG_CONFIG_SYSROOT_DIR=/" >> "$GITHUB_ENV"
+
+        if [ "${{ inputs.target }}" = "aarch64-unknown-linux-gnu" ]; then
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=${{ inputs.triplet }}-gcc" >> "$GITHUB_ENV"
+          echo "CC_aarch64_unknown_linux_gnu=${{ inputs.triplet }}-gcc" >> "$GITHUB_ENV"
+          echo "CXX_aarch64_unknown_linux_gnu=${{ inputs.triplet }}-g++" >> "$GITHUB_ENV"
+        else
+          echo "CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=${{ inputs.triplet }}-gcc" >> "$GITHUB_ENV"
+          echo "CC_armv7_unknown_linux_gnueabihf=${{ inputs.triplet }}-gcc" >> "$GITHUB_ENV"
+          echo "CXX_armv7_unknown_linux_gnueabihf=${{ inputs.triplet }}-g++" >> "$GITHUB_ENV"
+        fi

@@ -2,7 +2,11 @@ import { afterEach, expect, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { selectPublishedReleases, releaseFeedVersion } from "../../scripts/release-feed.mjs";
+import {
+  selectPublishedReleases,
+  releaseFeedVersion,
+  signedReleasePlatforms,
+} from "../../scripts/release-feed.mjs";
 import { parseUpdateLog } from "../../scripts/update-log.mjs";
 import { setReleaseVersion } from "../../scripts/set-release-version.mjs";
 import {
@@ -10,6 +14,7 @@ import {
   nativeReleaseVersions,
 } from "../../scripts/release-version-files.mjs";
 import { parseReleaseVersion } from "../../src/shared/ReleaseVersion.mjs";
+import { validateAssets } from "../../scripts/ci/release-contract.mjs";
 
 const temporary: string[] = [];
 afterEach(() =>
@@ -52,6 +57,139 @@ test("feed wire versions satisfy native SemVer and do not duplicate Tauri's name
   expect(releaseFeedVersion("v0.0.8-rc").version).toBe("0.0.8-rc");
   expect(releaseFeedVersion("v0.0.8-rc1").version).toBe("0.0.8-rc1");
   expect(releaseFeedVersion("0.0.9")).not.toHaveProperty("name");
+});
+
+test("GitHub prereleases stay on preview even with a final-looking tag", () => {
+  const published = release("v0.0.10-0.post.2");
+  const flagged = { ...release("0.0.11"), prerelease: true };
+  expect(selectPublishedReleases([published, flagged])).toEqual({
+    stable: published,
+    preview: flagged,
+  });
+});
+
+test("updater targets use the signed installer for their OS, architecture and bundle format", async () => {
+  const targets = {
+    "linux-x86_64-deb": "amd64.deb",
+    "linux-x86_64-rpm": "x86_64.rpm",
+    "linux-aarch64-deb": "arm64.deb",
+    "linux-aarch64-rpm": "aarch64.rpm",
+    "linux-armv7-deb": "armhf.deb",
+    "linux-armv7-rpm": "armv7hl.rpm",
+    "android-arm64-v8a": "android_arm64-v8a.apk",
+    "darwin-aarch64": "aarch64.app.tar.gz",
+    "windows-x86_64": "x64-setup.exe",
+    "windows-x86_64-portable": "x64_portable.exe",
+    "windows-aarch64-portable": "arm64_portable.exe",
+    win64: "x64-setup.exe",
+  };
+  const base = "BAAS.Tauri_1.2.3.post1_";
+  const asset = (name: string) => ({ name, browser_download_url: `https://example.com/${name}` });
+  const assets = [
+    ...new Set([
+      ...Object.values(targets),
+      "x64_fixed_webview2-setup.exe",
+      "x64_fixed_webview2_portable.zip",
+      "arm64_fixed_webview2_portable.zip",
+    ]),
+  ].flatMap((suffix) => [asset(base + suffix), asset(base + suffix + ".sig")]);
+  const version = { tag_name: "v1.2.3.post1", assets: assets.reverse() };
+  const fetchSignature = async (url: string) => new Response("signed:" + url + "\n");
+  const payload = (suffix: string) => ({
+    url: asset(base + suffix).browser_download_url,
+    signature: "signed:" + asset(base + suffix + ".sig").browser_download_url,
+  });
+  expect(await signedReleasePlatforms(version, { fetchSignature })).toEqual(
+    Object.fromEntries(Object.entries(targets).map(([target, suffix]) => [target, payload(suffix)]))
+  );
+  expect(await signedReleasePlatforms(version, { fixedWebView2: true, fetchSignature })).toEqual({
+    "windows-x86_64": payload("x64_fixed_webview2-setup.exe"),
+    "windows-x86_64-portable": payload("x64_fixed_webview2_portable.zip"),
+    "windows-aarch64-portable": payload("arm64_fixed_webview2_portable.zip"),
+  });
+});
+
+test("partial historical assets are omitted and signature download errors stop publication", async () => {
+  const name = "BAAS.Tauri_1.2.3_android_arm64-v8a.apk";
+  const release = {
+    tag_name: "1.2.3",
+    assets: [{ name, browser_download_url: "https://example.com/app.apk" }],
+  };
+  expect(await signedReleasePlatforms(release)).toEqual({});
+  release.assets.push({
+    name: name + ".sig",
+    browser_download_url: "https://example.com/app.apk.sig",
+  });
+  await expect(
+    signedReleasePlatforms(release, {
+      fetchSignature: async () => new Response("error", { status: 502 }),
+    })
+  ).rejects.toThrow("HTTP 502");
+  await expect(
+    signedReleasePlatforms(release, { fetchSignature: async () => new Response(" ") })
+  ).rejects.toThrow("Empty updater signature");
+});
+
+test("unsigned portable payloads are never advertised in either updater feed", async () => {
+  const tag_name = "1.2.3";
+  const assets = [
+    "x64_portable.exe",
+    "arm64_portable.exe",
+    "x64_fixed_webview2_portable.zip",
+    "arm64_fixed_webview2_portable.zip",
+  ].map((suffix) => ({
+    name: `BAAS.Tauri_${tag_name}_${suffix}`,
+    browser_download_url: `https://example.com/${suffix}`,
+  }));
+  let fetches = 0;
+  const fetchSignature = async () => {
+    fetches++;
+    return new Response("invalid");
+  };
+  expect(await signedReleasePlatforms({ tag_name, assets }, { fetchSignature })).toEqual({});
+  expect(
+    await signedReleasePlatforms({ tag_name, assets }, { fixedWebView2: true, fetchSignature })
+  ).toEqual({});
+  expect(fetches).toBe(0);
+});
+
+test("publishing fails when any portable updater signature is missing", () => {
+  const portable = [
+    "x64_portable.exe",
+    "arm64_portable.exe",
+    "x64_fixed_webview2_portable.zip",
+    "arm64_fixed_webview2_portable.zip",
+  ];
+  const signed = [
+    "amd64.deb",
+    "arm64.deb",
+    "armhf.deb",
+    "x86_64.rpm",
+    "aarch64.rpm",
+    "armv7hl.rpm",
+    "android_arm64-v8a.apk",
+    "aarch64.app.tar.gz",
+    "x64.app.tar.gz",
+    "arm64-setup.exe",
+    "x64-setup.exe",
+    "arm64_fixed_webview2-setup.exe",
+    "x64_fixed_webview2-setup.exe",
+    ...portable,
+  ];
+  const names = [...signed.flatMap((name) => [name, `${name}.sig`]), "aarch64.dmg", "x64.dmg"].map(
+    (name) => `BAAS.Tauri_1.2.3_${name}`
+  );
+  expect(() => validateAssets("app", "1.2.3", names)).not.toThrow();
+  for (const file of portable) {
+    const signature = `BAAS.Tauri_1.2.3_${file}.sig`;
+    expect(() =>
+      validateAssets(
+        "app",
+        "1.2.3",
+        names.filter((name) => name !== signature)
+      )
+    ).toThrow(signature);
+  }
 });
 
 test("new changelog headings and historical headings share canonical lookups", () => {
@@ -167,6 +305,43 @@ test("future preparation synchronizes every workspace crate and its lock entry",
   expect(() => checkReleaseVersion(root, "0.0.10.rc0")).toThrow(
     "Cargo.lock must contain baas-updater"
   );
+});
+
+test("app release versions keep the renamed runtime and legacy path dependency in sync", () => {
+  const root = fixture();
+  fs.writeFileSync(
+    path.join(root, "Cargo.toml"),
+    '[workspace]\nmembers = ["src-tauri", "crates/baasx-runtime", "crates/baas-cli-runtime"]\n'
+  );
+  for (const name of ["baasx-runtime", "baas-cli-runtime"]) {
+    fs.mkdirSync(path.join(root, "crates", name), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, "crates", name, "Cargo.toml"),
+      `[package]\nname = "${name}"\nversion = "0.0.9"\n` +
+        (name === "baas-cli-runtime"
+          ? '\n[dependencies]\nbaasx-runtime = { version = "0.0.9", path = "../baasx-runtime" }\n'
+          : "")
+    );
+    fs.appendFileSync(
+      path.join(root, "Cargo.lock"),
+      `\n[[package]]\nname = "${name}"\nversion = "0.0.9"\n`
+    );
+  }
+  fs.mkdirSync(path.join(root, "baasx"));
+  fs.writeFileSync(path.join(root, "baasx/package.json"), '{"version":"0.1.4"}\n');
+  setReleaseVersion(root, "0.0.10");
+  const legacyPath = path.join(root, "crates/baas-cli-runtime/Cargo.toml");
+  const legacy = fs.readFileSync(legacyPath, "utf8");
+  expect(legacy).toContain('baasx-runtime = { version = "0.0.10", path = "../baasx-runtime" }');
+  expect(JSON.parse(fs.readFileSync(path.join(root, "baasx/package.json"), "utf8")).version).toBe(
+    "0.1.4"
+  );
+  expect(checkReleaseVersion(root, "0.0.10").canonical).toBe("0.0.10");
+  fs.writeFileSync(
+    legacyPath,
+    legacy.replace('version = "0.0.10", path', 'version = "0.0.9", path')
+  );
+  expect(() => checkReleaseVersion(root, "0.0.10")).toThrow("Legacy runtime dependency version");
 });
 
 test("large native counters require explicit platform overrides instead of sorting after final", () => {

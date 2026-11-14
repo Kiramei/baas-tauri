@@ -1,5 +1,6 @@
 /* Select lists have their own surface; titlebar and context menus stay separate. */
 .select-surface {
+  --select-scroll-indicator-height: 24px;
   --select-surface-solid: #fafafa;
   --select-surface-tint: rgba(250, 250, 250, 0.94);
   --select-surface-shadow:
@@ -12,6 +13,49 @@
   border-radius: 14px;
   background: var(--select-surface-solid);
   box-shadow: var(--select-surface-shadow);
+}
+.select-surface[data-android-select] {
+  --select-scroll-indicator-height: 44px;
+}
+.select-surface [data-radix-select-viewport] {
+  scroll-padding-top: var(--select-scroll-indicator-height);
+  scroll-padding-bottom: var(--select-scroll-indicator-height);
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+.select-surface-scroll-anchor {
+  position: sticky;
+  z-index: 1;
+  width: calc(100% + 12px);
+  height: 0;
+  margin-left: -6px;
+}
+.select-surface-scroll-anchor-up {
+  top: -6px;
+}
+.select-surface-scroll-anchor-down {
+  bottom: -6px;
+}
+.select-surface-scroll-indicator {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  height: var(--select-scroll-indicator-height);
+  background: var(--select-surface-solid);
+}
+.select-surface-scroll-up {
+  top: 0;
+  border-radius: 14px 14px 0 0;
+}
+.select-surface-scroll-down {
+  bottom: 0;
+  border-radius: 0 0 14px 14px;
+}
+@media (hover: none) {
+  .select-surface-scroll-indicator {
+    pointer-events: none;
+  }
 }
 .dark .select-surface {
   --select-surface-solid: #2d2d2d;

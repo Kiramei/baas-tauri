@@ -113,7 +113,7 @@ function CommitHistoryDialog({
                 </colgroup>
                 <thead>
                   <tr>
-                    <th scope="col">Hash</th>
+                    <th scope="col">{t("commitHistory.hash")}</th>
                     <th scope="col">{t("commitHistory.author")}</th>
                     <th scope="col">{t("commitHistory.message")}</th>
                   </tr>

@@ -9,6 +9,63 @@ import {
 
 const transportError = "Backend transport startup is cooling down after a failure";
 
+describe("Android script resource readiness", () => {
+  const ready: AndroidStartupState = {
+    bootstrap: {
+      backendInstalled: true,
+      stage: "ready",
+      resourcesReady: true,
+      steps: [
+        { id: "service", state: "done" },
+        { id: "ocr", state: "done" },
+        { id: "resources", state: "done" },
+      ],
+    },
+  };
+
+  test("a reachable backend and installed files cannot stand in for verified OCR", () => {
+    expect(
+      resolveAndroidInstallState(
+        {
+          baasRootExistsNonEmpty: true,
+          bootstrap: {
+            backendInstalled: true,
+            stage: "service",
+            steps: [{ id: "service", state: "done" }],
+          },
+        },
+        null,
+        null
+      ).resourcesReady
+    ).toBe(false);
+    expect(resolveAndroidInstallState(ready, null, null).resourcesReady).toBe(true);
+  });
+
+  test("each required resource step and explicit readiness must agree", () => {
+    for (const id of ["service", "ocr", "resources"]) {
+      const bootstrap = {
+        ...ready.bootstrap,
+        steps: ready.bootstrap!.steps!.filter((step) => step.id !== id),
+      };
+      expect(resolveAndroidInstallState({ bootstrap }, null, null).resourcesReady).toBe(false);
+    }
+    expect(
+      resolveAndroidInstallState(
+        { bootstrap: { ...ready.bootstrap, resourcesReady: false } },
+        null,
+        null
+      ).resourcesReady
+    ).toBe(false);
+  });
+
+  test("a late or cached readiness flag cannot hide resource failure", () => {
+    const bootstrap = { ...ready.bootstrap, stage: "failed", error: "OCR model unavailable" };
+    const state = resolveAndroidInstallState({ bootstrap }, null, null);
+    expect(state.resourcesReady).toBe(false);
+    expect(state.backendError).toBe("OCR model unavailable");
+  });
+});
+
 describe("Android channel confirmation presentation", () => {
   test("the channel awaits confirmation while other unfinished work does not spin behind it", () => {
     const storage = { id: "storage", state: "running" };
@@ -60,18 +117,18 @@ describe("Android horizontal installation progress", () => {
 });
 
 describe("Android first installation state", () => {
-  test("continuing without touching a channel card submits the displayed development choice", () => {
+  test("continuing without touching a channel card submits the displayed stable choice", () => {
     const state = resolveAndroidInstallState({ channelSelected: false }, null, null);
     expect(state.awaitingChannel).toBe(true);
     expect(state.showChannelChoice).toBe(true);
-    expect(state.selectedChannel).toBe("dev");
+    expect(state.selectedChannel).toBe("stable");
     expect(state.selectedChannel).toBe(state.channel);
   });
 
-  test("a fresh installation offers the available development channel even after a stable attempt failed", () => {
+  test("the picker respects explicit choices from either channel and keeps the failed channel for retry", () => {
     const saved = { channel: "dev", channelSelected: false };
     expect(resolveAndroidInstallState(saved, null, null).selectedChannel).toBe("dev");
-    expect(resolveAndroidInstallState(saved, "stable", null).selectedChannel).toBe("dev");
+    expect(resolveAndroidInstallState(saved, "stable", null).selectedChannel).toBe("stable");
     expect(resolveAndroidInstallState({ channel: "stable" }, "dev", null).selectedChannel).toBe(
       "dev"
     );
@@ -84,7 +141,7 @@ describe("Android first installation state", () => {
         null,
         null
       ).selectedChannel
-    ).toBe("dev");
+    ).toBe("stable");
   });
 
   test("a completed channel selection hides the picker even when the legacy stage still says channel", () => {

@@ -806,8 +806,11 @@ function PluginsWorkspaceContent({
     }
   };
   return (
-    <div className="mx-auto w-full min-w-0 max-w-6xl space-y-5 pb-4" data-plugin-workspace>
-      <header className="flex flex-wrap items-start justify-between gap-3">
+    <div
+      className="mx-auto w-full min-w-0 max-w-6xl space-y-5 pb-4 xl:flex xl:h-full xl:min-h-0 xl:flex-1 xl:flex-col xl:gap-5 xl:space-y-0 xl:pb-0"
+      data-plugin-workspace
+    >
+      <header className="flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">{t("plugins.title")}</h1>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">{t("plugins.description")}</p>
@@ -853,7 +856,11 @@ function PluginsWorkspaceContent({
       </header>
       {error ? <ErrorNotice error={error} /> : null}
       {catalog?.errors?.length ? (
-        <div className="space-y-2 rounded-lg border border-border p-3" role="status">
+        <div
+          className="space-y-2 rounded-lg border border-border p-3 xl:max-h-28 xl:shrink-0 xl:overflow-y-auto xl:overscroll-contain"
+          role="status"
+          data-plugin-catalog-errors
+        >
           {catalog.errors.map((issue, index) => (
             <p key={index} className="break-words text-xs text-muted-foreground">
               {issue.plugin_id ? `${issue.plugin_id}: ` : ""}
@@ -869,9 +876,15 @@ function PluginsWorkspaceContent({
         </p>
       ) : (
         catalog && (
-          <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(220px,300px)_minmax(0,1fr)]">
-            <section className="min-w-0 space-y-3" aria-label={t("plugins.catalog")}>
-              <div className="relative">
+          <div
+            className="grid min-w-0 gap-5 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(220px,300px)_minmax(0,1fr)]"
+            data-plugin-columns
+          >
+            <section
+              className="min-w-0 space-y-3 xl:flex xl:min-h-0 xl:flex-col xl:gap-3 xl:space-y-0"
+              aria-label={t("plugins.catalog")}
+            >
+              <div className="relative shrink-0">
                 <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
                 <Input
                   value={query}
@@ -881,7 +894,10 @@ function PluginsWorkspaceContent({
                   className="pl-9"
                 />
               </div>
-              <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-1">
+              <div
+                className="grid min-w-0 gap-2 sm:grid-cols-2 xl:min-h-0 xl:flex-1 xl:auto-rows-max xl:grid-cols-1 xl:overflow-y-auto xl:overscroll-contain xl:pb-1 xl:pr-1"
+                data-plugin-list-scroll
+              >
                 {plugins.map((plugin) => (
                   <button
                     type="button"
@@ -930,7 +946,10 @@ function PluginsWorkspaceContent({
               )}
             </section>
             {selected && (
-              <div className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5">
+              <div
+                className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain"
+                data-plugin-detail-scroll
+              >
                 <PluginDetail
                   key={`${configId ?? "none"}:${selected.id}`}
                   plugin={selected}

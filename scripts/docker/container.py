@@ -21,6 +21,7 @@ try:
 except ModuleNotFoundError:  # The image deliberately supports Python 3.9.
     import tomli as tomllib
 
+STABLE_REPOSITORY = "https://github.com/pur1fying/blue_archive_auto_script.git"
 OCR_REPOSITORY = "https://github.com/pur1fying/BAAS_Cpp_prebuild.git"
 OCR_DIRECTORY = Path("core/ocr/baas_ocr_client/bin")
 
@@ -259,7 +260,8 @@ def healthcheck() -> int:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("repo_url", nargs="?", help="Service repository URL (required for first install)")
+    parser.add_argument("repo_url", nargs="?", default=STABLE_REPOSITORY,
+                        help="Repository to clone for a first install (default: stable)")
     parser.add_argument("--healthcheck", action="store_true")
     args = parser.parse_args(argv)
     if args.healthcheck:

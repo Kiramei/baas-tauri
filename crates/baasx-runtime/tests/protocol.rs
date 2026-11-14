@@ -2,7 +2,7 @@ use serde_json::Value;
 use std::process::Command;
 
 fn invoke(args: &[&str]) -> (bool, Vec<Value>) {
-    let output = Command::new(env!("CARGO_BIN_EXE_baas-cli-runtime"))
+    let output = Command::new(env!("CARGO_BIN_EXE_baasx-runtime"))
         .args(args)
         .output()
         .unwrap();
@@ -39,29 +39,6 @@ fn inspect_is_read_only_and_emits_a_single_result() {
 }
 
 #[test]
-fn stable_install_fails_without_creating_a_directory_or_reporting_download_progress() {
-    let parent = tempfile::tempdir().unwrap();
-    let root = parent.path().join("unused-runtime");
-    let (success, messages) = invoke(&[
-        "install",
-        "--root",
-        root.to_str().unwrap(),
-        "--channel",
-        "stable",
-    ]);
-    assert!(!success);
-    assert_eq!(messages.len(), 1);
-    assert_eq!(messages[0]["type"], "error");
-    assert_eq!(messages[0]["code"], "config");
-    assert_eq!(
-        messages[0]["message"],
-        baas_cli_runtime::DEV_BACKEND_REQUIRED
-    );
-    assert!(!root.exists());
-    assert_eq!(std::fs::read_dir(parent.path()).unwrap().count(), 0);
-}
-
-#[test]
 fn unmanaged_install_is_rejected_without_changing_existing_files() {
     let parent = tempfile::tempdir().unwrap();
     let existing = parent.path().join("settings.json");
@@ -71,20 +48,50 @@ fn unmanaged_install_is_rejected_without_changing_existing_files() {
         "--root",
         parent.path().to_str().unwrap(),
         "--channel",
-        "dev",
+        "stable",
     ]);
     assert!(!success);
     assert_eq!(messages.len(), 1);
     assert_eq!(messages[0]["type"], "error");
-    assert_eq!(messages[0]["code"], "config");
-    assert!(
-        messages[0]["message"]
-            .as_str()
-            .unwrap()
-            .contains("unmanaged")
-    );
+    match baas_updater::repo::cpp_branch_for(std::env::consts::OS, std::env::consts::ARCH) {
+        Ok(_) => {
+            assert_eq!(messages[0]["code"], "config");
+            assert!(
+                messages[0]["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("unmanaged")
+            );
+        }
+        Err(error) => {
+            assert_eq!(messages[0]["code"], "git");
+            assert_eq!(messages[0]["message"], error.message());
+        }
+    }
     assert_eq!(std::fs::read_to_string(existing).unwrap(), "user data");
     assert_eq!(std::fs::read_dir(parent.path()).unwrap().count(), 1);
+}
+
+#[test]
+fn missing_ocr_prebuild_cannot_create_installation_state() {
+    let Err(error) =
+        baas_updater::repo::cpp_branch_for(std::env::consts::OS, std::env::consts::ARCH)
+    else {
+        return;
+    };
+    let parent = tempfile::tempdir().unwrap();
+    let root = parent.path().join("new-runtime");
+    let (success, messages) = invoke(&[
+        "install",
+        "--channel",
+        "dev",
+        "--root",
+        root.to_str().unwrap(),
+    ]);
+    assert!(!success);
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0]["message"], error.message());
+    assert!(!root.exists());
 }
 
 #[test]

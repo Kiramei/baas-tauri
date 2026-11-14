@@ -26,8 +26,7 @@ import { shouldCancelInstallerFromEscape } from "@/shared/InstallerCancelShortcu
 interface UpdaterConfig {
   general?: {
     channel?: "stable" | "dev";
-    mirrorc_cdk?: string;
-    mirrorcCdk?: string;
+    mirrorc_cdk_configured?: boolean;
     no_update?: boolean;
     noUpdate?: boolean;
     transport?: "websocket" | "pipe" | "shm";
@@ -59,9 +58,6 @@ interface FailureInfo {
 
 const authReadyPhases = new Set(["server_verified", "waiting_password", "authenticated"]);
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
-  config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
 
 const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
   Boolean(config?.general?.no_update ?? config?.general?.noUpdate ?? false);
@@ -130,12 +126,12 @@ const SetupPage = () => {
   }, []);
 
   const persistConfig = useCallback(
-    async (path = installPath, nextConfig = config) => {
+    async (path = installPath, nextConfig = config, cdk?: string) => {
       const updated = await invoke<UpdaterConfig>("updater_update_config", {
         request: {
           baasRootPath: path,
           channel: nextConfig?.general?.channel ?? "stable",
-          mirrorcCdk: setupMirrorcCdk(nextConfig),
+          ...(cdk === undefined ? {} : { mirrorcCdk: cdk }),
           noUpdate: setupNoUpdate(nextConfig),
           transport: nextConfig?.general?.transport ?? normalizeTransportMode(undefined),
         },
@@ -230,9 +226,7 @@ const SetupPage = () => {
       if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
         throw new Error(
           useWebSocketStore.getState()._auth_error ||
-            (lastError instanceof Error
-              ? lastError.message
-              : "Backend authentication endpoint is not ready.")
+            (lastError instanceof Error ? lastError.message : t("installer.backendNotReady"))
         );
       }
 
@@ -246,15 +240,12 @@ const SetupPage = () => {
       }
 
       if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
-        throw new Error(
-          useWebSocketStore.getState()._auth_error ??
-            "Automatic login failed. Existing backend password may be different."
-        );
+        throw new Error(useWebSocketStore.getState()._auth_error ?? t("installer.autoLoginFailed"));
       }
 
       await useWebSocketStore.getState().init();
     },
-    []
+    [t]
   );
 
   const enterBackend = useCallback(
@@ -347,7 +338,7 @@ const SetupPage = () => {
       .map((log) => `[${log.time}] [${log.level.toUpperCase()}] ${log.message}`)
       .join("\n");
     void navigator.clipboard.writeText(text);
-    toast.success("Logs copied to clipboard");
+    toast.success(t("log.copied"));
   };
 
   const returnToSetup = async () => {
@@ -467,7 +458,7 @@ const SetupPage = () => {
                   showWorkflowFailure(
                     {
                       step: "workflow",
-                      message: "Updater workflow did not complete successfully.",
+                      message: t("installer.workflowFailed"),
                     },
                     true
                   );
@@ -499,21 +490,23 @@ const SetupPage = () => {
             )}
           </div>
         )}
-        <ConfigEditorModal
-          config={config ?? {}}
-          setConfig={setConfig}
-          open={settingModal}
-          onCancel={() => setSettingModal(false)}
-          onConfirm={async () => {
-            await persistConfig();
-            setSettingModal(false);
-          }}
-        />
+        {settingModal && (
+          <ConfigEditorModal
+            config={config ?? {}}
+            setConfig={setConfig}
+            open
+            onCancel={() => setSettingModal(false)}
+            onConfirm={async (cdk) => {
+              await persistConfig(installPath, config, cdk);
+              setSettingModal(false);
+            }}
+          />
+        )}
       </InstallerLayout>
       <Modal
         isOpen={failure !== null}
         onClose={() => setFailure(null)}
-        title="Setup Error"
+        title={t("installer.errorTitle")}
         width={72}
       >
         <div className="space-y-3 max-h-[78vh] overflow-y-auto pr-1">
@@ -522,12 +515,11 @@ const SetupPage = () => {
             <div className="mt-1 whitespace-pre-wrap text-foreground">{failure?.message}</div>
           </div>
           <div className="rounded-lg border border-border bg-secondary/50 p-3 text-sm text-foreground">
-            Return to setup to change the install path or retry. Copy logs before reporting this
-            issue.
+            {t("installer.errorHint")}
           </div>
           <div className="rounded-md bg-slate-950 text-slate-100 p-3 max-h-[44vh] overflow-auto text-xs font-mono whitespace-pre-wrap break-words">
             {terminalLogData.length === 0
-              ? "No structured logs captured."
+              ? t("installer.noStructuredLogs")
               : terminalLogData.map((log, index) => (
                   <div key={`${log.time}-${index}`} className="leading-5">
                     [{log.time}] [{log.level.toUpperCase()}] {log.message}
@@ -537,11 +529,11 @@ const SetupPage = () => {
           <div className="modal-footer">
             <Button variant="secondary" onClick={returnToSetup}>
               <RotateCcw className="w-4 h-4 mr-2" />
-              Back to Setup
+              {t("installer.backToSetup")}
             </Button>
             <Button variant="outline" onClick={copyFailureLogs}>
               <Copy className="w-4 h-4 mr-2" />
-              Copy Logs
+              {t("settings.systemLogs.copy")}
             </Button>
           </div>
         </div>

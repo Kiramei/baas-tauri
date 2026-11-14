@@ -295,7 +295,9 @@ class ShizukuShellService : IShizukuShellService.Stub {
       if (Process.myUid() != Process.SHELL_UID || !PrivilegedExecution.supportsPreviewFocus(android.os.Build.VERSION.SDK_INT) ||
         display == null || display.flags and (1 shl 7) != 0 || activePackage.isBlank()) return@synchronized -1
       checkGamePlacement()
-      if (GameTaskTransfer.needsPreviewFocus(activePackage, display.displayId)) display.displayId else -1
+      if (GameTaskTransfer.needsPreviewFocus(activePackage, display.displayId) ||
+        (GameTaskTransfer.topPackage(display.displayId) == activePackage &&
+          DisplayInput.focusedDisplayId() != display.displayId)) display.displayId else -1
     }
   }
 

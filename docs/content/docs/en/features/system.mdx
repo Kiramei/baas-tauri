@@ -1,9 +1,9 @@
 ---
-title: System Settings
+title: Preferences
 description: Every settings category, local persistence, appearance controls, application/global shortcuts, transport and system-log operations.
 ---
 
-Open **Settings** from the navigation rail. The desktop sidebar contains General, Appearance, Shortcuts, Connection & runtime, Updates and Logs; narrow windows use a category selector. Android hides Shortcuts and retains the other five categories. Search locates settings and categories.
+Open **Preferences** from the navigation rail. Earlier screenshots may still show the former Settings label. The desktop sidebar contains General, Appearance, Shortcuts, Connection & runtime, Updates and Logs; narrow windows use a category selector. Android hides Shortcuts and retains the other five categories. Search locates settings and categories.
 
 Most appearance/preferences are **client-wide**, not part of the selected game profile. They update immediately and persist locally (`uiSettings`, batched after about 150 ms). Switching profiles does not provide separate colors or decoder preferences. Profile task changes use a different [configuration history](../guide/configuration).
 
@@ -43,6 +43,7 @@ The last three are native desktop controls. Android omits the notification/tray/
 | Background opacity | Slider 0–60%, step 1%; `backgroundImageOpacity`. Zero hides the image without removing its stored bytes |
 | UI scale           | 50–150% in ten-point steps; `zoomScale`. Changes the client UI, not game/device resolution              |
 | Resources          | Show/hide the Home resource strip; `assetsDisplay`. Hiding it does not stop backend collection          |
+| BACursors          | Enable themed cursors; `enableBACursors`, default on. Desktop and WebUI only; disabling restores host cursors |
 | BAComet            | Toggle the optional visual effect; `enableBAComet`                                                      |
 
 <img
@@ -56,6 +57,8 @@ The outer hex field accepts exactly `#RRGGBB`; blur or Enter commits it. Invalid
 Backgrounds accept PNG, JPG/JPEG, WebP or GIF, at most **5 MiB**. Native clients read a selected file; WebUI uses the browser's file selector. Cancel leaves the current image unchanged. Bytes are embedded in local settings, not uploaded as a public documentation asset. Remove is disabled without an image and removes it immediately without a confirmation dialog.
 
 The Android initial-zoom migration sets 80% once. Later changes use the same UI scale control.
+
+Desktop run notifications distinguish failures from normal stops, combine bursts, replace older notices and expire automatically. Enabling notifications still depends on OS permission and focus settings. On macOS, application actions and shortcuts appear in the system menu bar.
 
 ## Shortcuts
 
@@ -73,7 +76,7 @@ These bindings are window-local, not OS-global script triggers. Use a row's reco
 | ------------------------ | --------------------- | ------------- |
 | Undo, `undo`             | Ctrl+Z                | Cmd+Z         |
 | Redo, `redo`             | Ctrl+Y                | Cmd+Shift+Z   |
-| Settings, `settings`     | Ctrl+,                | Cmd+,         |
+| Preferences, `settings`     | Ctrl+,                | Cmd+,         |
 | Sidebar, `sidebar`       | Ctrl+Shift+S          | Cmd+Shift+S   |
 | Back, `back`             | Alt+Left              | Alt+Left      |
 | Forward, `forward`       | Alt+Right             | Alt+Right     |

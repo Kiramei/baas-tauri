@@ -34,7 +34,7 @@ export const useModalFocus = (
         ref.current?.querySelectorAll<HTMLElement>(
           "button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex]:not([tabindex='-1'])"
         ) ?? []
-      ).filter((element) => element.getClientRects().length > 0);
+      ).filter((element) => !element.closest("[inert]") && element.getClientRects().length > 0);
     const frame = requestAnimationFrame(() => {
       (
         ref.current?.querySelector<HTMLElement>("[data-autofocus]") ??

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { auditUiText, placeholderErrors } from "./i18n-validation.mjs";
 
 const root = process.cwd();
 const localeDir = path.join(root, "public", "locales");
@@ -165,7 +166,6 @@ const manualTranslations = {
     "androidSetup.title": "配置 BAAS",
     "androidSetup.subtitle": "每一步都显示后端真实状态；出错时保留完整输出。",
     "androidSetup.channelTitle": "选择更新通道",
-    "androidSetup.channelUnavailable": "稳定版暂不支持 Android。",
     "androidSetup.awaitingConfirmation": "等待确认",
     "androidSetup.confirmInstall": "确认并安装",
     "androidSetup.channelHint": "选择此设备安装 BAAS 的来源，之后可在设置中修改。",
@@ -353,7 +353,6 @@ const manualTranslations = {
     "androidSetup.title": "Set up BAAS",
     "androidSetup.subtitle": "Every step reports the real backend state; failures keep the full output.",
     "androidSetup.channelTitle": "Choose the update channel",
-    "androidSetup.channelUnavailable": "Stable is not currently available on Android.",
     "androidSetup.awaitingConfirmation": "Awaiting confirmation",
     "androidSetup.confirmInstall": "Confirm and install",
     "androidSetup.channelHint": "Pick where this device installs BAAS from. You can change it later in Settings.",
@@ -1092,7 +1091,16 @@ function check(localesByLang, usedKeys, badKeys, disallowedDynamic) {
     }
   }
 
-  errors.push(...badKeys, ...disallowedDynamic);
+  errors.push(...placeholderErrors(localesByLang), ...badKeys, ...disallowedDynamic);
+  for (const file of walkSource(srcDir)) {
+    const relative = path.relative(root, file).replaceAll(path.sep, "/");
+    for (const issue of auditUiText(fs.readFileSync(file, "utf8"), relative, {
+      translationKeys: expected,
+      allowedLiterals: allowlist.allowedUiLiterals,
+    })) {
+      errors.push(`${issue.file}:${issue.line}: untranslated UI text '${issue.text}'`);
+    }
+  }
   if (errors.length) {
     console.error(errors.join("\n"));
     process.exitCode = 1;

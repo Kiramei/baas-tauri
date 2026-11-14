@@ -5,6 +5,28 @@ description: BAAS Tauri 各版本更新内容、影响范围、升级建议和�
 
 本页记录 BAAS Tauri 桌面端、Android 端、更新器、文档站和运行时相关的版本变化。遇到升级后的异常时，先确认当前版本，再对照对应版本的“影响范围”和“升级建议”排查。
 
+## 0.0.10
+
+本版本增加 Android 签名客户端更新、稳定版后端默认安装和本机 MirrorChyan CDK 管理，并改进客户端交互与发布流程。安装包和发布状态见 [0.0.10 发布页](https://github.com/Kiramei/baas-tauri/releases/tag/0.0.10)。
+
+- 新安装后端默认使用稳定版，已有安装继续使用保存的通道；偏好中仍可选择开发版。
+- Android 在打开系统安装器之前验证 APK 签名；页面重连避免重启仍在运行的游戏，并识别国际服 Teen 和 ONE store 版本。单独的设备启动按钮已隐藏，设备相关捕获和启动限制见 [Android 指南](../guide/android)。
+- Android 修复虚拟显示焦点恢复，界面交互后预览帧可继续推进，并清理临时焦点图层。等待画面、黑屏、停帧和错误仅显示在右上角状态标签，不再遮挡游戏画面；点击标签可打开原生操作菜单。
+- 桌面和 Android 将验证成功的 MirrorChyan CDK 保存在设备私有目录，稳定版后端包应用前会核对 SHA-256。参见[更新设置](../features/update)。
+- CI 根据改动所属模块、前后端层和适用平台执行检查，文档与 README 使用独立检查。
+- BAASX 支持六种操作系统与架构组合及 npm 可选运行时包，原生 helper 为 `baasx-runtime`，兼容旧名称查找。registry 安装入口为 `@kiramei/baasx`，无作用域名称继续暂停，见 [BAASX 安装](../baasx/installation)。
+- 配置支持 ZIP 和文件夹导入，重名自动编号，`default_config` 导入为普通配置。macOS 使用系统菜单栏，宽屏插件左右面板独立滚动。
+- Windows 便携客户端更新保留便携模式；受管依赖安装成功后清理本机 UV 缓存。配置可持续显示明确的运行失败，桌面运行通知合并显示，外观增加 BACursors 开关。
+- Android 首页操作反馈写入配置日志，移除隐藏配置操作所占的空白；任务队列保持预览显示，保留原生文字选择与复制。Android 全页面禁用应用右键和长按菜单，首页以外仍可使用显式操作菜单。
+- 全局设置更名为“偏好”。全端应用右键菜单移除 Inspect 和重载，重载按钮位于“偏好 → 通用”，并补齐各语言搜索入口。配置下拉列表保留上下溢出指示器，触摸滑动不再造成列表位移或焦点回卷。
+- 客户端发布流程将普通 Windows 安装器、macOS DMG、Linux DEB 和 Android ARM64 APK 上传到 MirrorChyan 的 `baas-tauri` 资源并同步更新说明。可选上游镜像仅传输带平台标识的安装文件，以 `tauri-<版本>` 预发布提供；排除 Windows 便携文件、更新器归档和签名，不改变上游 Latest。
+
+升级前导出重要配置档，Android 安装 APK 需要系统确认。限定真机检查使用 Android 12 ARM64 debug 候选，覆盖启动、本机 OCR、既有 `restart` 任务及预览焦点和帧推进；不代表完整日常任务、全部手势、其他设备兼容性或长期后台运行已通过验收。
+
+## 0.0.9.post1
+
+该稳定维护版改进 Android 首次安装、后端安装恢复和启动诊断，同时改善配置档初始化、配置导航与本地化，并统一公开版本和原生平台版本的排序。已发布安装包和升级说明见 [0.0.9.post1 发布页](https://github.com/Kiramei/baas-tauri/releases/tag/0.0.9.post1)。
+
 ## v0.0.9
 
 安装包、签名和发布状态以 [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases) 为准。

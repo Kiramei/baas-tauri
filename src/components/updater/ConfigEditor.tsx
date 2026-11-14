@@ -1,4 +1,4 @@
-import { invoke } from "@/shared/TauriInvoke";
+import { MirrorCdkField } from "@/components/settings/MirrorCdkField";
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import { toast } from "sonner";
@@ -7,12 +7,11 @@ import { loadLocale } from "@/shared/I18nTranslator";
 import type { Theme } from "@/types/app";
 import { useTheme } from "@/context/ThemeProvider";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
-import { FormInput } from "@/components/ui/FormInput.tsx";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import CButton from "@/components/ui/CButton.tsx";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 import { ThemeSelector } from "@/components/ui/ThemeSelector";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useModalFocus } from "@/components/ui/Modal";
 import { createPortal } from "react-dom";
 import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx";
@@ -21,27 +20,10 @@ import { isMacOS, normalizeTransportMode, supportsSharedMemory } from "@/transpo
 type Channel = "stable" | "dev";
 type Transport = "websocket" | "pipe" | "shm";
 
-interface MirrorCValidateReport {
-  success: boolean;
-  code?: number | null;
-  message: string;
-  mirrorcMessage?: string | null;
-  latestVersion?: string | null;
-  expiresAt?: number | null;
-  expiresAtIso?: string | null;
-}
-
-interface MirrorCStatus {
-  tone: "success" | "error" | "info";
-  title: string;
-  detail: string;
-}
-
 interface UpdaterConfig {
   general?: {
     channel?: Channel;
-    mirrorc_cdk?: string;
-    mirrorcCdk?: string;
+    mirrorc_cdk_configured?: boolean;
     no_update?: boolean;
     noUpdate?: boolean;
     transport?: Transport;
@@ -54,13 +36,10 @@ interface ConfigEditorProps {
   open: boolean;
   disabled?: boolean;
   onCancel: () => void;
-  onConfirm: () => void | Promise<void>;
+  onConfirm: (cdk?: string) => void | Promise<void>;
 }
 
 const overlayCls = "fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-[1100]";
-
-const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
-  config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
 
 const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
   Boolean(config?.general?.no_update ?? config?.general?.noUpdate ?? false);
@@ -74,20 +53,12 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
     (settings) => settings.autoEnterAfterInstall !== false
   );
   const setUISettings = useSetUISettings();
-  const [cdkInput, setCdkInput] = useState(setupMirrorcCdk(props.config));
+  const [pendingCdk, setPendingCdk] = useState<string>();
   const [validating, setValidating] = useState(false);
-  const [cdkStatus, setCdkStatus] = useState<MirrorCStatus | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const autoEnterHintId = useId();
   useModalFocus(props.open, panelRef, props.onCancel);
-
-  useEffect(() => {
-    if (props.open) {
-      setCdkInput(setupMirrorcCdk(props.config));
-      setCdkStatus(null);
-    }
-  }, [props.open, props.config]);
 
   if (!props.open) return null;
 
@@ -116,71 +87,6 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme);
     setUISettings((settings) => ({ ...settings, theme: newTheme }));
-  };
-
-  const describeMirrorCReport = (report: MirrorCValidateReport) => {
-    const parts = [report.message];
-    if (report.expiresAtIso) parts.push(`Expires at: ${report.expiresAtIso}`);
-    if (report.latestVersion) parts.push(`Latest version: ${report.latestVersion}`);
-    if (!report.success && report.code != null) parts.push(`Code: ${report.code}`);
-    if (!report.success && report.mirrorcMessage && report.mirrorcMessage !== report.message) {
-      parts.push(`MirrorC: ${report.mirrorcMessage}`);
-    }
-    return parts.join("\n");
-  };
-
-  const validateMirrorC = async () => {
-    setValidating(true);
-    setCdkStatus({
-      tone: "info",
-      title: "Validating MirrorC CDK",
-      detail: "Waiting for MirrorC response...",
-    });
-    try {
-      const report = await invoke<MirrorCValidateReport>("updater_validate_mirrorc_cdk", {
-        request: {
-          cdk: cdkInput,
-          channel,
-        },
-      });
-      const detail = describeMirrorCReport(report);
-      if (report.success) {
-        patchGeneral({ mirrorc_cdk: cdkInput.trim() });
-        setCdkStatus({
-          tone: "success",
-          title: "MirrorC CDK valid",
-          detail,
-        });
-        toast.success("MirrorC CDK valid", {
-          description: detail,
-        });
-      } else {
-        setCdkInput("");
-        patchGeneral({ mirrorc_cdk: "" });
-        setCdkStatus({
-          tone: "error",
-          title: "MirrorC CDK invalid",
-          detail,
-        });
-        toast.error("MirrorC CDK invalid", {
-          description: detail,
-        });
-      }
-    } catch (error) {
-      setCdkInput("");
-      patchGeneral({ mirrorc_cdk: "" });
-      const detail = error instanceof Error ? error.message : String(error);
-      setCdkStatus({
-        tone: "error",
-        title: "MirrorC CDK validation failed",
-        detail,
-      });
-      toast.error("MirrorC CDK validation failed", {
-        description: detail,
-      });
-    } finally {
-      setValidating(false);
-    }
   };
 
   return createPortal(
@@ -232,7 +138,10 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
             <FormSelect
               label={t("update.channel")}
               value={channel}
-              onChange={(value) => patchGeneral({ channel: value as Channel })}
+              onChange={(value) => {
+                patchGeneral({ channel: value as Channel });
+              }}
+              disabled={validating}
               options={[
                 { value: "stable", label: t("updateChannel.stable") },
                 { value: "dev", label: t("updateChannel.dev") },
@@ -270,41 +179,21 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
               {t("installer.autoEnterHint")}
             </p>
           </div>
-          <div className="flex gap-2 items-end border-t border-border/70 pt-5">
-            <FormInput
+          {channel === "stable" && (
+            <MirrorCdkField
+              key={channel}
               label={t("update.mirrorCdk")}
-              value={cdkInput}
-              onChange={(event) => {
-                setCdkInput(event.target.value);
-                setCdkStatus(null);
-              }}
-              placeholder={t("update.enterCdk")}
-              className="flex-1"
-              disabled={validating}
+              channel={channel}
+              configured={
+                pendingCdk === undefined
+                  ? !!props.config.general?.mirrorc_cdk_configured
+                  : !!pendingCdk
+              }
+              pendingKey={pendingCdk}
+              disabled={props.disabled}
+              onChange={setPendingCdk}
+              onBusy={setValidating}
             />
-            <CButton
-              type="button"
-              variant="secondary"
-              disabled={validating}
-              onClick={validateMirrorC}
-              className="min-w-24"
-            >
-              {validating ? t("mirror.verifying") : t("mirror.verify")}
-            </CButton>
-          </div>
-          {cdkStatus && (
-            <div
-              className={`rounded-md border px-3 py-2 text-sm whitespace-pre-wrap ${
-                cdkStatus.tone === "success"
-                  ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
-                  : cdkStatus.tone === "error"
-                    ? "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300"
-                    : "border-border bg-secondary/50 text-foreground"
-              }`}
-            >
-              <div className="font-medium">{cdkStatus.title}</div>
-              <div className="mt-1">{cdkStatus.detail}</div>
-            </div>
           )}
         </div>
 
@@ -317,7 +206,15 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
           >
             {t("common.cancel")}
           </CButton>
-          <CButton type="button" onClick={props.onConfirm} disabled={props.disabled}>
+          <CButton
+            type="button"
+            onClick={() =>
+              void Promise.resolve(props.onConfirm(pendingCdk)).catch(() =>
+                toast.error(t("mirrorc.cdk.requestFailed"))
+              )
+            }
+            disabled={props.disabled || validating}
+          >
             {t("common.confirm")}
           </CButton>
         </div>

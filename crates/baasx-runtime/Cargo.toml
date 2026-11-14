@@ -1,0 +1,18 @@
+[package]
+name = "baasx-runtime"
+version = "0.0.10"
+edition = "2024"
+description = "Headless managed backend installer and launch specifications for BAASX"
+
+[dependencies]
+baas-updater = { path = "../baas-updater", default-features = false }
+baas-term = { path = "../baas-term", default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+ctrlc = { version = "3.4", features = ["termination"] }
+reqwest = { version = "0.13.4", features = ["blocking", "json"] }
+git2 = "0.21.0"
+tempfile = { workspace = true }
+cap-std = "4.0.3"
+cap-fs-ext = "4.0.3"

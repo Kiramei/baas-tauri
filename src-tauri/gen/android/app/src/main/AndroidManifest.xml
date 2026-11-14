@@ -13,6 +13,8 @@
         <package android:name="com.RoamingStar.BlueArchive" />
         <package android:name="com.YostarJP.BlueArchive" />
         <package android:name="com.nexon.bluearchive" />
+        <package android:name="com.nexon.bluearchiveteen" />
+        <package android:name="com.nexon.bluearchiveone" />
         <package android:name="moe.shizuku.privileged.api" />
     </queries>
 

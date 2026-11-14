@@ -13,11 +13,11 @@ use baas_updater::{
         backend_pid_path, launch_backend_command, launch_backend_pipe_command,
         launch_backend_shm_command, validate_backend_shm_support, HttpSourceProbe,
     },
-    mirrorc::{MirrorCClient, ReqwestMirrorHttp},
     repo::{repository_branch, repository_urls, SourceSelector},
     GitBackend, RepositoryKind, UpdateChannel, WorkflowOptions,
 };
-use chrono::{DateTime, Local, Utc};
+use chrono::Utc;
+use crate::{mirrorc_credentials, mirrorc_validation::{validate, MirrorCValidateReport}};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -72,7 +72,7 @@ pub struct StorageStartupState {
 #[serde(rename_all = "camelCase")]
 pub struct UpdaterStartupState {
     pub config_path: PathBuf,
-    pub config: UpdaterConfig,
+    pub config: serde_json::Value,
     pub default_install_path: PathBuf,
     pub install_path: PathBuf,
     pub portable: bool,
@@ -96,21 +96,8 @@ pub struct UpdaterConfigUpdateRequest {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MirrorCValidateRequest {
-    pub cdk: String,
+    pub cdk: Option<String>,
     pub channel: Option<String>,
-}
-
-/// MirrorC CDK validation result returned to the setup wizard.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MirrorCValidateReport {
-    pub success: bool,
-    pub code: Option<i32>,
-    pub message: String,
-    pub mirrorc_message: Option<String>,
-    pub latest_version: Option<String>,
-    pub expires_at: Option<u64>,
-    pub expires_at_iso: Option<String>,
 }
 
 /// Terminal workflow start request.
@@ -615,12 +602,13 @@ pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, 
             .clone()
             .unwrap_or_else(|| default_install_path.clone())
     };
-    let manager = config_manager_for_install_path(&install_path, portable)?;
+    let manager = config_manager_for_install_path(&app, &install_path, portable)?;
+    let config = public_updater_config(&manager.config, &mirrorc_dir(&app)?)?;
     let baas_root_exists_non_empty = portable || stored_install_path.is_some();
 
     Ok(UpdaterStartupState {
         config_path: manager.config_path,
-        config: manager.config,
+        config,
         default_install_path,
         install_path,
         portable,
@@ -633,7 +621,7 @@ pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, 
 pub fn updater_update_config(
     app: AppHandle,
     request: UpdaterConfigUpdateRequest,
-) -> Result<UpdaterConfig, String> {
+) -> Result<serde_json::Value, String> {
     system_log(
         "INFO",
         "updater",
@@ -676,9 +664,6 @@ pub fn updater_update_config(
             if let Some(path) = request_baas_root_path {
                 config.paths.baas_root_path = persisted_baas_root_path(&path, portable);
             }
-            if let Some(cdk) = request.mirrorc_cdk {
-                config.general.mirrorc_cdk = cdk.trim().to_string();
-            }
             if let Some(channel) = parsed_channel {
                 config.general.channel = channel;
             }
@@ -696,73 +681,26 @@ pub fn updater_update_config(
             }
         })
         .map_err(|error| error.message())?;
-    Ok(manager.config)
+    let directory = mirrorc_dir(&app)?;
+    if let Some(cdk) = request.mirrorc_cdk {
+        mirrorc_credentials::store(&directory, &cdk)?;
+    }
+    public_updater_config(&manager.config, &directory)
 }
 
-/// Performs the updater validate mirrorc cdk operation.
 #[tauri::command]
-pub fn updater_validate_mirrorc_cdk(
+pub async fn updater_validate_mirrorc_cdk(
     app: AppHandle,
     request: MirrorCValidateRequest,
 ) -> Result<MirrorCValidateReport, String> {
-    system_log(
-        "DEBUG",
-        "updater",
-        format!(
-            "MirrorC validation requested cdk_present={}",
-            !request.cdk.trim().is_empty()
-        ),
-    );
-    let cdk = request.cdk.trim().to_string();
-    let channel = match request.channel.as_deref() {
-        Some(value) => UpdateChannel::parse(value).map_err(|error| error.message())?,
-        None => ensure_default_config(&app)?.config.general.channel,
+    let manager = ensure_default_config(&app)?;
+    let channel = parse_requested_channel(request.channel.as_deref(), manager.config.general.channel)?;
+    let cdk = match request.cdk {
+        Some(cdk) => cdk,
+        None => mirrorc_credentials::load(&mirrorc_dir(&app)?)?,
     };
-
-    let report = if cdk.is_empty() {
-        MirrorCValidateReport {
-            success: false,
-            code: Some(7002),
-            message: "CDK invalid.".to_string(),
-            mirrorc_message: None,
-            latest_version: None,
-            expires_at: None,
-            expires_at_iso: None,
-        }
-    } else {
-        let client = MirrorCClient::new(ReqwestMirrorHttp);
-        match client.latest(RepositoryKind::Main, channel, "", &cdk) {
-            Ok(latest) => {
-                let success = latest.is_success();
-                let expires_at_iso = format_mirrorc_expiry(latest.cdk_expired_time);
-                let message = mirrorc_validation_message(
-                    latest.code,
-                    &latest.message,
-                    expires_at_iso.as_deref(),
-                );
-                MirrorCValidateReport {
-                    success,
-                    code: Some(latest.code),
-                    message,
-                    mirrorc_message: Some(latest.message.clone()),
-                    latest_version: latest.latest_version_name,
-                    expires_at: latest.cdk_expired_time,
-                    expires_at_iso,
-                }
-            }
-            Err(error) => MirrorCValidateReport {
-                success: false,
-                code: None,
-                message: error.message(),
-                mirrorc_message: None,
-                latest_version: None,
-                expires_at: None,
-                expires_at_iso: None,
-            },
-        }
-    };
-
-    Ok(report)
+    tauri::async_runtime::spawn_blocking(move || validate(&cdk, channel))
+        .await.map_err(|_| "MirrorChyan validation worker failed".to_string())
 }
 
 /// Handles the tauri client check update workflow.
@@ -781,7 +719,7 @@ pub async fn tauri_client_check_update(
         .filter(|value| !value.trim().is_empty())
         .map(|value| display_version(&value))
         .unwrap_or_else(|| display_version(&app.package_info().version.to_string()));
-    let endpoints = TAURI_UPDATE_ENDPOINTS
+    let endpoints = client_update_endpoints(&app)
         .iter()
         .map(|endpoint| endpoint.to_string())
         .collect::<Vec<_>>();
@@ -805,8 +743,7 @@ pub async fn tauri_client_check_update(
         let parsed = endpoint
             .parse::<url::Url>()
             .map_err(|error| error.to_string())?;
-        let updater = app
-            .updater_builder()
+        let updater = client_updater_builder(&app)?
             .endpoints(vec![parsed])
             .map_err(|error| error.to_string())?
             .build()
@@ -860,8 +797,8 @@ pub async fn tauri_client_check_update(
 pub async fn tauri_client_download_and_install(
     app: AppHandle,
     on_event: Channel<ClientUpdateEvent>,
-) -> Result<bool, String> {
-    let endpoints = TAURI_UPDATE_ENDPOINTS
+) -> Result<serde_json::Value, String> {
+    let endpoints = client_update_endpoints(&app)
         .iter()
         .map(|endpoint| endpoint.to_string())
         .collect::<Vec<_>>();
@@ -885,8 +822,7 @@ pub async fn tauri_client_download_and_install(
         let parsed = endpoint
             .parse::<url::Url>()
             .map_err(|error| error.to_string())?;
-        let updater = app
-            .updater_builder()
+        let updater = client_updater_builder(&app)?
             .endpoints(vec![parsed])
             .map_err(|error| error.to_string())?
             .build()
@@ -894,6 +830,55 @@ pub async fn tauri_client_download_and_install(
         let attempt = match updater.check().await {
             Ok(Some(update)) => {
                 let mut first_chunk = true;
+                #[cfg(windows)]
+                if crate::portable_client_update::is_portable_client(&app) {
+                    crate::portable_client_update::validate_download(&app, &update.download_url)?;
+                    let download = update
+                        .download(
+                            |chunk_length, content_length| {
+                                if first_chunk {
+                                    first_chunk = false;
+                                    let _ = on_event
+                                        .send(ClientUpdateEvent::Started { content_length });
+                                }
+                                let _ = on_event.send(ClientUpdateEvent::Progress { chunk_length });
+                            },
+                            || {
+                                let _ = on_event.send(ClientUpdateEvent::Finished);
+                            },
+                        )
+                        .await;
+                    let bytes = match download {
+                        Ok(bytes) => bytes,
+                        Err(error) => {
+                            system_log(
+                                "WARNING",
+                                "client_update",
+                                format!("Portable download from {endpoint} failed: {error}"),
+                            );
+                            selector
+                                .mark_failed(&endpoint)
+                                .map_err(|error| error.message())?;
+                            continue;
+                        }
+                    };
+                    let helper_app = app.clone();
+                    let version = update.version.clone();
+                    selector
+                        .mark_succeeded(&endpoint)
+                        .map_err(|error| error.message())?;
+                    tauri::async_runtime::spawn_blocking(move || {
+                        crate::portable_client_update::prepare(&helper_app, bytes, version)
+                    })
+                    .await
+                    .map_err(|error| error.to_string())??;
+                    let exiting = app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        tokio::time::sleep(Duration::from_millis(300)).await;
+                        exiting.exit(0);
+                    });
+                    return Ok(serde_json::json!({ "restartManaged": true }));
+                }
                 update
                     .download_and_install(
                         |chunk_length, content_length| {
@@ -920,7 +905,7 @@ pub async fn tauri_client_download_and_install(
                 selector
                     .mark_succeeded(&endpoint)
                     .map_err(|error| error.message())?;
-                return Ok(installed);
+                return Ok(serde_json::Value::Bool(installed));
             }
             Err(error) => {
                 system_log(
@@ -933,6 +918,38 @@ pub async fn tauri_client_download_and_install(
                     .map_err(|error| error.message())?;
             }
         }
+    }
+}
+
+fn client_update_endpoints(app: &AppHandle) -> &'static [&'static str] {
+    #[cfg(windows)]
+    if crate::portable_client_update::uses_fixed_runtime(app) {
+        return crate::portable_client_update::FIXED_ENDPOINTS;
+    }
+    let _ = app;
+    TAURI_UPDATE_ENDPOINTS
+}
+
+fn client_updater_builder(app: &AppHandle) -> Result<tauri_plugin_updater::UpdaterBuilder, String> {
+    let builder = app.updater_builder();
+    #[cfg(windows)]
+    if crate::portable_client_update::is_portable_client(app) {
+        return Ok(builder.target(crate::portable_client_update::portable_target()?));
+    }
+    Ok(builder)
+}
+
+/// Confirms the new React root committed without waiting for backend installation.
+#[tauri::command]
+pub fn tauri_client_update_ready(app: AppHandle) -> Result<serde_json::Value, String> {
+    #[cfg(windows)]
+    {
+        return crate::portable_client_update::ready(&app);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Ok(serde_json::json!({ "acknowledged": false }))
     }
 }
 
@@ -999,7 +1016,12 @@ pub fn updater_check_version(
         parse_requested_channel(request.channel.as_deref(), manager.config.general.channel)?;
     let local = desktop_local_main_sha(&manager.config);
     let preferred_method = normalized_sha_method(&manager.config.general.get_remote_sha_method);
-    let (method, remote) = desktop_first_remote_sha(channel, &preferred_method)?;
+    let (method, remote) = if channel == UpdateChannel::Stable &&
+        (!mirrorc_credentials::load(&mirrorc_dir(&app)?)?.is_empty() || preferred_method == "mirrorc") {
+        ("mirrorc".to_string(), crate::mirrorc_validation::remote_version(channel)?)
+    } else {
+        desktop_first_remote_sha(channel, &preferred_method)?
+    };
     Ok(UpdaterVersionCheckReport {
         update_available: local.as_deref() != Some(remote.as_str()),
         local,
@@ -1031,7 +1053,7 @@ pub async fn updater_test_sha_methods(
     let mut tasks = JoinSet::new();
     for (order, (name, url)) in sha_method_sources(channel).into_iter().enumerate() {
         let branch = branch.clone();
-        tasks.spawn(run_sha_probe(name, order as i32, url, branch, timeout));
+        tasks.spawn(run_sha_probe(channel, name, order as i32, url, branch, timeout));
     }
 
     let mut reports = Vec::new();
@@ -1064,7 +1086,7 @@ pub async fn updater_test_sha_method(
         .find(|(_, (method, _))| method == &name)
         .map(|(index, (_, url))| (index as i32, url))
         .unwrap_or((-1, None));
-    Ok(run_sha_probe(name, order, url, branch, timeout).await)
+    Ok(run_sha_probe(channel, name, order, url, branch, timeout).await)
 }
 
 /// Performs the updater start workflow operation.
@@ -1134,10 +1156,12 @@ pub fn updater_start_workflow(
     } else {
         None
     };
+    let credential_dir = mirrorc_dir(&app)?;
     let session = manager.start(
         app,
         WorkflowOptions {
             config_path: Some(config_manager.config_path),
+            mirrorc_credential_dir: Some(credential_dir),
             install_path: Some(install_path),
             launch: request.launch.unwrap_or(true),
             pipe_name,
@@ -1350,6 +1374,7 @@ fn sha_test_timeout(timeout: Option<f64>) -> Duration {
 
 /// Performs the run sha probe operation.
 async fn run_sha_probe(
+    channel: UpdateChannel,
     name: String,
     order: i32,
     url: Option<String>,
@@ -1358,33 +1383,20 @@ async fn run_sha_probe(
 ) -> UpdaterShaTestReport {
     let start = Instant::now();
     let worker_name = name.clone();
-    let worker = tauri::async_runtime::spawn_blocking(move || match url {
-        Some(url) => match git_ls_remote_with_timeout(&url, &branch, timeout) {
-            Ok(value) => UpdaterShaTestReport {
-                success: true,
-                name: worker_name,
-                order,
-                duration: start.elapsed().as_secs_f64(),
-                value: Some(value),
-                error: None,
-            },
-            Err(error) => UpdaterShaTestReport {
-                success: false,
-                name: worker_name,
-                order: -1,
-                duration: start.elapsed().as_secs_f64(),
-                value: None,
-                error: Some(error),
-            },
-        },
-        None => UpdaterShaTestReport {
-            success: false,
+    let worker = tauri::async_runtime::spawn_blocking(move || {
+        let result = match url {
+            Some(url) => git_ls_remote_with_timeout(&url, &branch, timeout),
+            None if worker_name == "mirrorc" => crate::mirrorc_validation::remote_version_with_timeout(channel, timeout),
+            None => Err("Unknown revision source".to_owned()),
+        };
+        UpdaterShaTestReport {
+            success: result.is_ok(),
             name: worker_name,
-            order: -1,
+            order: if result.is_ok() { order } else { -1 },
             duration: start.elapsed().as_secs_f64(),
-            value: None,
-            error: Some("not a git source".to_string()),
-        },
+            value: result.as_ref().ok().cloned(),
+            error: result.err(),
+        }
     });
 
     match time::timeout(timeout + Duration::from_millis(100), worker).await {
@@ -1621,7 +1633,7 @@ pub fn ensure_default_config(app: &AppHandle) -> Result<ConfigManager, String> {
     let portable = is_portable_install();
     let default_install_path = default_install_path();
     let install_path = startup_install_path(app, portable, &default_install_path)?;
-    config_manager_for_install_path(&install_path, portable)
+    config_manager_for_install_path(app, &install_path, portable)
 }
 
 /// Performs the ensure config for install path operation.
@@ -1631,16 +1643,14 @@ fn ensure_config_for_install_path(
 ) -> Result<ConfigManager, String> {
     let portable = is_portable_install();
     if portable {
-        let mut manager = load_config_recovering_invalid(portable_config_path()?)?;
-        normalize_portable_config(&mut manager)?;
-        return Ok(manager);
+        return config_manager_for_install_path(app, Path::new("."), true);
     }
 
     let install_path = match install_path {
         Some(path) => path.to_path_buf(),
         None => startup_install_path(app, false, &default_install_path())?,
     };
-    let mut manager = config_manager_for_install_path(&install_path, false)?;
+    let mut manager = config_manager_for_install_path(app, &install_path, false)?;
     manager
         .update(|config| {
             config.paths.baas_root_path = install_path.to_string_lossy().to_string();
@@ -1651,19 +1661,33 @@ fn ensure_config_for_install_path(
 
 /// Handles the config manager for install path workflow.
 fn config_manager_for_install_path(
+    app: &AppHandle,
     install_path: &Path,
     portable: bool,
 ) -> Result<ConfigManager, String> {
+    let path = if portable { portable_config_path()? } else { install_path.join("setup.toml") };
+    let mut manager = load_config_recovering_invalid(path)?;
+    mirrorc_credentials::migrate(&mut manager, &mirrorc_dir(app)?)?;
     if portable {
-        let mut manager = load_config_recovering_invalid(portable_config_path()?)?;
         normalize_portable_config(&mut manager)?;
-        return Ok(manager);
+    } else {
+        manager.config.paths.baas_root_path = install_path.to_string_lossy().to_string();
     }
-
-    let config_path = install_path.join("setup.toml");
-    let mut manager = load_config_recovering_invalid(config_path)?;
-    manager.config.paths.baas_root_path = install_path.to_string_lossy().to_string();
     Ok(manager)
+}
+
+fn mirrorc_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path().app_local_data_dir().map_err(|error| error.to_string())
+}
+
+fn public_updater_config(config: &UpdaterConfig, directory: &Path) -> Result<serde_json::Value, String> {
+    let mut snapshot = serde_json::to_value(config).map_err(|error| error.to_string())?;
+    let general = snapshot["general"].as_object_mut().ok_or("Missing updater configuration")?;
+    general.remove("mirrorc_cdk");
+    general.insert("mirrorc_cdk_configured".into(), serde_json::Value::Bool(
+        !mirrorc_credentials::load(directory)?.is_empty()
+    ));
+    Ok(snapshot)
 }
 
 /// Loads setup.toml and recovers from malformed TOML by preserving a backup.
@@ -2116,43 +2140,6 @@ fn kill_backend_pid(pid: u32) -> Result<(), String> {
     Ok(())
 }
 
-/// Returns the format mirrorc expiry result.
-fn format_mirrorc_expiry(expires_at: Option<u64>) -> Option<String> {
-    let timestamp = i64::try_from(expires_at?).ok()?;
-    DateTime::<Utc>::from_timestamp(timestamp, 0).map(|datetime| {
-        datetime
-            .with_timezone(&Local)
-            .format("%Y-%m-%d %H:%M:%S %:z")
-            .to_string()
-    })
-}
-
-/// Handles the mirrorc validation message workflow.
-fn mirrorc_validation_message(
-    code: i32,
-    mirrorc_message: &str,
-    expires_at: Option<&str>,
-) -> String {
-    match code {
-        0 => expires_at
-            .map(|timestamp| format!("CDK valid. Expires at {timestamp}."))
-            .unwrap_or_else(|| {
-                if mirrorc_message.trim().is_empty() {
-                    "CDK valid, but MirrorC did not return an expiry time.".to_string()
-                } else {
-                    format!("{mirrorc_message}. MirrorC did not return an expiry time.")
-                }
-            }),
-        _ if !mirrorc_message.trim().is_empty() => mirrorc_message.to_string(),
-        7001 => "The cdk has expired".to_string(),
-        7002 => "CDK invalid.".to_string(),
-        7003 => "CDK quota exhausted for today.".to_string(),
-        7004 => "CDK mismatched for requested resource.".to_string(),
-        7005 => "CDK blocked.".to_string(),
-        other => format!("MirrorC returned code {other}."),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2164,30 +2151,6 @@ mod tests {
         assert!(!path_exists_non_empty(dir.path()));
         fs::write(dir.path().join("marker.txt"), "ok").unwrap();
         assert!(path_exists_non_empty(dir.path()));
-    }
-
-    /// Handles the mirrorc validation messages cover known codes workflow.
-    #[test]
-    fn mirrorc_validation_messages_cover_known_codes() {
-        assert!(
-            mirrorc_validation_message(0, "ok", Some("2026-06-11 12:00:00 +08:00"))
-                .contains("Expires at")
-        );
-        assert_eq!(
-            mirrorc_validation_message(7001, "The cdk has expired", None),
-            "The cdk has expired"
-        );
-        assert!(mirrorc_validation_message(7002, "", None).contains("invalid"));
-        assert!(mirrorc_validation_message(7003, "", None).contains("quota"));
-        assert!(mirrorc_validation_message(7004, "", None).contains("mismatched"));
-        assert!(mirrorc_validation_message(7005, "", None).contains("blocked"));
-    }
-
-    /// Returns the formats mirrorc expiry for frontend display result.
-    #[test]
-    fn formats_mirrorc_expiry_for_frontend_display() {
-        assert!(format_mirrorc_expiry(Some(1_784_199_615)).is_some());
-        assert_eq!(format_mirrorc_expiry(None), None);
     }
 
     /// Returns the parses non empty path only result.

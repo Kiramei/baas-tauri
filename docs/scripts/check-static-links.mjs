@@ -17,7 +17,7 @@ function collect(directory) {
   }
 }
 collect(out);
-const browser = await chromium.launch({ channel: "msedge", headless: true });
+const browser = await chromium.launch({ channel: process.env.DOCS_BROWSER_CHANNEL || "msedge", headless: true });
 const page = await browser.newPage();
 const parsed = new Map();
 const failures = [];
@@ -54,7 +54,12 @@ try {
         if (target.origin !== "http://docs.invalid") continue;
         const pathname = decodeURIComponent(target.pathname);
         const normalized = pathname.endsWith("/") ? pathname : `${pathname}/`;
-        const targetDoc = parsed.get(normalized);
+        // Locale-neutral links retain the source page's language after hydration.
+        const locale = /^\/docs\/(en|zh)\//.exec(route)?.[1];
+        const localized = locale && normalized.startsWith("/docs/") && !/^\/docs\/(en|zh)\//.test(normalized)
+          ? normalized.replace(/^\/docs\//, `/docs/${locale}/`)
+          : normalized;
+        const targetDoc = parsed.get(localized) || parsed.get(normalized);
         const asset = path.join(out, pathname);
         if (!targetDoc && !existsSync(asset))
           failures.push({ route, href, kind, reason: "missing target" });

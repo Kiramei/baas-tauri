@@ -4,6 +4,7 @@
 "use client";
 
 import * as React from "react";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
 import { cva, type VariantProps } from "class-variance-authority";
 import { PipetteIcon } from "lucide-react";
@@ -1085,6 +1086,7 @@ function ColorPickerArea(props: DivProps) {
 
 /** Renders the color picker hue slider component. */
 function ColorPickerHueSlider(props: React.ComponentProps<typeof SliderPrimitive.Root>) {
+  const { t } = useAppTranslation();
   const { className, ...sliderProps } = props;
 
   const context = useColorPickerContext(HUE_SLIDER_NAME);
@@ -1121,13 +1123,17 @@ function ColorPickerHueSlider(props: React.ComponentProps<typeof SliderPrimitive
       <SliderPrimitive.Track className="relative h-3 w-full grow overflow-hidden rounded-full bg-[linear-gradient(to_right,#ff0000_0%,#ffff00_16.66%,#00ff00_33.33%,#00ffff_50%,#0000ff_66.66%,#ff00ff_83.33%,#ff0000_100%)]">
         <SliderPrimitive.Range className="absolute h-full" />
       </SliderPrimitive.Track>
-      <SliderPrimitive.Thumb className="block size-4 rounded-full border border-primary/50 bg-background shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50" />
+      <SliderPrimitive.Thumb
+        aria-label={t("colorPicker.hue")}
+        className="block size-4 rounded-full border border-primary/50 bg-background shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+      />
     </SliderPrimitive.Root>
   );
 }
 
 /** Renders the color picker alpha slider component. */
 function ColorPickerAlphaSlider(props: React.ComponentProps<typeof SliderPrimitive.Root>) {
+  const { t } = useAppTranslation();
   const { className, ...sliderProps } = props;
 
   const context = useColorPickerContext(ALPHA_SLIDER_NAME);
@@ -1178,13 +1184,17 @@ function ColorPickerAlphaSlider(props: React.ComponentProps<typeof SliderPrimiti
         />
         <SliderPrimitive.Range className="absolute h-full" />
       </SliderPrimitive.Track>
-      <SliderPrimitive.Thumb className="block size-4 rounded-full border border-primary/50 bg-background shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50" />
+      <SliderPrimitive.Thumb
+        aria-label={t("colorPicker.alpha")}
+        className="block size-4 rounded-full border border-primary/50 bg-background shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+      />
     </SliderPrimitive.Root>
   );
 }
 
 /** Renders the color picker swatch component. */
 function ColorPickerSwatch(props: DivProps) {
+  const { t } = useAppTranslation();
   const { asChild, className, ...swatchProps } = props;
 
   const context = useColorPickerContext(SWATCH_NAME);
@@ -1213,7 +1223,9 @@ function ColorPickerSwatch(props: DivProps) {
     };
   }, [color]);
 
-  const ariaLabel = !color ? "No color selected" : `Current color: ${colorToString(color, format)}`;
+  const ariaLabel = !color
+    ? t("colorPicker.noSelection")
+    : t("colorPicker.currentColor", { color: colorToString(color, format) });
 
   const SwatchPrimitive = asChild ? SlotPrimitive.Slot : "div";
 
@@ -1238,6 +1250,7 @@ function ColorPickerSwatch(props: DivProps) {
 
 /** Renders the color picker eye dropper component. */
 function ColorPickerEyeDropper(props: React.ComponentProps<typeof Button>) {
+  const { t } = useAppTranslation();
   const { size: sizeProp, children, disabled, ...buttonProps } = props;
 
   const context = useColorPickerContext(EYE_DROPPER_NAME);
@@ -1276,6 +1289,7 @@ function ColorPickerEyeDropper(props: React.ComponentProps<typeof Button>) {
   return (
     <Button
       data-slot="color-picker-eye-dropper"
+      aria-label={t("colorPicker.eyeDropper")}
       {...buttonProps}
       variant="outline"
       size={size}
@@ -1294,6 +1308,7 @@ interface ColorPickerFormatSelectProps
 
 /** Renders the color picker format select component. */
 function ColorPickerFormatSelect(props: ColorPickerFormatSelectProps) {
+  const { t } = useAppTranslation();
   const { size, disabled, className, ...selectProps } = props;
 
   const context = useColorPickerContext(FORMAT_SELECT_NAME);
@@ -1320,6 +1335,7 @@ function ColorPickerFormatSelect(props: ColorPickerFormatSelectProps) {
     >
       <SelectTrigger
         data-slot="color-picker-format-select-trigger"
+        aria-label={t("colorPicker.format")}
         size={size ?? "sm"}
         className={cn(className)}
       >
@@ -1418,6 +1434,7 @@ interface FormatInputProps extends ColorPickerInputProps {
 
 /** Renders the hex input component. */
 function HexInput(props: FormatInputProps) {
+  const { t } = useAppTranslation();
   const { color, onColorChange, context, withoutAlpha, className, ...inputProps } = props;
 
   const hexValue = rgbToHex(color);
@@ -1449,7 +1466,7 @@ function HexInput(props: FormatInputProps) {
   if (withoutAlpha) {
     return (
       <InputGroupItem
-        aria-label="Hex color value"
+        aria-label={t("colorPicker.hex")}
         position="isolated"
         {...inputProps}
         placeholder="#000000"
@@ -1464,7 +1481,7 @@ function HexInput(props: FormatInputProps) {
   return (
     <div data-slot="color-picker-input-wrapper" className={cn("flex items-center", className)}>
       <InputGroupItem
-        aria-label="Hex color value"
+        aria-label={t("colorPicker.hex")}
         position="first"
         {...inputProps}
         placeholder="#000000"
@@ -1474,7 +1491,7 @@ function HexInput(props: FormatInputProps) {
         disabled={context.disabled}
       />
       <InputGroupItem
-        aria-label="Alpha transparency percentage"
+        aria-label={t("colorPicker.alpha")}
         position="last"
         {...inputProps}
         placeholder="100"
@@ -1493,6 +1510,7 @@ function HexInput(props: FormatInputProps) {
 
 /** Renders the rgb input component. */
 function RgbInput(props: FormatInputProps) {
+  const { t } = useAppTranslation();
   const { color, onColorChange, context, withoutAlpha, className, ...inputProps } = props;
 
   const rValue = Math.round(color?.r ?? 0);
@@ -1516,7 +1534,7 @@ function RgbInput(props: FormatInputProps) {
   return (
     <div data-slot="color-picker-input-wrapper" className={cn("flex items-center", className)}>
       <InputGroupItem
-        aria-label="Red color component (0-255)"
+        aria-label={t("colorPicker.red")}
         position="first"
         {...inputProps}
         placeholder="0"
@@ -1530,7 +1548,7 @@ function RgbInput(props: FormatInputProps) {
         disabled={context.disabled}
       />
       <InputGroupItem
-        aria-label="Green color component (0-255)"
+        aria-label={t("colorPicker.green")}
         position="middle"
         {...inputProps}
         placeholder="0"
@@ -1544,7 +1562,7 @@ function RgbInput(props: FormatInputProps) {
         disabled={context.disabled}
       />
       <InputGroupItem
-        aria-label="Blue color component (0-255)"
+        aria-label={t("colorPicker.blue")}
         position={withoutAlpha ? "last" : "middle"}
         {...inputProps}
         placeholder="0"
@@ -1559,7 +1577,7 @@ function RgbInput(props: FormatInputProps) {
       />
       {!withoutAlpha && (
         <InputGroupItem
-          aria-label="Alpha transparency percentage"
+          aria-label={t("colorPicker.alpha")}
           position="last"
           {...inputProps}
           placeholder="100"
@@ -1579,6 +1597,7 @@ function RgbInput(props: FormatInputProps) {
 
 /** Renders the hsl input component. */
 function HslInput(props: FormatInputProps) {
+  const { t } = useAppTranslation();
   const { color, onColorChange, context, withoutAlpha, className, ...inputProps } = props;
 
   const hsl = React.useMemo(() => rgbToHsl(color), [color]);
@@ -1611,7 +1630,7 @@ function HslInput(props: FormatInputProps) {
   return (
     <div data-slot="color-picker-input-wrapper" className={cn("flex items-center", className)}>
       <InputGroupItem
-        aria-label="Hue degree (0-360)"
+        aria-label={t("colorPicker.hue")}
         position="first"
         {...inputProps}
         placeholder="0"
@@ -1625,7 +1644,7 @@ function HslInput(props: FormatInputProps) {
         disabled={context.disabled}
       />
       <InputGroupItem
-        aria-label="Saturation percentage (0-100)"
+        aria-label={t("colorPicker.saturation")}
         position="middle"
         {...inputProps}
         placeholder="0"
@@ -1639,7 +1658,7 @@ function HslInput(props: FormatInputProps) {
         disabled={context.disabled}
       />
       <InputGroupItem
-        aria-label="Lightness percentage (0-100)"
+        aria-label={t("colorPicker.lightness")}
         position={withoutAlpha ? "last" : "middle"}
         {...inputProps}
         placeholder="0"
@@ -1654,7 +1673,7 @@ function HslInput(props: FormatInputProps) {
       />
       {!withoutAlpha && (
         <InputGroupItem
-          aria-label="Alpha transparency percentage"
+          aria-label={t("colorPicker.alpha")}
           position="last"
           {...inputProps}
           placeholder="100"
@@ -1678,6 +1697,7 @@ interface HsbInputProps extends Omit<FormatInputProps, "color"> {
 
 /** Renders the hsb input component. */
 function HsbInput(props: HsbInputProps) {
+  const { t } = useAppTranslation();
   const { hsv, onColorChange, context, withoutAlpha, className, ...inputProps } = props;
 
   const alphaValue = Math.round((hsv?.a ?? 1) * 100);
@@ -1710,7 +1730,7 @@ function HsbInput(props: HsbInputProps) {
   return (
     <div data-slot="color-picker-input-wrapper" className={cn("flex items-center", className)}>
       <InputGroupItem
-        aria-label="Hue degree (0-360)"
+        aria-label={t("colorPicker.hue")}
         position="first"
         {...inputProps}
         placeholder="0"
@@ -1724,7 +1744,7 @@ function HsbInput(props: HsbInputProps) {
         disabled={context.disabled}
       />
       <InputGroupItem
-        aria-label="Saturation percentage (0-100)"
+        aria-label={t("colorPicker.saturation")}
         position="middle"
         {...inputProps}
         placeholder="0"
@@ -1738,7 +1758,7 @@ function HsbInput(props: HsbInputProps) {
         disabled={context.disabled}
       />
       <InputGroupItem
-        aria-label="Brightness percentage (0-100)"
+        aria-label={t("colorPicker.brightness")}
         position={withoutAlpha ? "last" : "middle"}
         {...inputProps}
         placeholder="0"
@@ -1753,7 +1773,7 @@ function HsbInput(props: HsbInputProps) {
       />
       {!withoutAlpha && (
         <InputGroupItem
-          aria-label="Alpha transparency percentage"
+          aria-label={t("colorPicker.alpha")}
           position="last"
           {...inputProps}
           placeholder="100"

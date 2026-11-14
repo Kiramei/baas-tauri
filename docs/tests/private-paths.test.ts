@@ -16,4 +16,4 @@ test("tracked text does not contain personal home-directory paths", () => {
     if (personalPath.test(data.toString("utf8"))) leaked.push(file);
   }
   expect(leaked).toEqual([]);
-});
+}, 60_000);

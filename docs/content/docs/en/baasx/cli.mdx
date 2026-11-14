@@ -30,7 +30,7 @@ A non-TTY input, `--json`, or a positional command selects non-workbench behavio
 | Edit scheduling | `/scheduler`                                                    | No corresponding one-shot scheduler editor command                     |
 | Logs            | `/logs` opens the viewer; `/logs 50` reads recent entries       | `baasx logs 50`; add `--follow` for continuous output                  |
 | Reload          | `/reload` or Ctrl+R rebuilds and reconnects the whole workbench | `baasx reload` rereads packs, prints counts and exits                  |
-| Install runtime | `/install [dev]`, `/local`, `/setup`                            | Enter the wizard with `baasx`; these are not one-shot subcommands      |
+| Install runtime | `/install [channel]`, `/local`, `/setup`                            | Enter the wizard with `baasx`; these are not one-shot subcommands      |
 | Help            | `/help` or `?` opens paginated command guidance                 | `baasx --help` or `baasx help`                                         |
 
 Workbench `/reload` preserves the existing local backend and background tasks, but clears unsaved edits, page state and input state. It does not launch a newer executable. Reopen the program after updating its files.
@@ -86,7 +86,7 @@ baasx --pipe /tmp/baasx.sock --profile PROFILE_ID --json status
 | `login`, `logout`                                        | Prompt for a hidden key or clear the current process's connection; not persistent credential storage     |
 | `settings show`                                          | Display both saved and effective preferences                                                             |
 | `settings set <field> <value>`, `settings unset <field>` | Manage local nonsensitive preferences                                                                    |
-| `check-update`, `update`                                 | Check or apply updates to the CLI-managed local `dev` environment                                        |
+| `check-update`, `update`                                 | Check or apply updates to the CLI-managed local environment                                        |
 
 Server arguments use their actual wire values even in an English interface:
 

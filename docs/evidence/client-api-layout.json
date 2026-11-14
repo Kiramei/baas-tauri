@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-11-07T12:55:24.600Z",
+  "checkedAt": "2026-11-14T09:54:19.516Z",
   "cases": 8,
   "failures": 0,
   "nativeCommandsExecuted": false,
   "scope": "Documentation rendering, type popups and search only; no native command, game, device or benchmark was run.",
   "testedSources": {
-    "docs/scripts/check-client-api.mjs": "95a60d93991d68faf3587f18b6010a50a253bf6ea93b41c07f9ce1790b5f5814",
+    "docs/scripts/check-client-api.mjs": "9d52506dff2b95caa9937777b50802c097cbed50c49a8ef611dd01ac1eb37e07",
     "docs/source.config.ts": "344da49d3a127cf1d319a9433763a72dfd3595d69c5095824958879e98b0c4e9",
     "docs/next.config.mjs": "e79c8cb5e6c4031d84baebca75fa0f30b8e93f5eb9cebf95f14d5bf4b62da51d",
     "docs/mdx-components.tsx": "4b02d7dc5151174f782fdd4ebb659464c95b531490fd1b0edab0368e9e2a9957",
@@ -16,13 +16,16 @@
     "src/transport/types.ts": "d245d4c61f24ef8e1fb8dd597c9cb50e5138ae99022b0f1162b7f6c82b00e204",
     "docs/lib/build-search-index.ts": "939ab08c9486a19e05af95798cc53c0c6475338257647886ec5dfc3f4d53a477",
     "docs/lib/search-artifact.server.ts": "180220ceee215ece19d35da03d3e955e70db92d0303e530959a71b34065f8d0d",
-    "src/transport/factory.ts": "0e87d3e50a2c471526321acdfb04ff252ddfabd716b084aa9e527d43ef1868ba",
-    "src-tauri/src/lib.rs": "d9a5cf3be37e223fe85bb5c100c2c99adb6a59bd55af0bd59844d61d1ada79a4",
-    "src-tauri/src/commands.rs": "5e92310987a11349c5fe01e8adfd327e71c256d4495f3c7db197bf2b82220028",
-    "src-tauri/src/mobile_commands.rs": "484db459c4f4b1f7ae2de90e1e64d4904786c7a7f226e0d42c874a2ec2e2714b",
-    ".github/workflows/docs-validation.yml": "a563448879f20ccb25e7aa2b47a1c59936d26e55c4f84af765fc5e18599e9e3a",
-    "docs/content/docs/en/reference/client-api.mdx": "49db9e1adc7b8050569beed13e20e9297f8cf019e04964542229021f1309b442",
-    "docs/content/docs/zh/reference/client-api.mdx": "c5c230d1cd6b181a24c16ceed238727dfb761f92c6420774d5f580d435aea031"
+    "src/transport/factory.ts": "b1c5463f079f17bba65d0ffafd778080ab05ea83b81a282faffa8379f2dd543b",
+    "src/platform/macos/transport.ts": "a1247dd9021bd065e683f266fe3beaea1b430ed07660ec4f5e9146543c776cc1",
+    "src-tauri/src/lib.rs": "d5bffcfc55be094fee24548c72c41dc1a568be781a9e41d2ba24e99f0033ae4d",
+    "src-tauri/src/platform/desktop.rs": "486d95c7e4ecd20be05386490006ee32fe464dc57a0198f51b67da8a8ade06e8",
+    "src-tauri/src/platform/android.rs": "6515c6faeecb99f27bc0c4553e83c00edd25342fd4cc74d83defa1c67e4a808e",
+    "src-tauri/src/commands.rs": "bba9786c8b3e8855483dbc3e76a600a0bf8f7a06828d1edd3a290e7f07016ffe",
+    "src-tauri/src/mobile_commands.rs": "c29d337da0d18e44e1c7b69792ae645ed5ed1d2a60d1379d314d2a209381272a",
+    ".github/workflows/docs-validation.yml": "647adbef64ed6162ca833dc10fd6bc26ea84fefdf11a55bcd8ed97b9a384ea30",
+    "docs/content/docs/en/reference/client-api.mdx": "74a4584ca0c652f4147301547d748b0ca54de1b695bf048aeaf137d79c0b99af",
+    "docs/content/docs/zh/reference/client-api.mdx": "ee41591cdbbcef94c119a36bb1692116cc08c9a54d25c5f721dc5313f4977e6c"
   },
   "results": [
     {

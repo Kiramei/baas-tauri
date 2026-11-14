@@ -131,6 +131,13 @@ class DockerStartupTests(unittest.TestCase):
         self.assertEqual((installed / "BAAS_ocr_server").read_text(), "partial installation")
         self.assertEqual((installed / "config/global_setting.json").read_text(), "preserve")
 
+    def test_default_install_uses_the_stable_backend(self):
+        with patch.object(container, "prepare_service") as prepare, \
+             patch.object(container, "prepare_ocr"), patch.object(container, "serve", return_value=0), \
+             patch.dict(container.os.environ, {}, clear=True):
+            self.assertEqual(container.main([]), 0)
+            prepare.assert_called_once_with(Path("/app"), "https://github.com/pur1fying/blue_archive_auto_script.git", "master")
+
     def test_main_prepares_ocr_with_explicit_environment_overrides(self):
         with patch.object(container, "prepare_service"), \
              patch.object(container, "prepare_ocr") as prepare, \

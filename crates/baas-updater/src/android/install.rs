@@ -149,11 +149,6 @@ pub fn install_android_main_repository(
         deadline: total_deadline,
     };
     control.check()?;
-    if channel != UpdateChannel::Dev {
-        return Err(UpdaterError::Config(
-            "Stable lacks the Android service backend; choose Development (Dev)".into(),
-        ));
-    }
     if options.probe_sample_bytes == 0 || options.heartbeat_interval.is_zero() {
         return Err(UpdaterError::Config(
             "git2 sample size and heartbeat interval must be positive".into(),
@@ -1110,7 +1105,7 @@ mod tests {
         settings.canonical_source_url = Some(canonical.url("slow"));
         let report = install_android_main_repository(
             &target,
-            UpdateChannel::Dev,
+            UpdateChannel::Stable,
             Arc::new(AtomicBool::new(false)),
             output.clone(),
             settings,

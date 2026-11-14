@@ -7,6 +7,16 @@ on:
     tags:
       - "[0-9]*.[0-9]*.[0-9]*"
       - "v[0-9]*.[0-9]*.[0-9]*"
+  workflow_dispatch:
+    inputs:
+      mirror-tag:
+        description: Existing stable source Release tag to mirror (no build).
+        required: true
+        type: string
+      dry-run:
+        description: Preview metadata and planned changes without publishing or transferring binaries.
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -18,11 +28,13 @@ env:
   RUST_BACKTRACE: short
 
 concurrency:
-  group: release-app-${{ github.ref }}
-  cancel-in-progress: true
+  # Manual backfills must not occupy the normal release publication queue.
+  group: ${{ github.event_name == 'workflow_dispatch' && format('release-app-mirror-{0}', github.run_id) || 'release-app-publication' }}
+  queue: max
 
 jobs:
   check_tag_version:
+    if: github.event_name == 'push'
     name: Check Release Tag and package.json Version Consistency
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -221,6 +233,22 @@ jobs:
 
           Get-ChildItem $dst -File | Sort-Object Name
 
+      - name: Sign Windows portable executable
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $file = "release-assets/BAAS.Tauri_${version}_${{ matrix.dist_arch }}_portable.exe"
+          bun tauri signer sign "$file"
+          if ($LASTEXITCODE -ne 0) { throw "Portable executable signing failed" }
+          if (-not (Test-Path "$file.sig") -or (Get-Item "$file.sig").Length -eq 0) {
+            throw "Portable executable signature is missing"
+          }
+
       - name: Normalize macOS artifacts
         if: contains(matrix.target, 'apple-darwin')
         shell: bash
@@ -296,10 +324,7 @@ jobs:
           fi
           cp -v "$DEB" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb"
 
-          DEB_SIG="$(find "$SRC/deb" -maxdepth 1 -type f -name '*.deb.sig' | head -n 1 || true)"
-          if [ -n "$DEB_SIG" ]; then
-            cp -v "$DEB_SIG" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb.sig"
-          fi
+          cp -v "$DEB.sig" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb.sig"
 
           RPM="$(find "$SRC/rpm" -maxdepth 1 -type f -name '*.rpm' | head -n 1 || true)"
           if [ -z "$RPM" ]; then
@@ -308,10 +333,7 @@ jobs:
           fi
           cp -v "$RPM" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm"
 
-          RPM_SIG="$(find "$SRC/rpm" -maxdepth 1 -type f -name '*.rpm.sig' | head -n 1 || true)"
-          if [ -n "$RPM_SIG" ]; then
-            cp -v "$RPM_SIG" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm.sig"
-          fi
+          cp -v "$RPM.sig" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm.sig"
 
           find "$DST" -maxdepth 1 -type f -print | sort
 
@@ -344,23 +366,13 @@ jobs:
             arch: arm64
             deb_arch: arm64
             rpm_arch: aarch64
-            linker: aarch64-linux-gnu-gcc
-            cxx: aarch64-linux-gnu-g++
-            gcc_package: gcc-aarch64-linux-gnu
-            gxx_package: g++-aarch64-linux-gnu
             multiarch_triplet: aarch64-linux-gnu
-            pkg_config_path: /usr/lib/aarch64-linux-gnu/pkgconfig
           - os: ubuntu-22.04
             target: armv7-unknown-linux-gnueabihf
             arch: armhf
             deb_arch: armhf
             rpm_arch: armv7hl
-            linker: arm-linux-gnueabihf-gcc
-            cxx: arm-linux-gnueabihf-g++
-            gcc_package: gcc-arm-linux-gnueabihf
-            gxx_package: g++-arm-linux-gnueabihf
             multiarch_triplet: arm-linux-gnueabihf
-            pkg_config_path: /usr/lib/arm-linux-gnueabihf/pkgconfig
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
@@ -375,68 +387,11 @@ jobs:
           target: ${{ matrix.target }}
           save-cache: "true"
 
-      - name: Setup Linux ARM cross dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sudo mkdir -p /etc/apt/sources.list.d.disabled
-          sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) \
-            -exec mv {} /etc/apt/sources.list.d.disabled/ \;
-
-          cat > /tmp/sources.list <<'EOF'
-          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main multiverse universe restricted
-          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-security main multiverse universe restricted
-          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main multiverse universe restricted
-          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-backports main multiverse universe restricted
-
-          deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports jammy main multiverse universe restricted
-          deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports jammy-security main multiverse universe restricted
-          deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports jammy-updates main multiverse universe restricted
-          deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports jammy-backports main multiverse universe restricted
-          EOF
-
-          if [ -f /etc/apt/sources.list ]; then
-            sudo cp /etc/apt/sources.list /etc/apt/sources.list.default
-          fi
-          sudo mv /tmp/sources.list /etc/apt/sources.list
-
-          sudo dpkg --add-architecture ${{ matrix.arch }}
-          sudo apt-get update
-
-          sudo apt-get install -y --no-install-recommends \
-            ${{ matrix.gcc_package }} \
-            ${{ matrix.gxx_package }} \
-            pkg-config \
-            libxslt1.1:${{ matrix.arch }} \
-            libcups2:${{ matrix.arch }} \
-            libgtk-3-dev:${{ matrix.arch }} \
-            libwebkit2gtk-4.1-dev:${{ matrix.arch }} \
-            libayatana-appindicator3-dev:${{ matrix.arch }} \
-            libssl-dev:${{ matrix.arch }} \
-            librsvg2-dev:${{ matrix.arch }} \
-            patchelf \
-            rpm
-
-      - name: Configure Linux ARM cross env
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "PKG_CONFIG_ALLOW_CROSS=1" >> "$GITHUB_ENV"
-          echo "PKG_CONFIG_PATH=${{ matrix.pkg_config_path }}" >> "$GITHUB_ENV"
-          echo "PKG_CONFIG_LIBDIR=/usr/lib/${{ matrix.multiarch_triplet }}/pkgconfig:/usr/share/pkgconfig" >> "$GITHUB_ENV"
-          echo "PKG_CONFIG_SYSROOT_DIR=/" >> "$GITHUB_ENV"
-
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-            echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=${{ matrix.linker }}" >> "$GITHUB_ENV"
-            echo "CC_aarch64_unknown_linux_gnu=${{ matrix.linker }}" >> "$GITHUB_ENV"
-            echo "CXX_aarch64_unknown_linux_gnu=${{ matrix.cxx }}" >> "$GITHUB_ENV"
-          else
-            echo "CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=${{ matrix.linker }}" >> "$GITHUB_ENV"
-            echo "CC_armv7_unknown_linux_gnueabihf=${{ matrix.linker }}" >> "$GITHUB_ENV"
-            echo "CXX_armv7_unknown_linux_gnueabihf=${{ matrix.cxx }}" >> "$GITHUB_ENV"
-          fi
+      - uses: ./.github/actions/setup-linux-arm
+        with:
+          arch: ${{ matrix.arch }}
+          triplet: ${{ matrix.multiarch_triplet }}
+          target: ${{ matrix.target }}
 
       - name: Refresh bundled release notes
         shell: bash
@@ -471,10 +426,7 @@ jobs:
           fi
           cp -v "$DEB" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb"
 
-          DEB_SIG="$(find "$SRC/deb" -maxdepth 1 -type f -name '*.deb.sig' | head -n 1 || true)"
-          if [ -n "$DEB_SIG" ]; then
-            cp -v "$DEB_SIG" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb.sig"
-          fi
+          cp -v "$DEB.sig" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb.sig"
 
           RPM="$(find "$SRC/rpm" -maxdepth 1 -type f -name '*.rpm' | head -n 1 || true)"
           if [ -z "$RPM" ]; then
@@ -483,10 +435,7 @@ jobs:
           fi
           cp -v "$RPM" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm"
 
-          RPM_SIG="$(find "$SRC/rpm" -maxdepth 1 -type f -name '*.rpm.sig' | head -n 1 || true)"
-          if [ -n "$RPM_SIG" ]; then
-            cp -v "$RPM_SIG" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm.sig"
-          fi
+          cp -v "$RPM.sig" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm.sig"
 
           find "$DST" -maxdepth 1 -type f -print | sort
 
@@ -592,8 +541,11 @@ jobs:
         shell: bash
         run: bun run tauri:android:build:release -- --abi arm64
 
-      - name: Normalize Android APK artifact
+      - name: Prepare signed Android updater assets
         shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
@@ -608,7 +560,10 @@ jobs:
 
           rm -rf "$DST"
           mkdir -p "$DST"
-          cp -v "$SRC" "$DST/BAAS.Tauri_${VERSION}_android_arm64-v8a.apk"
+          APK="$DST/BAAS.Tauri_${VERSION}_android_arm64-v8a.apk"
+          cp -v "$SRC" "$APK"
+          bun tauri signer sign "$APK"
+          test -s "$APK.sig"
           ls -lah "$DST"
 
       - name: Attest Android APK
@@ -653,6 +608,7 @@ jobs:
         uses: ./.github/actions/setup-tauri-build-env
         with:
           target: ${{ matrix.target }}
+          cache-variant: fixed-webview2
           save-cache: "true"
 
       - name: Download WebView2 Runtime
@@ -738,6 +694,21 @@ jobs:
       - name: Portable Bundle
         run: bun run portable-fixed-webview2 ${{ matrix.target }}
 
+      - name: Sign fixed WebView2 portable bundle
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $file = "BAAS.Tauri_${version}_${{ matrix.arch }}_fixed_webview2_portable.zip"
+          bun tauri signer sign "$file"
+          if ($LASTEXITCODE -ne 0) { throw "Portable bundle signing failed" }
+          if (-not (Test-Path "$file.sig") -or (Get-Item "$file.sig").Length -eq 0) {
+            throw "Portable bundle signature is missing"
+          }
+
       - name: Upload fixed WebView2 portable bundle
         uses: softprops/action-gh-release@v3
         with:
@@ -748,7 +719,9 @@ jobs:
           draft: true
           prerelease: ${{ contains(github.ref_name, '.rc') }}
           overwrite_files: true
-          files: BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip
+          files: |
+            BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip
+            BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip.sig
 
   update_tag:
     name: Update tag
@@ -851,6 +824,11 @@ jobs:
           IFS=$'\t' read -r release_id _ asset_count release_url <<< "$matches"
           echo "Publishing release $release_id ($release_url) with $asset_count assets."
 
+          gh release view "$TAG_NAME" --json assets | node scripts/ci/release-contract.mjs verify app "$TAG_NAME"
+          if [[ "$MAKE_LATEST" == true ]]; then
+            MAKE_LATEST="$(gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' | node scripts/ci/release-contract.mjs promote "$TAG_NAME")"
+          fi
+
           gh api --method PATCH repos/{owner}/{repo}/releases/"$release_id" \
             -f name="BAAS Tauri App $TAG_NAME" \
             -F body=@release.txt \
@@ -858,6 +836,30 @@ jobs:
             -F prerelease="$PRERELEASE" \
             -f make_latest="$MAKE_LATEST" \
             --silent
+
+  mirrorchyan-uploading:
+    name: Upload installers to MirrorChyan
+    needs: [update_tag]
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/mirrorchyan_release.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      MirrorChyanUploadToken: ${{ secrets.MirrorChyanUploadToken }}
+
+  mirrorchyan-release-note:
+    name: Sync MirrorChyan release notes
+    needs: [mirrorchyan-uploading]
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/mirrorchyan_release_note.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      MirrorChyanUploadToken: ${{ secrets.MirrorChyanUploadToken }}
 
   release-update:
     name: Publish updater manifests
@@ -884,11 +886,84 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  mirror-to-upstream:
+    name: Mirror published release to upstream
+    needs: [release-update]
+    if: ${{ always() && !cancelled() && github.repository == 'Kiramei/baas-tauri' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && needs.release-update.result == 'success' && !contains(github.ref_name, '.rc'))) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # A mirror failure is visible here, but cannot fail source publication or its distributors.
+    continue-on-error: true
+    permissions:
+      contents: read
+    concurrency:
+      group: mirror-upstream-release
+      queue: max
+    steps:
+      - name: Checkout mirror implementation
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate target authentication
+        if: github.event_name != 'workflow_dispatch' || !inputs['dry-run']
+        shell: bash
+        env:
+          APP_ID: ${{ vars.UPSTREAM_MIRROR_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.UPSTREAM_MIRROR_APP_PRIVATE_KEY }}
+          MIRROR_TOKEN: ${{ secrets.UPSTREAM_MIRROR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$APP_ID" ]]; then
+            if [[ -z "$APP_PRIVATE_KEY" ]]; then
+              echo '::error::UPSTREAM_MIRROR_APP_PRIVATE_KEY is required when UPSTREAM_MIRROR_APP_ID is configured.'
+              exit 1
+            fi
+          elif [[ -z "$MIRROR_TOKEN" ]]; then
+            echo '::error::Configure the upstream GitHub App or UPSTREAM_MIRROR_TOKEN. The source GITHUB_TOKEN cannot write to the target repository.'
+            exit 1
+          fi
+
+      - name: Create target repository token
+        id: target-app
+        if: vars.UPSTREAM_MIRROR_APP_ID != '' && (github.event_name != 'workflow_dispatch' || !inputs['dry-run'])
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.UPSTREAM_MIRROR_APP_ID }}
+          private-key: ${{ secrets.UPSTREAM_MIRROR_APP_PRIVATE_KEY }}
+          owner: pur1fying
+          repositories: blue_archive_auto_script
+          permission-contents: write
+
+      - name: Mirror existing GitHub Release
+        id: mirror
+        uses: ./.github/actions/mirror-upstream-release
+        with:
+          source-token: ${{ github.token }}
+          target-token: ${{ steps.target-app.outputs.token || secrets.UPSTREAM_MIRROR_TOKEN }}
+          source-repository: ${{ github.repository }}
+          target-repository: pur1fying/blue_archive_auto_script
+          tag-name: ${{ inputs['mirror-tag'] || github.ref_name }}
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs['dry-run'] || false }}
+
+      - name: Report mirror failure
+        if: failure()
+        shell: bash
+        run: |
+          echo '::warning title=Upstream mirror failed::Source publication is unaffected. Inspect this job and retry through Release App with mirror-tag; no rebuild is needed.'
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ### Upstream Release mirror failed
+
+          Source Release publication, CNB, Winget and QQ notification keep their existing dependencies.
+          Inspect the failed step, then run **Release App** manually with the existing source `mirror-tag`.
+          Start with `dry-run: true`; set it to `false` to resume the mirror without rebuilding.
+          EOF
+
   sync-to-cnb-release:
     if: ${{ !contains(github.ref_name, '.rc') }}
     name: Sync release to CNB
     runs-on: ubuntu-latest
-    timeout-minutes: 260
+    timeout-minutes: 60
     needs: [release-update]
 
     steps:
@@ -898,6 +973,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Determine CNB Latest from published app versions
+        id: cnb-latest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          echo "promote=$(gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' | node scripts/ci/release-contract.mjs promote "$RELEASE_TAG")" >> "$GITHUB_OUTPUT"
+
       - name: Sync CNB release
         uses: ./.github/actions/sync-cnb-release
         with:
@@ -906,10 +990,11 @@ jobs:
           tag-name: ${{ github.ref_name }}
           cnb-repo-slug: kiramei/baas-tauri
           asset-pattern: "*"
-          wait-timeout-minutes: "240"
+          wait-timeout-minutes: "0"
           poll-interval-seconds: "60"
           minimum-assets: "1"
-          make-latest: "true"
+          asset-contract: app
+          make-latest: ${{ steps.cnb-latest.outputs.promote }}
           sync-tag: "true"
           upload-assets: "true"
           overwrite-assets: "true"
@@ -922,9 +1007,10 @@ jobs:
           tag-name: updater
           cnb-repo-slug: kiramei/baas-tauri
           asset-pattern: "*"
-          wait-timeout-minutes: "240"
+          wait-timeout-minutes: "0"
           poll-interval-seconds: "60"
           minimum-assets: "1"
+          asset-contract: updater
           make-latest: "false"
           sync-tag: "true"
           upload-assets: "true"

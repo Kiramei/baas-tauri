@@ -1,50 +1,70 @@
 name: Validate Documentation Export
 
 on:
-  pull_request:
-    branches: [dev]
+  workflow_call:
+    inputs:
+      site:
+        description: Validate the complete documentation site
+        type: boolean
+        default: false
+      readme:
+        description: Run lightweight Markdown and README checks
+        type: boolean
+        default: false
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Select which documentation checks to run
+        type: choice
+        options: [full, site, readme]
+        default: full
+        required: true
 
 permissions:
   contents: read
 
-concurrency:
-  group: docs-validation-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  changes:
-    name: Identify documentation changes
+  validate-selection:
+    name: Require a documentation check
+    if: ${{ github.event_name != 'workflow_dispatch' && !inputs.site && !inputs.readme }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    outputs:
-      docs: ${{ steps.paths.outputs.docs }}
+    steps:
+      - run: |
+          echo '::error::Select site or readme.'
+          exit 1
+
+  readme:
+    name: Markdown and README checks
+    if: ${{ inputs.readme || inputs.mode == 'readme' || inputs.mode == 'full' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
+          fetch-depth: 2
           persist-credentials: false
-      - id: paths
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      - name: Check changed Markdown whitespace and conflict markers
         shell: bash
         run: |
-          set -euo pipefail
-          if [ -z "$BASE_SHA" ] || [[ "$BASE_SHA" =~ ^0+$ ]]; then
-            echo "docs=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          changed_paths="$(git diff --name-only "$BASE_SHA" HEAD)"
-          if grep -Eq '^(docs/|\.github/workflows/docs-validation\.yml$)' <<< "$changed_paths"; then
-            echo "docs=true" >> "$GITHUB_OUTPUT"
+          if git rev-parse --verify 'HEAD^' >/dev/null 2>&1; then
+            git -c core.whitespace=-blank-at-eol diff --check HEAD^ HEAD -- '*.md' '*.mdx'
           else
-            echo "docs=false" >> "$GITHUB_OUTPUT"
+            git -c core.whitespace=-blank-at-eol show --format= --check HEAD -- '*.md' '*.mdx'
           fi
+      - name: Install client test dependencies
+        uses: ./.github/actions/setup-bun-deps
+        with:
+          bun-version: "1.3.14"
+      - name: Install documentation test dependencies
+        working-directory: docs
+        run: bun install --frozen-lockfile
+      - name: Check README links and publication contracts
+        run: bun test docs/tests/readme-links.test.ts
 
   static-export:
     name: Linux static export (root)
-    needs: changes
-    if: needs.changes.outputs.docs == 'true'
+    if: ${{ inputs.site || inputs.mode == 'site' || inputs.mode == 'full' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -118,31 +138,10 @@ jobs:
         # Browser checks above regenerate source-bound evidence before it is verified.
         run: bun test docs/tests
       - name: Upload validation evidence
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
+          retention-days: 3
           name: docs-deployment-root
           path: .cache/deployment/
           if-no-files-found: ignore
-
-  documentation-gate:
-    name: Dev documentation gate
-    if: always()
-    needs: [changes, static-export]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Verify documentation checks
-        env:
-          CHANGES: ${{ needs.changes.result }}
-          DOCS_CHANGED: ${{ needs.changes.outputs.docs }}
-          EXPORT: ${{ needs.static-export.result }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$CHANGES" == success ]]
-          if [[ "$DOCS_CHANGED" == true ]]; then
-            [[ "$EXPORT" == success ]]
-          else
-            [[ "$DOCS_CHANGED" == false && "$EXPORT" == skipped ]]
-          fi

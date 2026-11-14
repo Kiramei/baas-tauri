@@ -3,6 +3,8 @@
     "back": "Précédent",
     "close": "Fermer",
     "collapseSidebar": "Réduire la barre latérale",
+    "devServerHint": "Utilisez la fenêtre de bureau BAAS Tauri pour cette session de développement. L’adresse du navigateur fournit les ressources Vite à la WebView Tauri.",
+    "devServerTitle": "Le serveur de développement BAAS Tauri est actif",
     "expandSidebar": "Développer la barre latérale",
     "forward": "Suivant",
     "maximize": "Agrandir",
@@ -19,10 +21,12 @@
     "mobileConfiguration": "Config",
     "mobilePlugins": "Ext.",
     "mobileScheduler": "Tâches",
-    "mobileSettings": "Réglages",
+    "mobileSettings": "Préférences",
     "plugins": "Extensions",
     "scheduler": "Planificateur",
-    "settings": "Paramètres"
+    "scrollLeft": "Défiler vers la gauche",
+    "scrollRight": "Défiler vers la droite",
+    "settings": "Préférences"
   },
   "common": {
     "add": "Ajouter",
@@ -34,6 +38,7 @@
     "delete": "Supprimer",
     "edit": "Modifier",
     "execute": "Exécuter",
+    "loading": "Chargement…",
     "save": "Enregistrer",
     "start": "Démarrer",
     "stop": "Arrêter",
@@ -56,6 +61,7 @@
   },
   "log": {
     "$self": "Journaux",
+    "copied": "Journaux copiés dans le presse-papiers",
     "empty": {
       "description": "Lancez une tâche pour voir sa progression ici.",
       "title": "Aucune activité pour le moment"
@@ -71,10 +77,20 @@
     "noneQueued": "Aucune tâche dans la file d'attente",
     "noneRunning": "Aucune tâche en cours d'exécution",
     "overview": "Aperçu des tâches",
-    "running": "Tâche en cours"
+    "running": "Tâche en cours",
+    "status": {
+      "failed": "Échec",
+      "idle": "Inactif",
+      "pending": "En attente",
+      "running": "En cours",
+      "skipped": "Ignoré",
+      "stopped": "Arrêté",
+      "success": "Réussi"
+    }
   },
   "notification": {
     "script": {
+      "batchBody": "{{count}} nouvelles notifications d’exécution. {{latest}}",
       "completedBody": "{{task}} est terminee.",
       "completedTitle": "Tache BAAS terminee",
       "failedBody": "{{task}} s'est arrete anormalement. Code de sortie : {{exitCode}}.",
@@ -88,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "Catégories des paramètres",
+    "categories": "Catégories des préférences",
     "descriptions": {
       "assets": "Afficher les ressources du jeu sur la page d’accueil.",
       "idleAutoUpdate": "Mettre les scripts à jour automatiquement lorsque tous les profils sont inactifs.",
@@ -106,8 +122,8 @@
       "display": "Affichage et effets",
       "preferences": "Préférences"
     },
-    "noResults": "Aucun réglage correspondant",
-    "search": "Rechercher un réglage",
+    "noResults": "Aucune préférence correspondante",
+    "search": "Rechercher des préférences",
     "sections": {
       "appearance": "Apparence",
       "general": "Général",
@@ -177,11 +193,13 @@
       "backgroundImageSelected": "Image d'arriere-plan definie",
       "backgroundImageTooLarge": "L'image d'arriere-plan doit faire 5 Mo ou moins.",
       "enableBAComet": "Activer BAComet",
+      "enableBACursors": "Activer BACursors",
       "enableSafeStream": "Chiffrer la vidéo distante",
       "enableSystemNotifications": "Activer les notifications systeme",
       "idleAutoUpdate": "Mettre à jour les scripts au repos",
       "lowPerformanceMode": "Effets réduits",
       "player": "Décodeur vidéo",
+      "reloadInterface": "Recharger l’interface",
       "storageFailed": "Impossible d’enregistrer les préférences dans ce navigateur. Libérez de l’espace pour ce site ou choisissez une image de fond plus petite.",
       "themeColor": "Couleur du theme",
       "themeColorInvalid": "Saisissez une couleur de theme au format #RRGGBB.",
@@ -190,11 +208,12 @@
     "updateSuccess": "Paramètres mis à jour avec succès"
   },
   "update": {
+    "androidInstallerOpened": "Confirmez la mise à jour dans le programme d’installation Android.",
+    "androidPackageUnavailable": "Cette version ne propose pas d’APK pour cet appareil.",
     "backendAction": "Mettre a jour BAAS",
     "backendStarted": "Mise a jour BAAS demarree",
     "backendStartFailed": "Echec du demarrage de la mise a jour BAAS",
     "channel": "Canal de mise à jour",
-    "dueDate": "Date d'expiration",
     "enterCdk": "Entrez le CDK",
     "method": "Source de mise à jour",
     "mirrorCdk": "CDK MirrorC (Optionnel)",
@@ -204,6 +223,7 @@
     "tauriAction": "Client",
     "tauriAvailable": "Mise à jour client disponible",
     "tauriChecking": "Recherche de mise à jour...",
+    "tauriDisabled": "Les mises à jour du client sont désactivées dans setup.toml.",
     "tauriDownloading": "Téléchargement {{version}}...",
     "tauriFailed": "Échec de la mise à jour client",
     "tauriInstalling": "Installation et redémarrage...",
@@ -224,6 +244,7 @@
     "copy": "Copier le profil",
     "copyFailed": "Échec de la copie du profil",
     "create": "Créer un profil",
+    "createElsewhere": "Créez un profil depuis {{tasks}} ou {{configuration}}.",
     "deleteConfirmMessage": "Êtes-vous sûr de vouloir supprimer le profil '{{name}}' ? Cette action est irréversible !",
     "deleteConfirmTitle": "Confirmer la suppression",
     "dropAuthRequired": "Connectez-vous et authentifiez-vous avant d'importer une archive de profil.",
@@ -238,10 +259,19 @@
     "exportFailed": "Échec de l'export du profil",
     "import": "Importer une archive de profil",
     "importArchive": "Choisir une archive de profil",
+    "importEntry": "Importer des profils",
     "importFailed": "Échec de l'import du profil",
+    "importFolder": "Importer des profils depuis un dossier",
+    "importFolderEmpty": "Aucun sous-dossier de profil contenant config.json trouvé.",
+    "importFolderProgress": "Importation des profils : {{completed}} sur {{total}}…",
+    "importFolderResult": "{{imported}} profils importés ; {{failed}} échecs.",
+    "importFolderUnsupported": "Ce navigateur ne permet pas de sélectionner un dossier. Importez des archives ZIP.",
+    "importRefreshFailed": "Les profils ont été importés, mais la liste n’a pas pu être actualisée. Reconnectez-vous pour les afficher.",
     "list": "Profils",
     "name": "Nom du profil",
-    "nameExists": "Nom déjà utilisé"
+    "nameExists": "Nom déjà utilisé",
+    "runFailed": "Échec de l’exécution",
+    "running": "En cours"
   },
   "description": {
     "arena": "Adversaires et limites d'essais",
@@ -283,20 +313,31 @@
     "advancedHint": "Langue, apparence, canal de mise à jour et connexion.",
     "autoEnter": "Ouvrir automatiquement après l’installation",
     "autoEnterHint": "Si désactivé, les journaux d’installation restent affichés jusqu’au clic sur « Ouvrir l’accueil ».",
+    "autoLoginFailed": "Échec de la connexion automatique. La clé actuelle du backend est peut-être différente.",
+    "backendNotReady": "Le service d’authentification du backend n’est pas encore prêt.",
+    "backToSetup": "Retour à la configuration",
     "completed": "Installation terminée",
     "directoryHint": "L’environnement d’exécution et les scripts seront installés dans ce dossier.",
+    "duration": "Durée",
     "enter": "Ouvrir l’accueil",
     "entering": "Ouverture…",
+    "errorHint": "Retournez à la configuration pour modifier le chemin d’installation ou réessayer. Copiez les journaux avant de signaler ce problème.",
+    "errorTitle": "Erreur d’installation",
     "exit": "Annuler l'installation",
+    "finished": "Fin",
     "logs": "Journal d’installation",
     "noOutput": "Aucune sortie du terminal pour le moment.",
+    "noStructuredLogs": "Aucun journal structuré enregistré.",
     "portableHint": "Le mode portable utilise le dossier de l’application.",
     "preparing": "Préparation du terminal…",
     "setting": "Paramètres d'installation",
     "start": "Démarrer l'installation",
+    "started": "Début",
+    "stepProgress": "Étape {{index}}/{{total}}",
     "title": {
       "wizard": "Assistant d'installation"
-    }
+    },
+    "workflowFailed": "L’installation ou la mise à jour n’a pas abouti."
   },
   "auth": {
     "authenticationFailed": "Authentification impossible. Vérifiez la Key et la connexion au serveur.",
@@ -611,6 +652,8 @@
     "switch": {
       "start": "Démarrer/Arrêter"
     },
+    "triggerFailed": "Échec du raccourci",
+    "triggerNotReady": "La connexion de commande BAAS n’est pas encore prête.",
     "usage": "Combinaisons comme"
   },
   "property": {
@@ -699,7 +742,11 @@
   },
   "mirrorc": {
     "cdk": {
-      "noInput": "Veuillez entrer le CDK MirrorC !",
+      "blocked": "Ce CDK est bloqué.",
+      "configured": "CDK enregistré sur cet appareil",
+      "mismatch": "Ce CDK ne couvre pas la ressource sélectionnée.",
+      "quota": "Le quota quotidien de téléchargement est atteint.",
+      "requestFailed": "Échec de la vérification ou de l’enregistrement du CDK local. Réessayez.",
       "testOk": "CDK valide"
     },
     "message": {
@@ -710,8 +757,6 @@
   },
   "contextMenu": {
     "copy": "Copier",
-    "inspect": "Inspecter",
-    "inspectWebuiHint": "Appuyez sur F12 pour ouvrir les outils dev.",
     "paste": "Coller",
     "pasteFailed": "Le presse-papiers n'est pas disponible.",
     "reload": "Recharger"
@@ -742,9 +787,12 @@
       "inspectFailed": "Impossible de lire les jeux installés",
       "live": "En direct",
       "liveDisplay": "{{game}} en direct",
+      "previewAlt": "Affichage du jeu sur l’écran virtuel",
+      "previewConnecting": "Connexion à l’affichage du jeu…",
+      "previewHidden": "L’aperçu du jeu n’est plus visible.",
       "restartFailed": "Impossible de redémarrer le jeu",
-      "showControls": "Afficher les commandes du jeu",
       "startBackground": "Démarrer le jeu en arrière-plan",
+      "takeoverBusy": "Le jeu est déjà contrôlé manuellement ou une mise à jour du backend est en cours.",
       "takeoverFailed": "Impossible d’ouvrir le jeu en plein écran"
     },
     "start": {
@@ -777,16 +825,19 @@
     }
   },
   "androidSetup": {
+    "authStatus": "Authentification : {{status}}",
     "awaitingConfirmation": "En attente de confirmation",
+    "backendStatus": "Backend Python : {{status}}",
     "channelDev": "Development",
     "channelStable": "Stable",
     "channelTitle": "Choose the update channel",
-    "channelUnavailable": "La version stable n’est pas disponible sur Android pour le moment.",
     "clientAuth": "Authenticate session",
     "clientConnect": "Connect to local service",
     "clientSync": "Sync configuration",
     "clientTitle": "App connection",
+    "configStatus": "Synchronisation de la configuration : {{status}}",
     "confirmInstall": "Confirmer et installer",
+    "continueLocal": "Continuer avec les ressources locales vérifiées",
     "copied": "Copied",
     "copyLogs": "Copy logs",
     "errorTitle": "Installation stopped",
@@ -794,6 +845,7 @@
     "noLogs": "Waiting for backend output…",
     "progress": "Installation progress",
     "retry": "Retry installation",
+    "startup": "Démarrage Android",
     "stateDone": "Done",
     "stateFailed": "Failed",
     "statePending": "Waiting",
@@ -802,9 +854,17 @@
     "stepChannel": "Choose update channel",
     "stepDownload": "Download backend",
     "stepExtract": "Install backend files",
+    "stepOcr": "Préparer le moteur OCR et les modèles",
+    "stepResources": "Préparer les ressources du script",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
+    "stepUpdate": "Vérifier les mises à jour du backend",
     "title": "Set up BAAS",
+    "updateApplying": "Mise à jour des fichiers du backend…",
+    "updateChecking": "Vérification du canal de backend sélectionné…",
+    "updateRestarting": "Redémarrage du backend et préparation des ressources…",
+    "updateRestoring": "Restauration de l’état précédent des scripts…",
+    "updateWaitingIdle": "En attente de l’arrêt des scripts et du contrôle manuel…",
     "waiting": "Working…"
   },
   "applicationShortcutHelp": {
@@ -813,8 +873,8 @@
     "fullscreen": "Activez ou quittez le plein écran.",
     "redo": "Rétablissez une modification annulée.",
     "resetZoom": "Rétablissez l'échelle de l'interface à 100 %.",
-    "settings": "Ouvrez les paramètres de l'application.",
-    "sidebar": "Basculez la barre des profils ; elle reste ouverte dans les paramètres.",
+    "settings": "Ouvrir les préférences.",
+    "sidebar": "Afficher ou masquer la barre des profils ; elle reste ouverte dans les préférences.",
     "undo": "Annulez la dernière modification ; les champs de recherche gardent l'annulation de texte.",
     "zoomIn": "Agrandissez l'interface.",
     "zoomOut": "Réduisez l'interface."
@@ -835,6 +895,21 @@
     "unavailable": "GitHub est inaccessible. Les notes disponibles sont affichées.",
     "version": "Version"
   },
+  "colorPicker": {
+    "alpha": "Pourcentage de transparence alpha",
+    "blue": "Composante bleue (0–255)",
+    "brightness": "Pourcentage de brillance (0–100)",
+    "currentColor": "Couleur actuelle : {{color}}",
+    "eyeDropper": "Prélever une couleur à l’écran",
+    "format": "Format de couleur",
+    "green": "Composante verte (0–255)",
+    "hex": "Valeur de couleur hexadécimale",
+    "hue": "Teinte en degrés (0–360)",
+    "lightness": "Pourcentage de luminosité (0–100)",
+    "noSelection": "Aucune couleur sélectionnée",
+    "red": "Composante rouge (0–255)",
+    "saturation": "Pourcentage de saturation (0–100)"
+  },
   "commitHistory": {
     "author": "Auteur",
     "current": "Version installée",
@@ -842,6 +917,7 @@
     "empty": "Aucun historique de commits disponible.",
     "emptyMessage": "(Sans message)",
     "failed": "Historique indisponible. Reconnectez-vous ou mettez le backend à jour, puis réessayez.",
+    "hash": "Identifiant du commit",
     "issue": {
       "offline": "La source de l’historique est inaccessible.",
       "rateLimited": "Limite de l’API GitHub atteinte. Réessayez plus tard.",
@@ -1004,6 +1080,19 @@
     "uiautomator2Control": "Contrôlez via le service uiautomator2 de l'appareil.",
     "uiautomator2Screenshot": "Capture via le service uiautomator2 de l'appareil."
   },
+  "connection": {
+    "authenticated": "Session authentifiée",
+    "authenticating": "Authentification de la session…",
+    "connecting": "Connexion au backend…",
+    "initializing": "Initialisation de la clé BAAS…",
+    "interrupted": "Connexion au backend interrompue",
+    "opening": "Ouverture du canal de commande sécurisé…",
+    "reconnecting": "Rétablissement de la connexion au backend…",
+    "resuming": "Restauration de la session chiffrée…",
+    "serverVerified": "Serveur vérifié. En attente d’authentification…",
+    "synchronizing": "Synchronisation de l’état de connexion…",
+    "waitingPassword": "Une authentification est nécessaire pour continuer."
+  },
   "edit": {
     "actionFailed": "L’action a échoué. Vérifiez les autorisations du presse-papiers et réessayez.",
     "cut": "Couper",
@@ -1090,7 +1179,8 @@
     "bar": "Menu de l’application",
     "edit": "Édition",
     "file": "Fichier",
-    "view": "Affichage"
+    "view": "Affichage",
+    "window": "Fenêtre"
   },
   "placeholder": {
     "config": {
@@ -1387,7 +1477,7 @@
     "websocket": "WebSocket (compatible)"
   },
   "ui": {
-    "zoom": "Paramètres de zoom de l'interface"
+    "zoom": "Échelle de l’interface"
   },
   "updateChannel": {
     "dev": "Développement",

@@ -1,0 +1,38 @@
+[
+  {
+    "os": "linux",
+    "cpu": "x64",
+    "runner": "ubuntu-22.04",
+    "localRuntime": true
+  },
+  {
+    "os": "linux",
+    "cpu": "arm64",
+    "runner": "ubuntu-22.04-arm",
+    "localRuntime": false
+  },
+  {
+    "os": "darwin",
+    "cpu": "arm64",
+    "runner": "macos-15",
+    "localRuntime": true
+  },
+  {
+    "os": "darwin",
+    "cpu": "x64",
+    "runner": "macos-15-intel",
+    "localRuntime": false
+  },
+  {
+    "os": "win32",
+    "cpu": "x64",
+    "runner": "windows-latest",
+    "localRuntime": true
+  },
+  {
+    "os": "win32",
+    "cpu": "arm64",
+    "runner": "windows-11-arm",
+    "localRuntime": false
+  }
+]

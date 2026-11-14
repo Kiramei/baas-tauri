@@ -4,6 +4,6 @@ title: 登录与重置 Key
 
 首次打开时按页面提示设置 **Key**，之后使用 Key 登录或使用已记住的会话。Key 是后端登录凭据，不是 Mirror 酱密钥或游戏账号密码。
 
-已登录时可在**设置 → 通用 → 登录 / Key → 重置 Key**中输入并确认新 Key。成功后所有会话和已记住的登录失效，需要重新登录；配置档保留。重置需要后端 `/health` 声明 `auth.key_reset_supported: true`，缺少该能力时先更新后端。
+已登录时可在**偏好 → 通用 → 登录 / Key → 重置 Key**中输入并确认新 Key。成功后所有会话和已记住的登录失效，需要重新登录；配置档保留。重置需要后端 `/health` 声明 `auth.key_reset_supported: true`，缺少该能力时先更新后端。
 
 不要把 Key、Cookie、Telegram Token 或包含它们的日志发到公开问题中。

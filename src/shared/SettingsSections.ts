@@ -9,6 +9,8 @@ export const SETTINGS_SECTIONS = [
     keywords: [
       "language",
       "settings.ui.lowPerformanceMode",
+      "settings.ui.reloadInterface",
+      "contextMenu.reload",
       "settings.ui.enableSystemNotifications",
       "workflow.minimizeToTray",
     ],
@@ -22,6 +24,7 @@ export const SETTINGS_SECTIONS = [
       "settings.ui.backgroundImage",
       "ui.zoom",
       "settings.ui.assets",
+      "settings.ui.enableBACursors",
       "settings.ui.enableBAComet",
     ],
   },
@@ -76,9 +79,12 @@ type SettingsSectionList = readonly {
   readonly keywords: readonly TranslationKey[];
 }[];
 
-export const ANDROID_SETTINGS_SECTIONS = SETTINGS_SECTIONS.filter(
+export const ANDROID_SETTINGS_SECTIONS: SettingsSectionList = SETTINGS_SECTIONS.filter(
   (section) => section.id !== "shortcuts"
-);
+).map((section) => ({
+  ...section,
+  keywords: section.keywords.filter((key) => key !== "settings.ui.enableBACursors"),
+}));
 
 const WEBUI_HIDDEN_KEYWORDS = new Set<TranslationKey>([
   "settings.ui.enableSystemNotifications",
@@ -87,6 +93,7 @@ const WEBUI_HIDDEN_KEYWORDS = new Set<TranslationKey>([
   "settings.shortcuts.profileRun",
   "transport.label",
   "about.clientVersion",
+  "update.mirrorCdk",
   "settings.ui.idleAutoUpdate",
 ]);
 
