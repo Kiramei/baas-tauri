@@ -18,7 +18,7 @@ export function useCurrentInput(
   options: Parameters<typeof useInput>[1]
 ) {
   const current = useRef(handler);
-  // Ink replaces callbacks in a passive effect. Committed frames need their handler immediately.
+  // Keep a stable Ink subscription while committed frames receive the latest handler.
   useLayoutEffect(() => {
     current.current = handler;
   });

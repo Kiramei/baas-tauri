@@ -1,0 +1,28 @@
+diff --git a/build/hooks/use-input.js b/build/hooks/use-input.js
+index 095a0be70ec01b6c27c0507678ac434faff0b03b..f702f07ea4bc91cae720e99e5b208ce46a3f7a31 100644
+--- a/build/hooks/use-input.js
++++ b/build/hooks/use-input.js
+@@ -1,4 +1,4 @@
+-import { useEffect } from 'react';
++import { useLayoutEffect } from 'react';
+ import parseKeypress, { nonAlphanumericKeys } from '../parse-keypress.js';
+ import reconciler from '../reconciler.js';
+ import useStdin from './use-stdin.js';
+@@ -26,7 +26,7 @@ const UserInput = () => {
+ const useInput = (inputHandler, options = {}) => {
+     // eslint-disable-next-line @typescript-eslint/naming-convention
+     const { stdin, setRawMode, internal_exitOnCtrlC, internal_eventEmitter } = useStdin();
+-    useEffect(() => {
++    useLayoutEffect(() => {
+         if (options.isActive === false) {
+             return;
+         }
+@@ -35,7 +35,7 @@ const useInput = (inputHandler, options = {}) => {
+             setRawMode(false);
+         };
+     }, [options.isActive, setRawMode]);
+-    useEffect(() => {
++    useLayoutEffect(() => {
+         if (options.isActive === false) {
+             return;
+         }
