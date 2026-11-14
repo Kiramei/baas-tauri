@@ -9,7 +9,9 @@ Object.assign(globalThis, {
 const unrelated = () => {};
 let allocatedId = 1042;
 const state = {
-  connections: { trigger: {} },
+  connections: { trigger: { readyState: 1 } },
+  _auth_phase: "authenticated",
+  _session: {},
   pendingCallbacks: { "1000.5": unrelated } as Record<string, (response: any) => void>,
   trigger: (_request: any, callback: (response: any) => void) => {
     state.pendingCallbacks[allocatedId] = callback;
@@ -23,7 +25,7 @@ mock.module("../../../src/store/WebsocketStore", () => ({
 mock.module("../../../src/shared/GlobalUtilities", () => ({ getTimestampMs: () => 1000.5 }));
 mock.module("../../../src/context/UISettingsProvider", () => ({ useUISetting: () => false }));
 mock.module("../../../src/shared/StorageManager", () => ({ default: { get: () => null } }));
-const { command } = await import("../../../src/components/IdleBackendUpdater");
+const { command } = await import("../../../src/shared/BackendUpdateCommands");
 
 const originalSetTimeout = globalThis.setTimeout;
 const originalClearTimeout = globalThis.clearTimeout;
@@ -54,6 +56,17 @@ try {
   state.pendingCallbacks[1043]({ status: "ok", data: { stopped: true } });
   assert.deepEqual(await success, { stopped: true });
   assert.equal(cleared, true, "normal completion still cancels the timeout");
+
+  allocatedId = 1044;
+  const stale = command("status");
+  state.connections.trigger = { readyState: 1 };
+  state.pendingCallbacks[1044]({ status: "ok", data: {} });
+  await assert.rejects(stale, /Backend command session changed/);
+
+  allocatedId = 1045;
+  state.connections.trigger.readyState = 3;
+  await assert.rejects(command("status"), /Backend command channel is unavailable/);
+  assert.equal(state.pendingCallbacks[1045], undefined);
 } finally {
   globalThis.setTimeout = originalSetTimeout;
   globalThis.clearTimeout = originalClearTimeout;
