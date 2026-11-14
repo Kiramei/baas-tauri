@@ -10,13 +10,17 @@ on:
   workflow_dispatch:
     inputs:
       mirror-tag:
-        description: Existing stable source Release tag to mirror (no build).
+        description: Existing source release tag to mirror or publish (no build).
         required: true
         type: string
       dry-run:
         description: Preview metadata and planned changes without publishing or transferring binaries.
         type: boolean
         default: true
+      publish-existing:
+        description: Publish the existing verified draft and resume distributors; requires main and dry-run false.
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -28,8 +32,8 @@ env:
   RUST_BACKTRACE: short
 
 concurrency:
-  # Manual backfills must not occupy the normal release publication queue.
-  group: ${{ github.event_name == 'workflow_dispatch' && format('release-app-mirror-{0}', github.run_id) || 'release-app-publication' }}
+  # Mirror-only backfills are independent; source recovery shares publication serialization.
+  group: ${{ github.event_name == 'workflow_dispatch' && !inputs['publish-existing'] && format('release-app-mirror-{0}', github.run_id) || 'release-app-publication' }}
   queue: max
 
 jobs:
@@ -724,19 +728,66 @@ jobs:
             BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip.sig
 
   update_tag:
+    if: ${{ always() && !cancelled() && ((github.event_name == 'push' && needs.release.result == 'success' && needs.release-for-linux-arm.result == 'success' && needs.release-android.result == 'success' && needs.release-for-fixed-webview2.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs['publish-existing'] && !inputs['dry-run'] && github.ref == 'refs/heads/main')) }}
     name: Update tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: [release, release-for-linux-arm, release-android, release-for-fixed-webview2]
+    outputs:
+      tag: ${{ steps.source.outputs.tag }}
+      source-sha: ${{ steps.source.outputs.source-sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Set up Node for release publication
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Resolve verified publication source
+        id: source
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs['mirror-tag'] }}
+          PUBLISH_EXISTING: ${{ inputs['publish-existing'] }}
+          DRY_RUN: ${{ inputs['dry-run'] }}
+        run: |
+          set -euo pipefail
+          node --version
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { execFileSync } from 'node:child_process';
+          import { parseAppReleaseTag } from './scripts/release-publication.mjs';
+          import { checkReleaseVersion } from './scripts/release-version-files.mjs';
+          const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+          const manual = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
+          if (manual && (process.env.GITHUB_REF !== 'refs/heads/main' || process.env.PUBLISH_EXISTING !== 'true' || process.env.DRY_RUN !== 'false'))
+            throw new Error('Publication recovery requires main, publish-existing true and dry-run false');
+          if (!manual && (process.env.GITHUB_EVENT_NAME !== 'push' || !process.env.GITHUB_REF?.startsWith('refs/tags/')))
+            throw new Error('Expected a tag push or explicitly authorized publication recovery');
+          const tag = manual ? process.env.INPUT_TAG : process.env.GITHUB_REF_NAME;
+          parseAppReleaseTag(tag);
+          git('fetch', 'origin', 'main', '--tags');
+          const sha = git('rev-parse', '--verify', 'refs/tags/' + tag + '^{commit}');
+          git('merge-base', '--is-ancestor', sha, 'origin/main');
+          const source = fs.mkdtempSync(path.join(process.env.RUNNER_TEMP, 'release-source-'));
+          git('worktree', 'add', '--detach', source, sha);
+          try { checkReleaseVersion(source, tag); }
+          catch (error) { git('worktree', 'remove', '--force', source); throw error; }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'tag=' + tag + '\nsource-sha=' + sha + '\n');
+          fs.appendFileSync(process.env.GITHUB_ENV, 'RELEASE_TAG=' + tag + '\nRELEASE_SOURCE_ROOT=' + source + '\n');
+          NODE
 
       - name: Fetch UPDATE logs
         id: fetch_update_logs
-        run: bash ./scripts/gen-update-log.sh
+        working-directory: ${{ env.RELEASE_SOURCE_ROOT }}
+        run: GITHUB_REF_NAME="$RELEASE_TAG" bash "$GITHUB_WORKSPACE/scripts/gen-update-log.sh"
         shell: bash
 
       - name: Set Env
@@ -745,7 +796,7 @@ jobs:
           set -euo pipefail
 
           echo "BUILDTIME=$(TZ=Asia/Shanghai date)" >> "$GITHUB_ENV"
-          TAG_REF="${GITHUB_REF##*/}"
+          TAG_REF="$RELEASE_TAG"
           echo "TAG_NAME=$TAG_REF" >> "$GITHUB_ENV"
           VERSION="${TAG_REF#v}"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
@@ -800,44 +851,20 @@ jobs:
       - name: Publish Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ github.ref_name }}
-          PRERELEASE: ${{ contains(github.ref_name, '.rc') }}
-          MAKE_LATEST: ${{ contains(github.ref_name, '.rc') && 'false' || 'true' }}
+          TAG_NAME: ${{ steps.source.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
 
-          matches="$(gh api repos/{owner}/{repo}/releases --paginate --jq '.[] | select(.tag_name == env.TAG_NAME) | [.id, .draft, (.assets | length), .html_url] | @tsv')"
-          release_count="$(grep -c . <<< "$matches" || true)"
+          node scripts/release-publication.mjs "$TAG_NAME" release.txt
 
-          if [ "$release_count" -eq 0 ]; then
-            echo "::error::No release found for $TAG_NAME."
-            exit 1
-          fi
-
-          if [ "$release_count" -gt 1 ]; then
-            printf '%s\n' "$matches"
-            echo "::error::Multiple releases found for $TAG_NAME. Merge or delete duplicate releases before rerunning."
-            exit 1
-          fi
-
-          IFS=$'\t' read -r release_id _ asset_count release_url <<< "$matches"
-          echo "Publishing release $release_id ($release_url) with $asset_count assets."
-
-          gh release view "$TAG_NAME" --json assets | node scripts/ci/release-contract.mjs verify app "$TAG_NAME"
-          if [[ "$MAKE_LATEST" == true ]]; then
-            MAKE_LATEST="$(gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' | node scripts/ci/release-contract.mjs promote "$TAG_NAME")"
-          fi
-
-          gh api --method PATCH repos/{owner}/{repo}/releases/"$release_id" \
-            -f name="BAAS Tauri App $TAG_NAME" \
-            -F body=@release.txt \
-            -F draft=false \
-            -F prerelease="$PRERELEASE" \
-            -f make_latest="$MAKE_LATEST" \
-            --silent
+      - name: Remove temporary source checkout
+        if: always() && env.RELEASE_SOURCE_ROOT != ''
+        shell: bash
+        run: git worktree remove --force "$RELEASE_SOURCE_ROOT"
 
   mirrorchyan-uploading:
+    if: ${{ always() && !cancelled() && needs.update_tag.result == 'success' }}
     name: Upload installers to MirrorChyan
     needs: [update_tag]
     permissions:
@@ -845,31 +872,37 @@ jobs:
       issues: write
     uses: ./.github/workflows/mirrorchyan_release.yml
     with:
-      tag: ${{ github.ref_name }}
+      tag: ${{ needs.update_tag.outputs.tag }}
     secrets:
       MirrorChyanUploadToken: ${{ secrets.MirrorChyanUploadToken }}
 
   mirrorchyan-release-note:
+    if: ${{ always() && !cancelled() && needs.mirrorchyan-uploading.result == 'success' && needs.update_tag.result == 'success' }}
     name: Sync MirrorChyan release notes
-    needs: [mirrorchyan-uploading]
+    needs: [update_tag, mirrorchyan-uploading]
     permissions:
       contents: read
       issues: write
     uses: ./.github/workflows/mirrorchyan_release_note.yml
     with:
-      tag: ${{ github.ref_name }}
+      tag: ${{ needs.update_tag.outputs.tag }}
     secrets:
       MirrorChyanUploadToken: ${{ secrets.MirrorChyanUploadToken }}
 
   release-update:
+    if: ${{ always() && !cancelled() && needs.update_tag.result == 'success' }}
     name: Publish updater manifests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [update_tag]
+    outputs:
+      tag: ${{ needs.update_tag.outputs.tag }}
+      source-sha: ${{ needs.update_tag.outputs.source-sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.workflow_sha }}
           persist-credentials: false
 
       - name: Setup Bun dependencies
@@ -881,7 +914,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish fixed WebView2 updater manifest
-        if: ${{ !contains(github.ref_name, '.rc') }}
+        if: ${{ !contains(needs.update_tag.outputs.tag, '.rc') }}
         run: bun run updater-fixed-webview2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -889,7 +922,7 @@ jobs:
   mirror-to-upstream:
     name: Mirror published release to upstream
     needs: [release-update]
-    if: ${{ always() && !cancelled() && github.repository == 'Kiramei/baas-tauri' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && needs.release-update.result == 'success' && !contains(github.ref_name, '.rc'))) }}
+    if: ${{ always() && !cancelled() && github.repository == 'Kiramei/baas-tauri' && ((github.event_name == 'workflow_dispatch' && !inputs['publish-existing']) || (needs.release-update.result == 'success' && !contains(needs.release-update.outputs.tag, '.rc'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     # A mirror failure is visible here, but cannot fail source publication or its distributors.
@@ -903,6 +936,7 @@ jobs:
       - name: Checkout mirror implementation
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.workflow_sha }}
           persist-credentials: false
 
       - name: Validate target authentication
@@ -943,7 +977,7 @@ jobs:
           target-token: ${{ steps.target-app.outputs.token || secrets.UPSTREAM_MIRROR_TOKEN }}
           source-repository: ${{ github.repository }}
           target-repository: pur1fying/blue_archive_auto_script
-          tag-name: ${{ inputs['mirror-tag'] || github.ref_name }}
+          tag-name: ${{ needs.release-update.outputs.tag || inputs['mirror-tag'] }}
           dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs['dry-run'] || false }}
 
       - name: Report mirror failure
@@ -960,34 +994,49 @@ jobs:
           EOF
 
   sync-to-cnb-release:
-    if: ${{ !contains(github.ref_name, '.rc') }}
+    if: ${{ always() && !cancelled() && needs.release-update.result == 'success' && !contains(needs.release-update.outputs.tag, '.rc') }}
     name: Sync release to CNB
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     needs: [release-update]
+    outputs:
+      tag: ${{ needs.release-update.outputs.tag }}
+      source-sha: ${{ needs.release-update.outputs.source-sha }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.workflow_sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Set up Node for release promotion
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
 
       - name: Determine CNB Latest from published app versions
         id: cnb-latest
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.release-update.outputs.tag }}
         run: |
-          echo "promote=$(gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' | node scripts/ci/release-contract.mjs promote "$RELEASE_TAG")" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          node --version
+          gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' > "$RUNNER_TEMP/cnb-promotion-releases.json"
+          node scripts/ci/release-contract.mjs promote "$RELEASE_TAG" < "$RUNNER_TEMP/cnb-promotion-releases.json" > "$RUNNER_TEMP/cnb-promotion-decision.txt"
+          decision="$(cat "$RUNNER_TEMP/cnb-promotion-decision.txt")"
+          if [[ "$decision" != true && "$decision" != false ]]; then exit 1; fi
+          echo "promote=$decision" >> "$GITHUB_OUTPUT"
 
       - name: Sync CNB release
         uses: ./.github/actions/sync-cnb-release
         with:
           github-token: ${{ github.token }}
           cnb-token: ${{ secrets.RELEASE_TO_CNB }}
-          tag-name: ${{ github.ref_name }}
+          tag-name: ${{ needs.release-update.outputs.tag }}
           cnb-repo-slug: kiramei/baas-tauri
           asset-pattern: "*"
           wait-timeout-minutes: "0"
@@ -1018,15 +1067,16 @@ jobs:
 
   submit-to-winget:
     # Do not submit 0.x previews or release candidates to Winget.
-    if: ${{ !startsWith(github.ref_name, '0.') && !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '.rc') }}
+    if: ${{ always() && !cancelled() && needs.sync-to-cnb-release.result == 'success' && !startsWith(needs.sync-to-cnb-release.outputs.tag, '0.') && !startsWith(needs.sync-to-cnb-release.outputs.tag, 'v0.') && !contains(needs.sync-to-cnb-release.outputs.tag, '.rc') }}
     name: Submit to Winget
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [sync-to-cnb-release]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          ref: ${{ needs.sync-to-cnb-release.outputs.source-sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -1070,20 +1120,24 @@ jobs:
         with:
           identifier: Kiramei.BAASTauri
           version: ${{ env.VERSION }}
-          release-tag: ${{ github.ref_name }}
+          release-tag: ${{ needs.sync-to-cnb-release.outputs.tag }}
           installers-regex: '_(arm64|x64)-setup\.exe$'
           token: ${{ secrets.WINGET_TOKEN }}
 
   notify-qq:
     name: Notify QQ after publication
     needs: [sync-to-cnb-release, submit-to-winget]
-    if: ${{ always() && needs.sync-to-cnb-release.result == 'success' && (needs.submit-to-winget.result == 'success' || needs.submit-to-winget.result == 'skipped') }}
-    runs-on: ubuntu-latest
+    if: ${{ always() && !cancelled() && needs.sync-to-cnb-release.result == 'success' && (needs.submit-to-winget.result == 'success' || needs.submit-to-winget.result == 'skipped') }}
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
       - uses: ./.github/actions/notify-qq
         with:
           webhook-secret: ${{ secrets.QQ_RELEASE_WEBHOOK_SECRET }}
           github-token: ${{ github.token }}
+          tag-name: ${{ needs.sync-to-cnb-release.outputs.tag }}
