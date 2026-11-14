@@ -244,7 +244,6 @@
     "importFailed": "Failed to import profile",
     "importFolder": "Import profiles from folder",
     "importFolderEmpty": "No profile subfolders containing config.json were found.",
-    "importFolderHint": "Choose the config folder containing the profile subfolders.",
     "importFolderProgress": "Importing {{completed}} of {{total}} profiles…",
     "importFolderResult": "Imported {{imported}} profiles; {{failed}} failed.",
     "importFolderUnsupported": "Folder selection is unavailable in this browser. Please import ZIP archives instead.",

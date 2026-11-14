@@ -244,7 +244,6 @@
     "importFailed": "Échec de l'import du profil",
     "importFolder": "Importer des profils depuis un dossier",
     "importFolderEmpty": "Aucun sous-dossier de profil contenant config.json trouvé.",
-    "importFolderHint": "Sélectionnez le dossier config contenant les sous-dossiers de profils.",
     "importFolderProgress": "Importation des profils : {{completed}} sur {{total}}…",
     "importFolderResult": "{{imported}} profils importés ; {{failed}} échecs.",
     "importFolderUnsupported": "Ce navigateur ne permet pas de sélectionner un dossier. Importez des archives ZIP.",

@@ -202,7 +202,6 @@ export type TranslationKey =
   | "profile.importFailed"
   | "profile.importFolder"
   | "profile.importFolderEmpty"
-  | "profile.importFolderHint"
   | "profile.importFolderProgress"
   | "profile.importFolderResult"
   | "profile.importFolderUnsupported"

@@ -244,7 +244,6 @@
     "importFailed": "프로필 가져오기 실패",
     "importFolder": "폴더에서 설정 일괄 가져오기",
     "importFolderEmpty": "config.json이 포함된 설정 하위 폴더를 찾을 수 없습니다.",
-    "importFolderHint": "설정 하위 폴더가 들어 있는 config 폴더를 선택하세요.",
     "importFolderProgress": "설정 가져오는 중: {{completed}} / {{total}}",
     "importFolderResult": "설정 {{imported}}개 가져오기 완료, {{failed}}개 실패.",
     "importFolderUnsupported": "이 브라우저는 폴더 선택을 지원하지 않습니다. ZIP 파일로 가져오세요.",

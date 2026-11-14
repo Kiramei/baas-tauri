@@ -241,9 +241,6 @@ export default function ProfileEditorModal(props: ProfileEditorModalProps) {
                     <FolderOpen className="size-5 shrink-0" />
                     <span>{t("profile.importFolder")}</span>
                   </button>
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    {t("profile.importFolderHint")}
-                  </p>
                   {importing && (
                     <p
                       role="status"
