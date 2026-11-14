@@ -14,7 +14,7 @@ outputs:
     description: Resolved GitHub release tag.
     value: ${{ steps.release.outputs.tag }}
   channel:
-    description: MirrorChyan stable or beta channel.
+    description: Beta override for post releases; empty to use the action default otherwise.
     value: ${{ steps.release.outputs.channel }}
 
 runs:
@@ -51,7 +51,7 @@ runs:
           core.setOutput("client", String(client));
           core.setOutput("tag", release.tag_name);
           const post = /[.-]post(?:[.-]?\d+)?(?:$|[.-])/i.test(version);
-          core.setOutput("channel", release.prerelease || post ? "beta" : "stable");
+          core.setOutput("channel", post ? "beta" : "");
           if (!client) {
             const message = `Release ${tag} has no published BAAS Tauri installer.`;
             if (context.eventName === "release") {
