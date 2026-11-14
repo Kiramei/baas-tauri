@@ -4,8 +4,13 @@ on:
   push:
     tags:
       - "baasx-v[0-9]*.[0-9]*.[0-9]*"
-  # Select an existing baasx-v* tag, not a branch, for a manual rerun.
+  # Release reruns require an existing baasx-v* tag. Auth-only checks also allow branches.
   workflow_dispatch:
+    inputs:
+      auth_only:
+        description: Check npm authentication only; skip builds and all publication.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -15,8 +20,29 @@ concurrency:
   queue: max
 
 jobs:
+  npm-auth:
+    name: Check npm trusted publishing before builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Check package-specific npm OIDC exchanges
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: node baasx/scripts/npm-auth.mjs
+
   validate:
     name: Validate the independent baasx release tag
+    if: ${{ !inputs.auth_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -55,7 +81,7 @@ jobs:
 
   build:
     name: Verify and build baasx on all platforms
-    needs: validate
+    needs: [validate, npm-auth]
     uses: ./.github/workflows/baasx.yml
     permissions:
       contents: read
