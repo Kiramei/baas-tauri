@@ -75,6 +75,7 @@
   },
   "notification": {
     "script": {
+      "batchBody": "新しい実行通知が {{count}} 件あります。{{latest}}",
       "completedBody": "{{task}} が完了しました。",
       "completedTitle": "BAAS タスク完了",
       "failedBody": "{{task}} が異常終了しました。終了コード: {{exitCode}}。",
@@ -250,7 +251,9 @@
     "importRefreshFailed": "設定はインポートされましたが、一覧の更新に失敗しました。再接続して確認してください。",
     "list": "プロファイル",
     "name": "プロファイル名",
-    "nameExists": "名前は既に存在します"
+    "nameExists": "名前は既に存在します",
+    "runFailed": "実行失敗",
+    "running": "実行中"
   },
   "description": {
     "arena": "対戦相手と挑戦回数",

@@ -75,6 +75,7 @@
   },
   "notification": {
     "script": {
+      "batchBody": "새 실행 알림 {{count}}개. {{latest}}",
       "completedBody": "{{task}} 작업이 완료되었습니다.",
       "completedTitle": "BAAS 작업 완료됨",
       "failedBody": "{{task}} 작업이 비정상 종료되었습니다. 종료 코드: {{exitCode}}.",
@@ -250,7 +251,9 @@
     "importRefreshFailed": "설정은 가져왔지만 목록을 새로 고치지 못했습니다. 다시 연결하여 확인하세요.",
     "list": "프로필",
     "name": "프로필 이름",
-    "nameExists": "이름이 이미 있습니다"
+    "nameExists": "이름이 이미 있습니다",
+    "runFailed": "실행 실패",
+    "running": "실행 중"
   },
   "description": {
     "arena": "상대 및 도전 횟수",

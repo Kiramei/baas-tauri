@@ -75,6 +75,7 @@
   },
   "notification": {
     "script": {
+      "batchBody": "{{count}} nouvelles notifications d’exécution. {{latest}}",
       "completedBody": "{{task}} est terminee.",
       "completedTitle": "Tache BAAS terminee",
       "failedBody": "{{task}} s'est arrete anormalement. Code de sortie : {{exitCode}}.",
@@ -250,7 +251,9 @@
     "importRefreshFailed": "Les profils ont été importés, mais la liste n’a pas pu être actualisée. Reconnectez-vous pour les afficher.",
     "list": "Profils",
     "name": "Nom du profil",
-    "nameExists": "Nom déjà utilisé"
+    "nameExists": "Nom déjà utilisé",
+    "runFailed": "Échec de l’exécution",
+    "running": "En cours"
   },
   "description": {
     "arena": "Adversaires et limites d'essais",

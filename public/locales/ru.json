@@ -75,6 +75,7 @@
   },
   "notification": {
     "script": {
+      "batchBody": "Новых уведомлений о выполнении: {{count}}. {{latest}}",
       "completedBody": "{{task}} завершена.",
       "completedTitle": "Задача BAAS завершена",
       "failedBody": "{{task}} завершилась аварийно. Код выхода: {{exitCode}}.",
@@ -250,7 +251,9 @@
     "importRefreshFailed": "Профили импортированы, но список не обновился. Переподключитесь, чтобы увидеть их.",
     "list": "Профили",
     "name": "Имя профиля",
-    "nameExists": "Имя уже существует"
+    "nameExists": "Имя уже существует",
+    "runFailed": "Ошибка выполнения",
+    "running": "Выполняется"
   },
   "description": {
     "arena": "Соперники и лимиты попыток",

@@ -75,6 +75,7 @@
   },
   "notification": {
     "script": {
+      "batchBody": "{{count}} new execution updates. {{latest}}",
       "completedBody": "{{task}} completed.",
       "completedTitle": "BAAS task completed",
       "failedBody": "{{task}} exited abnormally. Exit code: {{exitCode}}.",
@@ -250,7 +251,9 @@
     "importRefreshFailed": "Profiles were imported, but refreshing the list failed. Reconnect to see them.",
     "list": "Profiles",
     "name": "Profile Name",
-    "nameExists": "Name already exists"
+    "nameExists": "Name already exists",
+    "runFailed": "Run failed",
+    "running": "Running"
   },
   "description": {
     "arena": "Opponents and challenge limits",

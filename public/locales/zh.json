@@ -75,6 +75,7 @@
   },
   "notification": {
     "script": {
+      "batchBody": "{{count}} 条新的运行通知。{{latest}}",
       "completedBody": "{{task}} 已执行完成。",
       "completedTitle": "BAAS 任务已完成",
       "failedBody": "{{task}} 异常退出，退出码：{{exitCode}}。",
@@ -250,7 +251,9 @@
     "importRefreshFailed": "配置已导入，但列表刷新失败，请重新连接后查看。",
     "list": "配置列表",
     "name": "配置名",
-    "nameExists": "配置名已存在"
+    "nameExists": "配置名已存在",
+    "runFailed": "运行失败",
+    "running": "运行中"
   },
   "description": {
     "arena": "选择对手与挑战次数",

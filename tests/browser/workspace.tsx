@@ -21,7 +21,8 @@ import { SERVER_VALUES } from "../../src/shared/serverOptions";
 import { recordFrontendSystemLog } from "../../src/shared/SystemLogService";
 import { useWebSocketStore } from "../../src/store/WebsocketStore";
 import type { EventConfig } from "../../src/types/event";
-import type { PageKey } from "../../src/types/app";
+import type { PageKey, StatusItem } from "../../src/types/app";
+import { mergeExecutionStatus } from "../../src/shared/ExecutionOutcome";
 import type { PluginDescriptor } from "../../src/shared/Plugins";
 import { unzipSync } from "fflate";
 import "../../src/styles/index.css";
@@ -602,6 +603,25 @@ useWebSocketStore.setState({
       useWebSocketStore.getState().patch(`${pid}::${scope}/${key}`, value);
   },
 });
+
+// A browser-only lifecycle input bound to this page's actual store instance.
+// Importing the store again can create another instance when Vite adds HMR URLs.
+if (query.get("runStatus") === "1") {
+  window.addEventListener("fixture:profile-status", (event) => {
+    const { configId, patch } = (
+      event as CustomEvent<{
+        configId: string;
+        patch: Partial<StatusItem>;
+      }>
+    ).detail;
+    useWebSocketStore.setState((state) => ({
+      statusStore: {
+        ...state.statusStore,
+        [configId]: mergeExecutionStatus(state.statusStore[configId], patch),
+      },
+    }));
+  });
+}
 
 /** Navigate through the real Sidebar button; Main retains its actual cache and no-profile guard. */
 function navigate(page: PageKey) {

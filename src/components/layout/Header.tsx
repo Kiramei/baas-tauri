@@ -9,7 +9,6 @@ import {
   Copy,
   Download,
   FilePlus2,
-  Loader2,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -26,6 +25,8 @@ import { isPcServer, supportsPcServers } from "@/shared/serverOptions";
 import { useShallow } from "zustand/react/shallow";
 import { useProfileActionsController } from "@/context/ProfileActionsProvider";
 import ProfileEditorModal from "@/components/profiles/ProfileEditorModal";
+import { ProfileRunIndicator } from "@/components/profiles/ProfileRunIndicator";
+import { getExecutionOutcome, type ExecutionOutcome } from "@/shared/ExecutionOutcome";
 import type { FolderImportProgress } from "@/shared/ProfileFolderImport";
 import { profileDisplayName } from "@/shared/ProfileName";
 import { runProfileCommand, waitForProfileConfig } from "@/shared/ProfileCommands";
@@ -411,10 +412,10 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
     items[next]?.focus({ preventScroll: true });
   };
 
-  const runningByProfile = useWebSocketStore(
+  const outcomeByProfile = useWebSocketStore(
     useShallow((state) =>
-      Object.fromEntries(
-        Object.entries(state.statusStore).map(([id, status]) => [id, Boolean(status?.running)])
+      Object.fromEntries<ExecutionOutcome>(
+        Object.entries(state.statusStore).map(([id, status]) => [id, getExecutionOutcome(status)])
       )
     )
   );
@@ -488,6 +489,14 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                 {tabs.map((tab) => {
                   const active = activeProfile?.id === tab.id;
                   const menuOpen = ctxMenu?.tab?.id === tab.id;
+                  const outcome = outcomeByProfile[tab.id] ?? "idle";
+                  const statusLabel =
+                    outcome === "failed"
+                      ? t("profile.runFailed")
+                      : outcome === "running"
+                        ? t("profile.running")
+                        : "";
+                  const rightIndicator = outcome === "failed" || (outcome === "running" && desktop);
                   // A config can arrive before its status or survive status
                   // recovery. Missing status must not hide its entry point.
                   return (
@@ -500,6 +509,8 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                       role="button"
                       tabIndex={0}
                       aria-pressed={active}
+                      aria-label={statusLabel ? `${tab.name} · ${statusLabel}` : tab.name}
+                      data-profile-run-state={outcome}
                       onKeyDown={(event) => {
                         if (event.target !== event.currentTarget) return;
                         if (
@@ -539,8 +550,13 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                         setCtxMenu({ x: e.clientX, y: e.clientY, tab });
                       }}
                     >
-                      {runningByProfile[tab.id] && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin lg:hidden" />
+                      {outcome === "running" && !desktop && (
+                        <ProfileRunIndicator
+                          outcome={outcome}
+                          label={statusLabel}
+                          className="mr-2"
+                          tooltip
+                        />
                       )}
 
                       {/* Profile name */}
@@ -551,13 +567,20 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                       </span>
 
                       {/* A single action slot keeps activity and menu icons aligned. */}
-                      <IconTooltip content={t("profile.edit")} side="bottom">
+                      <IconTooltip
+                        content={
+                          rightIndicator
+                            ? `${statusLabel} · ${t("profile.edit")}`
+                            : t("profile.edit")
+                        }
+                        side="bottom"
+                      >
                         <button
                           type="button"
-                          aria-label={`${t("profile.edit")} ${tab.name}`}
+                          aria-label={`${t("profile.edit")} ${tab.name}${statusLabel ? ` · ${statusLabel}` : ""}`}
                           aria-haspopup="menu"
                           aria-expanded={menuOpen}
-                          className={`absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-md transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-secondary lg:right-0 lg:size-7 ${__WITH_ANDROID__ ? "size-11 opacity-100" : "size-6 opacity-0"} ${runningByProfile[tab.id] ? "lg:opacity-100" : ""} ${menuOpen ? "opacity-100" : ""}`}
+                          className={`absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-md transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-secondary lg:right-0 lg:size-7 ${__WITH_ANDROID__ ? "size-11 opacity-100" : "size-6 opacity-0"} ${rightIndicator ? "opacity-100" : ""} ${menuOpen ? "opacity-100" : ""}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             const bounds = e.currentTarget.getBoundingClientRect();
@@ -565,11 +588,15 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                             setCtxMenu({ x: bounds.right - 8, y: bounds.bottom, tab });
                           }}
                         >
-                          {runningByProfile[tab.id] && !menuOpen && (
-                            <Loader2 className="hidden h-4 w-4 animate-spin lg:block lg:group-hover:hidden lg:group-focus-within:hidden" />
+                          {rightIndicator && !menuOpen && (
+                            <ProfileRunIndicator
+                              outcome={outcome}
+                              label={statusLabel}
+                              className="group-hover:hidden group-focus-within:hidden"
+                            />
                           )}
                           <MoreHorizontal
-                            className={`h-4 w-4 ${runningByProfile[tab.id] && !menuOpen ? "lg:hidden lg:group-hover:block lg:group-focus-within:block" : ""}`}
+                            className={`h-4 w-4 ${rightIndicator && !menuOpen ? "hidden group-hover:block group-focus-within:block" : ""}`}
                           />
                         </button>
                       </IconTooltip>

@@ -75,6 +75,7 @@
   },
   "notification": {
     "script": {
+      "batchBody": "{{count}} neue Ausführungsbenachrichtigungen. {{latest}}",
       "completedBody": "{{task}} wurde abgeschlossen.",
       "completedTitle": "BAAS-Aufgabe abgeschlossen",
       "failedBody": "{{task}} wurde unerwartet beendet. Exit-Code: {{exitCode}}.",
@@ -250,7 +251,9 @@
     "importRefreshFailed": "Profile wurden importiert, aber die Liste konnte nicht aktualisiert werden. Stelle die Verbindung erneut her.",
     "list": "Profile",
     "name": "Profilname",
-    "nameExists": "Name existiert bereits"
+    "nameExists": "Name existiert bereits",
+    "runFailed": "Ausführung fehlgeschlagen",
+    "running": "Läuft"
   },
   "description": {
     "arena": "Gegner und Versuchslimits",
