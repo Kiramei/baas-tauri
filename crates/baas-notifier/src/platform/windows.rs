@@ -7,14 +7,12 @@ pub(super) fn send_notification<R: Runtime>(
 ) -> Result<(), String> {
     register_windows_identity(app)?;
 
-    let mut notification = notify_rust::Notification::new();
-    notification
-        .summary(&payload.title)
-        .body(&payload.body)
-        .app_id(&app.config().identifier)
-        .auto_icon();
-    notification.show().map_err(|error| error.to_string())?;
-    Ok(())
+    crate::windows_toast::show(
+        &app.config().identifier,
+        &payload.title,
+        &payload.body,
+        payload.tag.as_deref(),
+    )
 }
 
 /// Registers the unpackaged development build so Windows attributes toasts to BAAS.

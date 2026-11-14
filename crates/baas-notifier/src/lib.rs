@@ -1,6 +1,10 @@
 use serde::Deserialize;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+use tauri::Manager;
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_notification::{NotificationExt, PermissionState};
+
+mod policy;
 
 #[cfg(target_os = "android")]
 #[path = "platform/android.rs"]
@@ -11,6 +15,9 @@ mod android;
 mod windows;
 #[cfg(windows)]
 use windows::send_notification;
+#[cfg(windows)]
+#[path = "platform/windows_toast.rs"]
+mod windows_toast;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,6 +37,14 @@ pub fn show_notification<R: Runtime>(
     app: &AppHandle<R>,
     payload: NotifyPayload,
 ) -> Result<(), String> {
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    if policy::suppress_for_focus(
+        app.webview_windows()
+            .values()
+            .map(|window| window.is_focused().map_err(|_| ())),
+    ) {
+        return Ok(());
+    }
     if !ensure_notification_permission(app).map_err(|error| error.to_string())? {
         return Ok(());
     }

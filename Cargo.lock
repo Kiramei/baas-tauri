@@ -278,10 +278,10 @@ version = "0.0.10-0.post.1"
 name = "baas-notifier"
 version = "0.0.10-0.post.1"
 dependencies = [
- "notify-rust",
  "serde",
  "tauri",
  "tauri-plugin-notification",
+ "windows 0.61.3",
  "windows-registry",
 ]
 

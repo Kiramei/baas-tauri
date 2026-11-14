@@ -9,5 +9,5 @@ tauri = { workspace = true }
 tauri-plugin-notification = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-notify-rust = "4.18.0"
 windows-registry = "0.6.1"
+windows = { version = "0.61.3", features = ["Data_Xml_Dom", "Foundation", "UI_Notifications"] }
