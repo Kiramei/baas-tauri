@@ -76,12 +76,20 @@ store.setState({
   // A warm provider can report ready before config snapshots are requested.
   _all_data_initialized: true,
 });
-await Promise.race([
-  store.getState().init(),
-  Bun.sleep(3000).then(() => {
-    throw new Error("template-only initialization stayed blocked");
-  }),
-]);
+let initializationTimer: ReturnType<typeof setTimeout> | undefined;
+try {
+  await Promise.race([
+    store.getState().init(),
+    new Promise<never>((_, reject) => {
+      initializationTimer = setTimeout(
+        () => reject(new Error("template-only initialization stayed blocked")),
+        3000
+      );
+    }),
+  ]);
+} finally {
+  clearTimeout(initializationTimer);
+}
 assert.equal(
   store.getState()._android_ui_ready,
   true,

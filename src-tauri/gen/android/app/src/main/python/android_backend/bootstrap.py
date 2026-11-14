@@ -1430,6 +1430,15 @@ def _patch_android_ocr_module_injection(root):
         "    sys.modules[\"core.ocr.baas_ocr_client.Client\"] = android_ocr_client\n"
         "    sys.modules[\"core.ocr.baas_ocr_client.server_installer\"] = android_ocr_installer\n",
     )
+    _replace_once(
+        injection,
+        "BAAS_ANDROID_OCR_CACHE_GUARDS_V1",
+        "    sys.modules[\"core.ocr.baas_ocr_client.server_installer\"] = android_ocr_installer\n",
+        "    sys.modules[\"core.ocr.baas_ocr_client.server_installer\"] = android_ocr_installer\n"
+        "    # BAAS_ANDROID_OCR_CACHE_GUARDS_V1\n"
+        "    from android_backend.ocr_runtime_cache import install_ocr_cache_guards\n"
+        "    install_ocr_cache_guards(android_ocr_client, android_ocr_installer)\n",
+    )
     # New backends keep the installer in core and expose the old service module
     # as an alias. Use its actual target folder instead of the client's __file__.
     # This also works with older, complete service installers and on the very
@@ -3978,9 +3987,11 @@ async def _handle_android_reset_auth(scope, receive, send):
 
 # Builds the ASGI app and reserves a bootstrap-owned restart endpoint.
 def _build_baas_asgi_app(root, port):
+    from android_backend.profile_resources import install_profile_isolation
     from android_backend.resource_readiness import install_runtime_readiness
     from service.runtime import ServiceRuntime
 
+    install_profile_isolation(ServiceRuntime)
     install_runtime_readiness(
         ServiceRuntime,
         lambda step, state, detail, trace: _report_resource_readiness(root, step, state, detail, trace),

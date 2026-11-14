@@ -54,6 +54,7 @@ def install_runtime_readiness(runtime_class, report, timeout_seconds=600, valida
     if getattr(runtime_class, "_android_resource_readiness_installed", False):
         return
     original = runtime_class.init_all_data
+    original_gate = getattr(runtime_class, "_ensure_android_ocr_ready", None)
     validate_resources = validate_resources or validate_script_resources
     validate_ocr_assets = validate_ocr_assets or validate_ocr_model_assets
 
@@ -69,9 +70,10 @@ def install_runtime_readiness(runtime_class, report, timeout_seconds=600, valida
                 if state["finished"] or state["failed"]:
                     return
                 state["failed"] = True
-                runtime._android_resource_error = str(error)
+                detail = (type(error).__name__ + ": " + str(error)) if isinstance(error, BaseException) else str(error)
+                runtime._android_resource_error = detail
                 runtime.is_all_data_initialized = False
-                report("resources", "failed", str(error), trace)
+                report("resources", "failed", detail, trace)
 
         def check_active():
             if state["failed"]:
@@ -147,4 +149,18 @@ def install_runtime_readiness(runtime_class, report, timeout_seconds=600, valida
                 main.init_static_config = original_static
 
     runtime_class.init_all_data = initialize
+    if original_gate is not None:
+        @functools.wraps(original_gate)
+        async def ensure_resources(runtime, *args, **kwargs):
+            def raise_initialization_error():
+                error = getattr(runtime, "_android_resource_error", None)
+                if error:
+                    raise RuntimeError("Android script resource preparation failed: " + error)
+            raise_initialization_error()
+            try:
+                return await original_gate(runtime, *args, **kwargs)
+            except Exception:
+                raise_initialization_error()
+                raise
+        runtime_class._ensure_android_ocr_ready = ensure_resources
     runtime_class._android_resource_readiness_installed = True

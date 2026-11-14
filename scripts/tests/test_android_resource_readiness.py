@@ -21,12 +21,23 @@ def load_readiness():
     return module
 
 
+def load_profiles():
+    spec = importlib.util.spec_from_file_location("android_profile_resources_test", SOURCE.with_name("profile_resources.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def fake_runtime(main):
     class Runtime:
         def __init__(self):
             self._main = main
             self._project_root = Path("/synthetic-backend")
+            self._sessions = {}
             self.is_all_data_initialized = False
+
+        def _get_or_create_session(self, config_id):
+            return config_id
 
         def init_all_data(self, need_ocr_update_check=True):
             if not self._main.init_ocr(need_ocr_update_check=need_ocr_update_check):
@@ -145,6 +156,24 @@ class AndroidResourceReadinessTest(unittest.TestCase):
         runtime.init_all_data()
         self.main.ocr.test_models.assert_called_once()
 
+    def test_task_gate_reports_original_global_failure_instead_of_calling_it_ocr(self):
+        self.runtime_class._ensure_android_ocr_ready = AsyncMock(side_effect=RuntimeError("OCR initialization failed"))
+        original_gate = self.runtime_class._ensure_android_ocr_ready
+        runtime = self.install()
+        runtime._android_resource_error = "KeyError: unsupported profile server"
+        with self.assertRaisesRegex(RuntimeError, "KeyError: unsupported profile server"):
+            asyncio.run(runtime._ensure_android_ocr_ready())
+        original_gate.assert_not_awaited()
+
+    def test_task_gate_keeps_failure_discovered_while_waiting_for_resources(self):
+        async def legacy_gate(runtime):
+            runtime._android_resource_error = "FileNotFoundError: script catalog"
+            raise RuntimeError("OCR initialization failed")
+        self.runtime_class._ensure_android_ocr_ready = legacy_gate
+        runtime = self.install()
+        with self.assertRaisesRegex(RuntimeError, "FileNotFoundError: script catalog"):
+            asyncio.run(runtime._ensure_android_ocr_ready())
+
     def test_resource_catalogs_are_read_and_missing_region_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -229,6 +258,7 @@ class AndroidResourceReadinessTest(unittest.TestCase):
         modules = {
             "android_backend": types.ModuleType("android_backend"),
             "android_backend.resource_readiness": self.readiness,
+            "android_backend.profile_resources": load_profiles(),
             "service": types.ModuleType("service"),
             "service.runtime": types.SimpleNamespace(ServiceRuntime=self.runtime_class),
             "service.app": types.SimpleNamespace(app=service_app),
