@@ -1,3 +1,4 @@
+import { restartUpdatedDesktopClient, type ClientUpdateResult } from "@/shared/ClientUpdateRestart";
 import React, {
   createContext,
   ReactNode,
@@ -98,7 +99,7 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
           if (!__WITH_ANDROID__) setStatus(t("update.tauriInstalling"));
         }
       };
-      const updateStarted = await invoke<boolean>("tauri_client_download_and_install", { onEvent });
+      const updateStarted = await invoke<ClientUpdateResult>("tauri_client_download_and_install", { onEvent });
       if (!updateStarted) {
         void useWebSocketStore.getState().checkTauriUpdater();
         setStatus(t("update.tauriUpToDate"));
@@ -110,8 +111,10 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
         setStatus(t("update.androidInstallerOpened"));
         return;
       }
-      const { relaunch } = await import("@tauri-apps/plugin-process");
-      await relaunch();
+      await restartUpdatedDesktopClient(updateStarted, async () => {
+        const { relaunch } = await import("@tauri-apps/plugin-process");
+        await relaunch();
+      });
     } catch (error) {
       setErrorDetail(error instanceof Error ? error.message : String(error));
       setStatus(t("update.tauriFailed"));

@@ -55,7 +55,7 @@ RULES = [
       "scripts/tests/android*", "scripts/android-dev-hot*", "scripts/android-smoke*"), ANDROID),
     (("tests/fixtures/transport_echo_peer.py", "src-tauri/src/main.rs", "src-tauri/src/commands.rs", "src-tauri/src/shm_native.rs", "src-tauri/src/shm_protocol.rs",
       "src-tauri/capabilities/default.json", "src-tauri/examples/*", "src-tauri/tests/client_release_version.rs"), NATIVE),
-    (("src-tauri/src/window_material.rs", "src-tauri/icons/*.ico", "src-tauri/icons/Square*", "src-tauri/icons/StoreLogo*",
+    (("src-tauri/tests/portable_client_update.rs", "src-tauri/src/window_material.rs", "src-tauri/icons/*.ico", "src-tauri/icons/Square*", "src-tauri/icons/StoreLogo*",
       "scripts/portable-fixed-webview2*"), {"native:windows"}),
     (("src-tauri/icons/*macos*", "src-tauri/icons/*.icns", "scripts/*macos*", "scripts/tests/test_macos*"), {"native:macos"}),
     (("src-tauri/*",), NATIVE | ANDROID),

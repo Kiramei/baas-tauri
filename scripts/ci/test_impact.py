@@ -37,6 +37,9 @@ class Routing(unittest.TestCase):
             "baasx/src/platform/windows/process-tree.ts": {"baasx-js:windows"},
             "src-tauri/src/platform/android.rs": {"android:arm64", "android-tests"},
             "src-tauri/src/platform/windows/window_material.rs": {"native:windows"},
+            "src-tauri/src/platform/windows/client_update.rs": {"native:windows"},
+            "src-tauri/src/platform/windows/portable_transaction.rs": {"native:windows"},
+            "src-tauri/tests/portable_client_update.rs": {"native:windows"},
             "src-tauri/src/shm_native/macos.rs": {"native:macos"},
             "src-tauri/webview2.arm64.json": {"native:windows:arm64"},
             "src-tauri/gen/android/app/src/main/python/adapter.py": {"android-tests"},
@@ -54,6 +57,12 @@ class Routing(unittest.TestCase):
                 self.assertEqual(owners(path), expected)
         with self.assertRaisesRegex(ValueError, "No CI owner"):
             owners("new-product/src/main.rs")
+
+    def test_portable_client_tests_only_select_windows_native(self):
+        result = classify(["src-tauri/tests/portable_client_update.rs"])
+        self.assertEqual({item["os"] for item in result["desktop"]}, {"windows-latest"})
+        self.assertFalse(result["android"] or result["frontend"] or result["baasx-platform"])
+        self.assertFalse(result["site"] or result["readme"])
 
     def test_targets_and_mixed_changes(self):
         result = classify(["src-tauri/webview2.arm64.json", "src/android/App.tsx", "baasx/src/platform/windows/process-tree.ts"])

@@ -719,7 +719,7 @@ pub async fn tauri_client_check_update(
         .filter(|value| !value.trim().is_empty())
         .map(|value| display_version(&value))
         .unwrap_or_else(|| display_version(&app.package_info().version.to_string()));
-    let endpoints = TAURI_UPDATE_ENDPOINTS
+    let endpoints = client_update_endpoints(&app)
         .iter()
         .map(|endpoint| endpoint.to_string())
         .collect::<Vec<_>>();
@@ -743,8 +743,7 @@ pub async fn tauri_client_check_update(
         let parsed = endpoint
             .parse::<url::Url>()
             .map_err(|error| error.to_string())?;
-        let updater = app
-            .updater_builder()
+        let updater = client_updater_builder(&app)?
             .endpoints(vec![parsed])
             .map_err(|error| error.to_string())?
             .build()
@@ -798,8 +797,8 @@ pub async fn tauri_client_check_update(
 pub async fn tauri_client_download_and_install(
     app: AppHandle,
     on_event: Channel<ClientUpdateEvent>,
-) -> Result<bool, String> {
-    let endpoints = TAURI_UPDATE_ENDPOINTS
+) -> Result<serde_json::Value, String> {
+    let endpoints = client_update_endpoints(&app)
         .iter()
         .map(|endpoint| endpoint.to_string())
         .collect::<Vec<_>>();
@@ -823,8 +822,7 @@ pub async fn tauri_client_download_and_install(
         let parsed = endpoint
             .parse::<url::Url>()
             .map_err(|error| error.to_string())?;
-        let updater = app
-            .updater_builder()
+        let updater = client_updater_builder(&app)?
             .endpoints(vec![parsed])
             .map_err(|error| error.to_string())?
             .build()
@@ -832,6 +830,55 @@ pub async fn tauri_client_download_and_install(
         let attempt = match updater.check().await {
             Ok(Some(update)) => {
                 let mut first_chunk = true;
+                #[cfg(windows)]
+                if crate::portable_client_update::is_portable_client(&app) {
+                    crate::portable_client_update::validate_download(&app, &update.download_url)?;
+                    let download = update
+                        .download(
+                            |chunk_length, content_length| {
+                                if first_chunk {
+                                    first_chunk = false;
+                                    let _ = on_event
+                                        .send(ClientUpdateEvent::Started { content_length });
+                                }
+                                let _ = on_event.send(ClientUpdateEvent::Progress { chunk_length });
+                            },
+                            || {
+                                let _ = on_event.send(ClientUpdateEvent::Finished);
+                            },
+                        )
+                        .await;
+                    let bytes = match download {
+                        Ok(bytes) => bytes,
+                        Err(error) => {
+                            system_log(
+                                "WARNING",
+                                "client_update",
+                                format!("Portable download from {endpoint} failed: {error}"),
+                            );
+                            selector
+                                .mark_failed(&endpoint)
+                                .map_err(|error| error.message())?;
+                            continue;
+                        }
+                    };
+                    let helper_app = app.clone();
+                    let version = update.version.clone();
+                    selector
+                        .mark_succeeded(&endpoint)
+                        .map_err(|error| error.message())?;
+                    tauri::async_runtime::spawn_blocking(move || {
+                        crate::portable_client_update::prepare(&helper_app, bytes, version)
+                    })
+                    .await
+                    .map_err(|error| error.to_string())??;
+                    let exiting = app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        tokio::time::sleep(Duration::from_millis(300)).await;
+                        exiting.exit(0);
+                    });
+                    return Ok(serde_json::json!({ "restartManaged": true }));
+                }
                 update
                     .download_and_install(
                         |chunk_length, content_length| {
@@ -858,7 +905,7 @@ pub async fn tauri_client_download_and_install(
                 selector
                     .mark_succeeded(&endpoint)
                     .map_err(|error| error.message())?;
-                return Ok(installed);
+                return Ok(serde_json::Value::Bool(installed));
             }
             Err(error) => {
                 system_log(
@@ -871,6 +918,38 @@ pub async fn tauri_client_download_and_install(
                     .map_err(|error| error.message())?;
             }
         }
+    }
+}
+
+fn client_update_endpoints(app: &AppHandle) -> &'static [&'static str] {
+    #[cfg(windows)]
+    if crate::portable_client_update::uses_fixed_runtime(app) {
+        return crate::portable_client_update::FIXED_ENDPOINTS;
+    }
+    let _ = app;
+    TAURI_UPDATE_ENDPOINTS
+}
+
+fn client_updater_builder(app: &AppHandle) -> Result<tauri_plugin_updater::UpdaterBuilder, String> {
+    let builder = app.updater_builder();
+    #[cfg(windows)]
+    if crate::portable_client_update::is_portable_client(app) {
+        return Ok(builder.target(crate::portable_client_update::portable_target()?));
+    }
+    Ok(builder)
+}
+
+/// Confirms the new React root committed without waiting for backend installation.
+#[tauri::command]
+pub fn tauri_client_update_ready(app: AppHandle) -> Result<serde_json::Value, String> {
+    #[cfg(windows)]
+    {
+        return crate::portable_client_update::ready(&app);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Ok(serde_json::json!({ "acknowledged": false }))
     }
 }
 

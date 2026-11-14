@@ -7,6 +7,7 @@ import { motion, MotionConfig } from "framer-motion";
 import { Toaster } from "@/components/ui/Sonner";
 import { PageKey } from "@/types/app";
 import i18n from "@/shared/I18nTranslator.ts";
+import { toast } from "sonner";
 import BAComet from "@/components/ui/BAComet.tsx";
 import { UISettingsProvider, useUISetting } from "@/context/UISettingsProvider.tsx";
 import ReconnectingOverlay from "@/components/ReconnectingOverlay.tsx";
@@ -306,6 +307,28 @@ const WrappedApp: React.FC = () => {
 
 /** Renders the app component. */
 const App: React.FC = () => {
+  useEffect(() => {
+    if (!__WITH_TAURI__ || __WITH_ANDROID__) return;
+    let cancelled = false;
+    const frame = requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (cancelled) return;
+      void import("@/shared/TauriInvoke")
+        .then(({ invoke }) => invoke<{ error?: string | null }>("tauri_client_update_ready"))
+        .then((result) => {
+          if (result?.error) {
+            toast.error(i18n.t("update.tauriFailed"), {
+              description: result.error,
+              duration: Infinity,
+            });
+          }
+        })
+        .catch((error: unknown) => console.warn("[client-update] startup acknowledgement failed", error));
+    }));
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, []);
   useEffect(() => {
     document.documentElement.lang = i18n.language;
     /** Handles the on lang change interaction. */

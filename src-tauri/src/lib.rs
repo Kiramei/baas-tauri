@@ -24,6 +24,9 @@ mod mobile_plugin_ack;
 mod mobile_update_query;
 mod native_window_controls;
 mod notifier_commands;
+#[cfg(windows)]
+#[path = "platform/windows/client_update.rs"]
+mod portable_client_update;
 mod pipe_commands;
 mod shm_commands;
 #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
@@ -31,6 +34,12 @@ mod shm_native;
 #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
 mod shm_protocol;
 mod system_logs;
+
+/// Runs the private portable updater before creating any window or WebView.
+#[cfg(windows)]
+pub fn handle_portable_update_helper() -> Option<i32> {
+    portable_client_update::helper_mode()
+}
 
 #[cfg(target_os = "android")]
 #[path = "platform/android.rs"]
@@ -45,6 +54,7 @@ compile_error!("BAAS mobile builds currently support Android only.");
 use crate::behavior::{set_backend_locale, set_minimize_to_tray, splash_off};
 #[cfg(not(mobile))]
 use crate::commands::{
+    tauri_client_update_ready,
     android_cleanup_scrcpy_virtual_display, android_game_fullscreen, android_game_gesture,
     android_game_native_preview, android_game_preview, android_game_resume_automation,
     android_game_screenshot, android_game_stream_info, android_launch_game, android_list_games,
@@ -116,6 +126,8 @@ pub fn run() {
             updater_validate_mirrorc_cdk,
             tauri_client_check_update,
             tauri_client_download_and_install,
+            #[cfg(not(mobile))]
+            tauri_client_update_ready,
             updater_check_version,
             updater_get_commit_history,
             updater_test_sha_method,
