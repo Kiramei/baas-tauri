@@ -69,6 +69,9 @@ class FakeGitHub:
 
     def run(self, **options):
         source, target = self.clients(options.get("dry_run", False))
+        # Transport/transaction fixtures exercise arbitrary names independently
+        # of the production installer policy, which has dedicated tests below.
+        options.setdefault("select_assets", lambda assets, version: assets)
         return mirror.Mirror(source, target, "v1.2.3", sleep=self.sleeps.append, **options).run()
 
     def owned_release(self, *, draft=False):
@@ -468,6 +471,89 @@ class MirrorTests(unittest.TestCase):
         self.assertTrue(patches[0]["draft"])
         self.assertIn("body", patches[0])
         self.assertEqual(patches[1], {"draft": False, "prerelease": True, "make_latest": "false"})
+
+
+class InstallerPolicyTests(unittest.TestCase):
+    def test_installer_policy_renames_each_platform_and_preserves_exact_bytes(self):
+        fake = FakeGitHub()
+        prefix = "BAAS.Tauri_1.2.3_"
+        mapping = {
+            "x64-setup.exe": "win_x64-setup.exe",
+            "arm64_fixed_webview2-setup.exe": "win_arm64_fixed_webview2-setup.exe",
+            "x86-setup.exe": "win_x86-setup.exe",
+            "amd64.deb": "linux_amd64.deb",
+            "aarch64.rpm": "linux_aarch64.rpm",
+            "x86_64.AppImage": "linux_x86_64.AppImage",
+            "aarch64.dmg": "macos_aarch64.dmg",
+            "x64.dmg": "macos_x64.dmg",
+            "android_arm64-v8a.apk": "android_arm64-v8a.apk",
+            "android_armeabi-v7a.apk": "android_armeabi-v7a.apk",
+            "android_x86_64.apk": "android_x86_64.apk",
+            "linux_arm64.deb": "linux_arm64.deb",
+            "win_x64_fixed_webview2-setup.exe": "win_x64_fixed_webview2-setup.exe",
+            "macos_universal.dmg": "macos_universal.dmg",
+        }
+        excluded = ["x64_portable.exe", "arm64_fixed_webview2_portable.zip",
+                    "x64-setup.exe.sig", "amd64.deb.sig", "aarch64.app.tar.gz",
+                    "aarch64.app.tar.gz.sig", "x64.nsis.zip", "SHA256SUMS",
+                    "android_arm64-v8a.apk.sig", "other.exe"]
+        data = {}
+        for index, (source, target) in enumerate(mapping.items()):
+            content = b"\x00exact-installer\xff" + bytes([index])
+            fake.asset(fake.source, prefix + source, content)
+            data[prefix + target] = content
+        for suffix in excluded:
+            fake.asset(fake.source, prefix + suffix, b"excluded")
+        fake.asset(fake.source, "BAAS.Tauri_1.2.4_x64-setup.exe", b"wrong-version")
+        result = fake.run(select_assets=mirror.installer_assets)
+        self.assertEqual({a["name"]: fake.content[fake.target, a["id"]] for a in fake.assets[fake.target]}, data)
+        self.assertEqual(result["uploaded"], len(mapping))
+        self.assertTrue(result["sha256-verified"])
+        for entry in result["assets"]:
+            self.assertEqual(entry["sha256"], sha(data[entry["name"]]))
+            self.assertIn(entry["source-name"], {prefix + name for name in mapping})
+        self.assertEqual(len(fake.downloads), len(mapping))
+        fake.events.clear()
+        fake.downloads.clear()
+        repeated = fake.run(select_assets=mirror.installer_assets)
+        self.assertEqual(repeated["skipped"], len(mapping))
+        self.assertEqual(fake.downloads, [])
+        self.assertTrue(all(event["method"] == "GET" for event in fake.events))
+
+    def test_default_production_policy_is_installers_only_and_dry_run_lists_both_names(self):
+        fake = FakeGitHub()
+        fake.asset(fake.source, "BAAS.Tauri_1.2.3_x64-setup.exe", b"installer")
+        fake.asset(fake.source, "BAAS.Tauri_1.2.3_x64_portable.exe", b"portable")
+        source, target = fake.clients(dry_run=True)
+        result = mirror.Mirror(source, target, "v1.2.3", dry_run=True, sleep=fake.sleeps.append).run()
+        self.assertEqual(len(result["assets"]), 1)
+        self.assertEqual(result["assets"][0]["name"], "BAAS.Tauri_1.2.3_win_x64-setup.exe")
+        self.assertEqual(result["assets"][0]["source-name"], "BAAS.Tauri_1.2.3_x64-setup.exe")
+        self.assertFalse(result["sha256-verified"])
+        self.assertEqual(fake.downloads, [])
+        self.assertTrue(all(event["method"] == "GET" for event in fake.events))
+
+    def test_empty_selection_and_renamed_collisions_fail_before_target_writes(self):
+        for names in (["x64_portable.exe", "x64-setup.exe.sig"],
+                      ["x64-setup.exe", "win_x64-setup.exe"]):
+            fake = FakeGitHub()
+            for name in names:
+                fake.asset(fake.source, "BAAS.Tauri_1.2.3_" + name, b"fixture")
+            with self.assertRaises(mirror.MirrorError):
+                fake.run(select_assets=mirror.installer_assets)
+            self.assertTrue(all(event["method"] == "GET" for event in fake.events))
+
+    def test_excluded_source_asset_changes_still_invalidate_the_source_snapshot(self):
+        fake = FakeGitHub()
+        fake.asset(fake.source, "BAAS.Tauri_1.2.3_x64-setup.exe", b"installer")
+        ignored = fake.asset(fake.source, "BAAS.Tauri_1.2.3_x64_portable.exe", b"portable")
+        def change(api):
+            if api.source_lists == 2:
+                ignored["updated_at"] = "changed"
+        fake.on_source_list = change
+        with self.assertRaisesRegex(mirror.MirrorError, "changed"):
+            fake.run(select_assets=mirror.installer_assets)
+        self.assertTrue(all(event["method"] == "GET" for event in fake.events))
 
 
 class HTTPTests(unittest.TestCase):

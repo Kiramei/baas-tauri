@@ -1,5 +1,5 @@
 name: Mirror app release upstream
-description: Verify and mirror published app assets to an isolated upstream prerelease, without building.
+description: Mirror verified platform installers with explicit platform filenames to an isolated upstream prerelease, without building.
 inputs:
   source-token:
     description: Token with read-only source repository contents access.

@@ -234,6 +234,37 @@ def asset_map(assets, *, source=False):
     return result
 
 
+def installer_assets(assets, version):
+    """Project published installers to explicit platform names; never alter bytes."""
+    prefix = "BAAS.Tauri_" + version + "_"
+    selected = {}
+    for name, asset in assets.items():
+        if not name.startswith(prefix):
+            continue
+        suffix = name[len(prefix):]
+        platform = None
+        # Only official installable formats belong in the upstream catalogue.
+        # Portable clients, updater payloads, signatures and manifests stay here.
+        for system, pattern in (
+            ("win", r"(?:win_)?(?:x64|x86|arm64)(?:_fixed_webview2)?-setup\.exe"),
+            ("linux", r"(?:linux_)?(?:amd64|x86_64|aarch64|arm64|armhf|armv7hl|armv7|i386)\.(?:deb|rpm|AppImage)"),
+            ("macos", r"(?:macos_)?(?:x64|x86_64|aarch64|arm64|universal)\.dmg"),
+            ("android", r"(?:android_)?(?:arm64-v8a|armeabi-v7a|arm64|armv7|aarch64|x64|x86_64|x86|universal)\.apk"),
+        ):
+            if re.fullmatch(pattern, suffix):
+                platform = system
+                break
+        if platform is None:
+            continue
+        target_name = prefix + (suffix if suffix.startswith(platform + "_") else platform + "_" + suffix)
+        if target_name in selected:
+            raise MirrorError("Source installers map to the same target filename: " + target_name)
+        selected[target_name] = {**asset, "name": target_name, "_source_name": name}
+    if not selected:
+        raise MirrorError("Source release has no recognized platform installers")
+    return selected
+
+
 @dataclass
 class Snapshot:
     release: dict
@@ -242,7 +273,8 @@ class Snapshot:
 
 
 class Mirror:
-    def __init__(self, source, target, tag, *, dry_run=False, settle_seconds=5, sleep=time.sleep):
+    def __init__(self, source, target, tag, *, dry_run=False, settle_seconds=5, sleep=time.sleep,
+                 select_assets=installer_assets):
         if source.repo.lower() == target.repo.lower():
             raise MirrorError("Source and target repositories must be different")
         match = re.fullmatch(r"v?((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:\.post(?:0|[1-9]\d*))?)", tag)
@@ -251,6 +283,7 @@ class Mirror:
         self.source, self.target, self.tag = source, target, tag
         self.version, self.target_tag = match[1], "tauri-" + match[1]
         self.dry_run, self.settle_seconds, self.sleep = dry_run, settle_seconds, sleep
+        self.select_assets = select_assets
         self.marker = f"<!-- baas-tauri-mirror:v1 source={source.repo} tag={tag} -->"
         self.namespace = hashlib.sha256(self.marker.encode()).hexdigest()[:20]
         self.verified = {}
@@ -269,7 +302,7 @@ class Mirror:
                  "assets": [{key: asset.get(key) for key in
                  ("id", "name", "size", "state", "digest", "label", "content_type", "updated_at")}
                  for _, asset in sorted(assets.items())]}
-        return Snapshot(release, assets, json.dumps(state, sort_keys=True))
+        return Snapshot(release, self.select_assets(assets, self.version), json.dumps(state, sort_keys=True))
 
     def unchanged(self):
         if self.snapshot().signature != self.baseline.signature:
@@ -394,7 +427,7 @@ class Mirror:
         result = {"status": "planned" if self.dry_run else "synced", "target-tag": self.target_tag,
                   "release-url": f"https://github.com/{self.target.repo}/releases/tag/{self.target_tag}"}
         if self.dry_run:
-            result.update({"sha256-verified": False, "assets": [{"name": name, "size": asset["size"],
+            result.update({"sha256-verified": False, "assets": [{"name": name, "source-name": asset.get("_source_name", name), "size": asset["size"],
                 "action": "skip-by-server-digest" if name in current and asset["size"] == current[name]["size"] and digest(asset) and digest(asset) == digest(current[name]) else ("verify-or-replace" if name in current else "upload"),
                 "source-sha256": digest(asset)} for name, asset in sorted(self.baseline.assets.items())]})
             return result
@@ -474,7 +507,7 @@ class Mirror:
                     self.unchanged()
                     self.promote(release, old, staged, asset, sha, directory)
                     counts["replaced" if old else "uploaded"] += 1
-                manifest.append({"name": name, "size": asset["size"], "sha256": sha,
+                manifest.append({"name": name, "source-name": asset.get("_source_name", name), "size": asset["size"], "sha256": sha,
                                  "source-verification": "github-server-digest" if digest(asset) else "downloaded-bytes"})
                 local.unlink(missing_ok=True)
 
