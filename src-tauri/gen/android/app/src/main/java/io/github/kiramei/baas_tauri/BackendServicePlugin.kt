@@ -13,7 +13,10 @@ import android.provider.Settings
 import android.util.Base64
 import androidx.core.content.FileProvider
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.result.ActivityResult
+import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
+import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSArray
@@ -22,6 +25,9 @@ import app.tauri.plugin.Plugin
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.lang.ref.WeakReference
+
+@InvokeArg
+class ProfileFolderUriArgs { lateinit var uri: String }
 
 @TauriPlugin
 class BackendServicePlugin(initialActivity: Activity) : Plugin(initialActivity) {
@@ -93,6 +99,44 @@ class BackendServicePlugin(initialActivity: Activity) : Plugin(initialActivity) 
   override fun onPause() { activeActivity?.get()?.let { activityPaused(it) } }
   override fun onResume() { activeActivity?.get()?.let { activityResumed(it) } }
   override fun onDestroy(activity: AppCompatActivity) { activityDestroyed(activity) }
+
+  private val profileFolders = ProfileFolderPicker(initialActivity.applicationContext)
+  private var profileFolderPicking = false
+
+  @Command
+  fun pickProfileFolder(invoke: Invoke) {
+    ui.post {
+      if (activePlugin?.get() !== this) { invoke.reject("Android plugin was superseded"); return@post }
+      if (profileFolderPicking) { invoke.reject("A directory picker is already open"); return@post }
+      profileFolderPicking = true
+      try {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+          .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
+        startActivityForResult(invoke, intent, "profileFolderResult")
+      } catch (error: Exception) {
+        profileFolderPicking = false
+        invoke.reject(error.message ?: "Cannot open directory picker")
+      }
+    }
+  }
+
+  @ActivityCallback
+  fun profileFolderResult(invoke: Invoke, result: ActivityResult) {
+    profileFolderPicking = false
+    try {
+      val uri = if (result.resultCode == Activity.RESULT_OK) result.data?.data else null
+      if (activePlugin?.get() !== this) invoke.reject("Android plugin was superseded")
+      else invoke.resolve(profileFolders.select(uri))
+    } catch (error: Exception) { invoke.reject(error.message ?: "Cannot select directory") }
+  }
+
+  @Command
+  fun listProfileFolder(invoke: Invoke) {
+    val args = invoke.parseArgs(ProfileFolderUriArgs::class.java)
+    commands.submit(15_000L, { profileFolders.list(args.uri) }, { result ->
+      ui.post { result.fold({ invoke.resolve(it) }, { invoke.reject(it.message ?: "Cannot read directory") }) }
+    })
+  }
 
   @Command fun setSystemBars(invoke: Invoke) = dispatch(invoke) { it.setSystemBars(invoke) }
   @Command fun gameNativePreview(invoke: Invoke) = dispatch(invoke) { it.gameNativePreview(invoke) }

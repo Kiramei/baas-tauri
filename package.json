@@ -66,6 +66,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "events": "^3.3.0",
+    "fflate": "0.8.3",
     "framer-motion": "^12.23.12",
     "i18next": "^25.4.2",
     "libsodium-wrappers-sumo": "^0.8.4",

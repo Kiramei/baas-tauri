@@ -64,6 +64,7 @@ use crate::mobile_commands::{
     android_cleanup_scrcpy_virtual_display, android_game_fullscreen, android_game_gesture,
     android_game_native_preview, android_game_preview, android_game_resume_automation,
     android_game_screenshot, android_game_stream_info, android_launch_game, android_list_games,
+    android_list_profile_folder, android_pick_profile_folder,
     android_open_shizuku, android_prepare_scrcpy_virtual_display,
     android_request_shizuku_permission, android_scrcpy_virtual_display_status,
     android_set_system_bars, android_shizuku_status, backend_transport_start, open_main_devtools,
@@ -144,6 +145,10 @@ pub fn run() {
             android_prepare_scrcpy_virtual_display,
             android_cleanup_scrcpy_virtual_display,
             android_scrcpy_virtual_display_status,
+            #[cfg(target_os = "android")]
+            android_pick_profile_folder,
+            #[cfg(target_os = "android")]
+            android_list_profile_folder,
             android_list_games,
             android_launch_game,
             android_game_preview,

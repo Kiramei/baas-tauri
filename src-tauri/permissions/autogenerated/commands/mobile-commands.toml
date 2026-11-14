@@ -40,6 +40,8 @@ commands.allow = [
   "android_prepare_scrcpy_virtual_display",
   "android_cleanup_scrcpy_virtual_display",
   "android_scrcpy_virtual_display_status",
+  "android_pick_profile_folder",
+  "android_list_profile_folder",
   "android_list_games",
   "android_launch_game",
   "android_game_preview",

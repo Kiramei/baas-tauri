@@ -3692,3 +3692,19 @@ RootTask id=56 bounds=[0,0][1280,720] displayId=0\n\
         );
     }
 }
+
+/// Select a user-granted Android Storage Access Framework tree for profile import.
+#[tauri::command]
+pub async fn android_pick_profile_folder(app: AppHandle) -> Result<Option<String>, String> {
+    crate::android_backend_service::pick_profile_folder(&app).await
+}
+
+/// Enumerate one directory inside the selected import tree off the IPC thread.
+#[tauri::command]
+pub async fn android_list_profile_folder(app: AppHandle, uri: String) -> Result<Vec<Value>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::list_profile_folder(&app, &uri)
+    })
+    .await
+    .map_err(|error| format!("Android directory worker failed: {error}"))?
+}
