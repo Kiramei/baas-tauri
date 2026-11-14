@@ -8,6 +8,9 @@ import android.view.MotionEvent
 
 /** Cached hidden APIs; no per-gesture process startup. Must run in the privileged process. */
 object DisplayInput {
+  /** ATM's focused root task can disagree with Android 12's input display. */
+  fun focusedDisplayId(): Int? = PrivilegedExecution.focusedInputDisplayId(inputWindowSnapshot())
+
   /** Android 12 presents TYPE_PRESENTATION below app tasks; own a higher shield. */
   @Synchronized fun focusShieldWindow(context: android.content.Context, displayId: Int): Boolean {
     PrivilegedExecution.virtualDisplayId(displayId)

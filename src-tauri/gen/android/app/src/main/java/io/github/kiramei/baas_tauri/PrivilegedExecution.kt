@@ -11,6 +11,10 @@ internal object PrivilegedExecution {
   fun supportsPreviewFocus(sdk: Int): Boolean = sdk >= 31
   fun usesTargetedFocusInput(sdk: Int): Boolean = sdk >= 33
 
+  fun focusedInputDisplayId(snapshot: String): Int? =
+    Regex("^\\s*FocusedDisplayId:\\s*(\\d+)\\s*$", RegexOption.MULTILINE)
+      .find(snapshot)?.groupValues?.get(1)?.toIntOrNull()
+
   /** Fail closed before untargeted Android 12 input: our shield must be on top. */
   fun ownsFocusInputWindow(snapshot: String, displayId: Int, ownerUid: Int): Boolean =
     checkFocusInputWindow(snapshot, displayId, ownerUid).verified

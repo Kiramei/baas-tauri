@@ -281,6 +281,7 @@ private class BackendActivitySession(
       try {
         val palette = args.optJSONObject("themePalette")
         if (palette != null) nativePreview.applyTheme(NativePreviewPalette.from { palette.optString(it) })
+        nativePreview.requestVisibility(args.optBoolean("enabled", false))
         val layout = PreviewLayout(args.optDouble("x", 0.0), args.optDouble("y", 0.0),
           args.optDouble("width", 0.0), args.optDouble("height", 0.0), args.optDouble("viewportWidth", 1.0),
           (args.optBoolean("enabled", false) || nativePreview.isFullscreen()) && sessionOperations.count == 0 && foreground,

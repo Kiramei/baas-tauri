@@ -9,6 +9,13 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class PrivilegedExecutionTest {
+  @Test fun inputFocusUsesTheInputDispatcherDisplayInsteadOfTaskFocus() {
+    assertEquals(0, PrivilegedExecution.focusedInputDisplayId("  FocusedDisplayId: 0\n  FocusedApplications:\n"))
+    assertEquals(2, PrivilegedExecution.focusedInputDisplayId("Input Dispatcher State:\n  FocusedDisplayId: 2\n"))
+    assertEquals(null, PrivilegedExecution.focusedInputDisplayId("  FocusedApplications:\n    displayId=2\n"))
+    assertEquals(null, PrivilegedExecution.focusedInputDisplayId("  FocusedDisplayId: -1\n"))
+  }
+
   @Test fun eachApkInstallationReplacesThePreviousUserService() {
     val first = PrivilegedExecution.userServiceVersion(39, "/data/app/first/base.apk")
     assertTrue(first > 0)

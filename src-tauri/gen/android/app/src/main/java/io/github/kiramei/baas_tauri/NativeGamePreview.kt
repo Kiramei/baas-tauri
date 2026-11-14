@@ -53,6 +53,7 @@ class NativeGamePreview(private val activity: Activity) {
   private var controls: FrameLayout? = null
   private var status: TextView? = null
   private var badge: TextView? = null
+  private var closeButton: ImageButton? = null
   private var controlRow: LinearLayout? = null
   private val controlButtons = mutableListOf<Pair<String, ImageButton>>()
   private var palette = NativePreviewPalette.DARK
@@ -78,6 +79,7 @@ class NativeGamePreview(private val activity: Activity) {
   private val focusRetry = PreviewFocusRetry()
   private var previewLanguage = "en"
   private val displayedFrames = PreviewDisplayedFrames()
+  private val dismissal = NativePreviewDismissal()
 
   // Read on the UI thread, alongside TextureView's consumer callback.
   internal fun displayedFrameCount(): Long = displayedFrames.count
@@ -109,16 +111,38 @@ class NativeGamePreview(private val activity: Activity) {
 
   internal fun consumeFullscreenBack(): Boolean = exitFullscreen() || cancelPendingFullscreen?.invoke() == true
 
+  internal fun consumeBack(): Boolean = consumeFullscreenBack() || dismissPreview()
+
+  internal fun requestVisibility(enabled: Boolean) = dismissal.request(enabled)
+
+  /** Hide locally before notifying JS: its listener may be unavailable or stale. */
+  private fun dismissPreview(): Boolean {
+    if (!visible && fullscreen == null) return false
+    dismissal.dismiss()
+    cancelPendingFullscreen?.invoke()
+    exitFullscreen()
+    visible = false
+    touch.cancel()
+    cancelFocusRecovery()
+    container?.visibility = View.GONE
+    controls?.visibility = View.GONE
+    detach()
+    dispatchAction("close")
+    return true
+  }
+
   internal fun enterFullscreen(displayId: Int, width: Int, height: Int, language: String, lease: NativeManualInputLease) {
     check(displayId > 0 && width > 0 && height > 0 && lease.displayId == displayId && lease.token > 0) { "No active game input lease is available" }
     check(fullscreen == null) { "Fullscreen game control is already active" }
     val host = create()
+    dismissal.openExplicitly()
     val parent = host.parent as ViewGroup
     previewLanguage = language
     gameWidth = width; gameHeight = height; fullscreenDisplayId = displayId
     manualInputLease = lease
     touch.beginSession(displayId, lease.token)
     controls?.visibility = View.GONE; badge?.visibility = View.GONE
+    closeButton?.visibility = View.GONE
     previousAccessibility = webView?.importantForAccessibility ?: View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
     webView?.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
     fullscreen = NativeGameFullscreen(activity, parent, host, width, height, palette, language, { frame ->
@@ -128,10 +152,7 @@ class NativeGamePreview(private val activity: Activity) {
         touch.cancel()
         host.layoutParams = FrameLayout.LayoutParams(frame.width, frame.height).apply { leftMargin = frame.left; topMargin = frame.top }
       }
-    }, { touch.cancel() }, { exitFullscreen() }, {
-      exitFullscreen()
-      dispatchAction("close")
-    })
+    }, { touch.cancel() }, { exitFullscreen() }, { dismissPreview() })
     visible = true; host.visibility = View.VISIBLE
     if (surface == null && texture?.isAvailable == true) surface = Surface(texture!!.surfaceTexture)
     attach()
@@ -149,6 +170,7 @@ class NativeGamePreview(private val activity: Activity) {
     manualInputLease?.close(); manualInputLease = null
     webView?.importantForAccessibility = previousAccessibility
     controls?.visibility = View.GONE; badge?.visibility = View.VISIBLE
+    closeButton?.visibility = View.VISIBLE
     (activity as? MainActivity)?.setGameFullscreen(false)
     inlineLayout?.let { layout -> update(layout.x, layout.y, layout.width, layout.height, layout.viewportWidth,
       layout.enabled, layout.clipTop, layout.clipBottom) }
@@ -180,6 +202,7 @@ class NativeGamePreview(private val activity: Activity) {
     controls?.setBackgroundColor(palette.alpha(palette.background, 112))
     controlRow?.background = rounded(palette.alpha(palette.background, 245), 24)
     controlButtons.forEach { (action, button) -> buttonColors(button, action == "fullscreen") }
+    closeButton?.let { buttonColors(it, false) }
     status?.setTextColor(palette.foreground)
     status?.setBackgroundColor(palette.alpha(palette.background, 224))
     badge?.setTextColor(palette.mutedForeground)
@@ -257,7 +280,7 @@ class NativeGamePreview(private val activity: Activity) {
         setOnClickListener {
           overlay.visibility = View.GONE
           badge?.visibility = View.VISIBLE
-          dispatchAction(action)
+          if (action == "close") dismissPreview() else dispatchAction(action)
         }
       }
       buttonColors(button, action == "fullscreen")
@@ -274,7 +297,19 @@ class NativeGamePreview(private val activity: Activity) {
       setPadding(dp(10), dp(4), dp(10), dp(4)); isClickable = false
     }
     badge = live
-    host.addView(live, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(dp(8), dp(8), dp(8), 0) })
+    host.addView(live, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { setMargins(dp(8), dp(8), dp(8), 0) })
+    val close = ImageButton(activity).apply {
+      setImageResource(R.drawable.preview_close)
+      contentDescription = if (previewLanguage.startsWith("zh")) "关闭预览" else "Close preview"
+      scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
+      setPadding(dp(12), dp(12), dp(12), dp(12))
+      setOnClickListener { dismissPreview() }
+    }
+    closeButton = close
+    buttonColors(close, false)
+    host.addView(close, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.TOP or Gravity.END).apply {
+      setMargins(dp(4), dp(4), dp(4), 0)
+    })
     view.setOnClickListener {
       overlay.visibility = if (overlay.visibility == View.VISIBLE) View.GONE else View.VISIBLE
       live.visibility = if (overlay.visibility == View.VISIBLE) View.GONE else View.VISIBLE
@@ -305,8 +340,8 @@ class NativeGamePreview(private val activity: Activity) {
       return
     }
     inlineLayout = InlineLayout(x, y, width, height, viewportWidth, enabled, clipTop, clipBottom)
-    visible = enabled
-    if (!enabled || paused || width <= 0 || height <= 0) {
+    visible = dismissal.allows(enabled)
+    if (!visible || paused || width <= 0 || height <= 0) {
       container?.visibility = View.GONE
       cancelFocusRecovery()
       detach()
@@ -488,6 +523,7 @@ class NativeGamePreview(private val activity: Activity) {
   internal fun setStatus(state: PreviewFrameState, error: String?, language: String? = null) {
     if (language != null) previewLanguage = language
     val chinese = previewLanguage.startsWith("zh")
+    closeButton?.contentDescription = if (chinese) "关闭预览" else "Close preview"
     val label = when (state) {
       PreviewFrameState.WAITING -> if (chinese) "等待画面" else "Waiting for frames"
       PreviewFrameState.BLACK -> if (chinese) "黑屏" else "Black screen"
