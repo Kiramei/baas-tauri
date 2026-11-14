@@ -9,6 +9,8 @@ import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
+const tar =
+  process.platform === "win32" ? path.join(process.env.SystemRoot, "System32", "tar.exe") : "tar";
 const manifest = JSON.parse(readFileSync(path.join(project, "package.json"), "utf8"));
 const platformFixtures = platforms.map((p) => ({
   ...p,
@@ -16,14 +18,14 @@ const platformFixtures = platforms.map((p) => ({
   binary: p.executable,
 }));
 
-function fixture() {
+function fixture(targets = platformFixtures) {
   const root = mkdtempSync(path.join(tmpdir(), "baasx-pack-test-"));
   const assets = path.join(root, "assets");
   const output = path.join(root, "output");
   const bundle = path.join(root, "baasx-node.mjs");
   mkdirSync(assets);
   writeFileSync(bundle, "console.log(JSON.stringify({ args: process.argv.slice(2) }));\n");
-  for (const platform of platformFixtures) {
+  for (const platform of targets) {
     const stage = path.join(root, platform.directory);
     mkdirSync(path.join(stage, "package", "runtime"), { recursive: true });
     writeFileSync(
@@ -39,12 +41,12 @@ function fixture() {
     // A substantial stand-in for the standalone executable must not reach the npm tarball.
     writeFileSync(path.join(stage, "package", platform.binary), randomBytes(128 * 1024));
     const archive = path.join(assets, `baasx-${manifest.version}-${platform.asset}-bun.tgz`);
-    execFileSync("tar", ["-czf", archive, "-C", stage, "package"]);
+    execFileSync(tar, ["-czf", archive, "-C", stage, "package"]);
   }
   return { root, assets, output, bundle };
 }
 
-function pack({ assets, output, bundle }) {
+function pack({ assets, output, bundle }, options = [], env = process.env) {
   const result = spawnSync(
     "node",
     [
@@ -57,19 +59,49 @@ function pack({ assets, output, bundle }) {
       output,
       "--scope",
       "kiramei",
+      ...options,
     ],
-    { encoding: "utf8" }
+    { encoding: "utf8", env }
   );
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(result.stderr);
   return JSON.parse(result.stdout);
 }
 
-// Registry packages are assembled on Linux. Node cannot directly spawn npm.cmd
-// on Windows; the other platform checks exercise the standalone distributions.
+// The full installer fixture uses POSIX scripts as stand-ins for the executables.
 const registryTest = process.platform === "win32" ? test.skip : test;
 
 describe("registry package", () => {
+  test("Windows bsdtar archive listings preserve both runtime names in npm packs", () => {
+    const host = platformFixtures.find((p) => p.os === process.platform && p.cpu === process.arch);
+    if (!host) throw new Error("Unsupported test host");
+    const files = fixture([host]);
+    try {
+      const env = { ...process.env };
+      if (process.platform !== "win32") {
+        // Exercise CRLF on Unix too, while retaining real archive creation and extraction.
+        const bin = path.join(files.root, "bin");
+        mkdirSync(bin);
+        writeFileSync(
+          path.join(bin, "tar"),
+          '#!/bin/sh\nif [ "$1" = "-tzf" ]; then\n  command -p tar "$@" | awk \'{printf "%s\\r\\n", $0}\'\nelse\n  command -p tar "$@"\nfi\n',
+          { mode: 0o755 }
+        );
+        env.PATH = bin + path.delimiter + env.PATH;
+      }
+      const packages = pack(files, ["--host-only"], env);
+      const archive = packages.find((p) => p.name === host.name).archive;
+      for (const name of [host.helper, host.legacyHelper]) {
+        const packed = execFileSync(tar, ["-xOzf", archive, "package/runtime/" + name]);
+        expect(packed).toEqual(
+          readFileSync(path.join(files.root, host.directory, "package/runtime", name))
+        );
+      }
+    } finally {
+      rmSync(files.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  }, 30_000);
+
   registryTest(
     "packs exact platform dependencies and installs only the host helper",
     async () => {

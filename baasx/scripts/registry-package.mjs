@@ -109,7 +109,7 @@ try {
         const members = [platform.helper, platform.legacyHelper].map(
           (name) => `package/runtime/${name}`
         );
-        const entries = execFileSync(tar, ["-tzf", archive], { encoding: "utf8" }).split("\n");
+        const entries = execFileSync(tar, ["-tzf", archive], { encoding: "utf8" }).split(/\r?\n/);
         for (const member of members) {
           if (!entries.includes(member)) throw new Error(`${platform.asset} missing ${member}`);
         }
