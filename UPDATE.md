@@ -1,3 +1,39 @@
+## 0.0.10
+
+> Stable release focused on Android updates and game launch recovery, stable backend defaults, and local MirrorChyan credentials.
+
+### New Features
+
+1. Added Android client update downloads with signed APK verification and handoff to the system installer.
+2. Added native MirrorChyan CDK verification and device-local credential storage for desktop and Android. Stable backend packages are checked against their SHA-256 before application.
+3. Added an **Open on device** action for Android game sessions whose background preview is unavailable, with recovery of an existing foreground game task when possible.
+
+### Improvements
+
+1. New backend installations default to the stable channel across desktop, Android, WebUI/Docker and BAASX. Existing installations keep their saved channel, and development remains selectable.
+2. Improved Android game package detection, virtual-display ownership and restart handling, including Global Teen and ONE store package variants.
+3. Separated client frontend, native backend, operating-system adapters, BAASX and documentation verification so changes run the relevant CI jobs. README-only changes use lightweight documentation checks.
+4. Prepared six-target BAASX distributions and platform-specific optional npm runtime packages. The scoped `@kiramei/baasx` entry remains the registry installation name; BAASX distribution publication uses its independent version and release tag.
+5. Renamed the BAASX native helper to `baasx-runtime`, retaining the legacy executable, Cargo entry and environment-variable lookup for existing installations.
+
+### Fixes
+
+1. Avoided relaunching an already active Android game when the Home page reconnects, and coordinated game display cleanup before restart or foreground launch.
+2. Corrected client update feed selection to advertise signed assets for the matching operating system, architecture and Linux package format.
+3. Kept MirrorChyan credentials out of synchronized frontend configuration and sanitized credential-bearing download diagnostics.
+4. Corrected cross-platform BAASX packaging, Windows archive handling, terminal input synchronization and runtime compatibility checks.
+5. Synchronized native release versions and the legacy runtime dependency, and moved Renovate configuration to the repository root.
+
+### Upgrade Notes
+
+- Export important profiles before upgrading. Existing backend installations continue using their saved update channel.
+- Android updates require confirmation in the system installer and may require allowing this application to install packages.
+- Android game capture and background execution depend on the device's privileged-display support. **Open on device** provides a foreground recovery path when a background session cannot continue.
+- Enter a personal MirrorChyan CDK on each device when using that source. Do not include credentials in screenshots or exported configuration.
+- The unscoped npm name `baasx` is on hold while its registry naming appeal is pending. Use `@kiramei/baasx` for registry installations.
+- Linux ARM64, Intel macOS and Windows ARM64 BAASX clients support remote connections and demo mode. Local OCR prebuilds currently cover Linux x64, Apple Silicon macOS and Windows x64.
+- Winget publication remains disabled for 0.x releases.
+
 ## 0.0.9.post1
 
 > Stable maintenance release focused on Android first-run setup, plugin execution, and release version handling.
