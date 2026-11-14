@@ -77,7 +77,9 @@ class FakeGitHub:
     def owned_release(self, *, draft=False):
         source, target = self.clients()
         runner = mirror.Mirror(source, target, "v1.2.3")
-        body = runner.marker + "\nMirror of [example/client v1.2.3](https://github.com/example/client/releases/tag/v1.2.3).\n\nPublished release notes"
+        body = runner.marker + "\nMirror of [example/client v1.2.3](https://github.com/example/client/releases/tag/v1.2.3).\n\n" + (
+            "The mirror tag points to the target repository's own commit, not the Tauri source commit. "
+            "Use the source release above for Tauri source and history.\n\nPublished release notes")
         self.releases[self.target] = {"id": 2, "tag_name": runner.target_tag, "name": "App 1.2.3",
             "body": body, "draft": draft, "prerelease": True, "make_latest": "false"}
         self.existing_tag = True
@@ -187,6 +189,7 @@ class MirrorTests(unittest.TestCase):
         self.assertTrue(created["draft"])
         self.assertTrue(created["prerelease"])
         self.assertIn("Published release notes", created["body"])
+        self.assertIn("not the Tauri source commit", created["body"])
         self.assertEqual(created["name"], "App 1.2.3")
         self.assertEqual(created["target_commitish"], "a" * 40)
         published = [event["payload"] for event in fake.events if event["method"] == "PATCH" and event["route"] == "/releases/2"][-1]

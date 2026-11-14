@@ -434,7 +434,9 @@ class Mirror:
 
         source_url = f"https://github.com/{self.source.repo}/releases/tag/{quote(self.tag, safe='')}"
         desired = {"name": self.baseline.release.get("name") or self.tag,
-                   "body": self.marker + f"\nMirror of [{self.source.repo} {self.tag}]({source_url}).\n\n" + (self.baseline.release.get("body") or "")}
+                   "body": self.marker + f"\nMirror of [{self.source.repo} {self.tag}]({source_url}).\n\n"
+                   "The mirror tag points to the target repository's own commit, not the Tauri source commit. "
+                   "Use the source release above for Tauri source and history.\n\n" + (self.baseline.release.get("body") or "")}
         mutating = False
 
         def begin_changes():
