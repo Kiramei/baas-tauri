@@ -71,9 +71,9 @@ A listed mirror is not a promise of reachability, freshness or matching channel 
 
 ## MirrorC Key
 
-On desktop or Android, select the stable channel in **Settings → Updates**, enter your own CDK and choose **Verify**. The native client checks the key with MirrorChyan and stores it in this device’s private directory after a successful check. The result includes expiry when available and distinguishes expired, mismatched, exhausted and blocked keys. Selecting another download source clears the key.
+On desktop or Android, select the stable channel in **Settings → Updates**, enter your own CDK and choose **Verify**. The native client checks the key with MirrorChyan and stores it in this device’s private directory after a successful check. The result includes expiry when available and distinguishes expired, mismatched, exhausted and blocked keys. Selecting another download source while MirrorChyan is active clears the saved key; switching to Development keeps it stored for a later return to Stable.
 
-The stable main backend uses MirrorChyan archives. The updater verifies SHA-256 before applying a full or incremental package. The development backend and platform-specific OCR continue to update from Git. Polling requests public version metadata. The native client sends the user’s key to MirrorChyan when requesting validation or download authorization. WebUI has no local credential input.
+A configured CDK selects MirrorChyan archives for the stable main backend. Without a CDK, the stable backend uses Git. The updater verifies SHA-256 before applying an archive; desktop supports full or incremental packages, while Android requests a full package because its Python tree contains device-specific patches. The development backend and platform-specific OCR use Git. Polling requests public version metadata. The native client sends the user’s key to MirrorChyan when requesting validation or download authorization. WebUI has no local credential input.
 
 ## SHA Diagnostics
 
