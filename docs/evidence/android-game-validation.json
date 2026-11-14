@@ -302,5 +302,73 @@
       "Baseline display 6 disappeared during application rebinding or Play without an explicit stop request; its transition was not isolated, so preservation is not claimed.",
       "Raw screenshots, unfiltered OCR output, game identifiers, phone configuration and private device artifacts are excluded from this summary."
     ]
+  },
+  "badgeOnlyReviewSupplement": {
+    "recordedAt": "2026-11-14T13:13:09.248261Z",
+    "verificationKind": "Separate physical-device smoke check of natural inline-preview states; the four earlier APK runs remain unchanged.",
+    "sourceRevision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+    "apkSha256": "36f0a9a4549ddfbe4b6be5c1f1f7a417e2d5ceba5c73b1bb55450e4755f91139",
+    "applicationId": "io.github.kiramei.baas_tauri.review",
+    "apkKind": "debug-review",
+    "environment": {
+      "model": "Redmi K30",
+      "android": "12",
+      "sdk": 31,
+      "abi": "arm64-v8a"
+    },
+    "baseline": {
+      "waitedForNaturalTaskIdleAndUserConfirmation": true,
+      "existingUserDisplayNotManuallyStopped": true
+    },
+    "observations": {
+      "startupResourcesAndHome": "passed",
+      "observedNaturalStates": [
+        "waiting",
+        "black",
+        "live"
+      ],
+      "stateSamples": 41,
+      "statesArtificiallyForced": false,
+      "onlyUpperRightStatusBadgeObserved": true,
+      "centerStatusTextOrPanelObserved": false,
+      "waitingAndBlackCenterRegionUniform": true,
+      "stableNonBlackLivePreviewObserved": true,
+      "gameAreaTouches": 0,
+      "solveOrSchedulerCommands": 0,
+      "fullscreenEntered": false
+    },
+    "sourceAndBuildOnlyCoverage": [
+      "still",
+      "error",
+      "fullscreen"
+    ],
+    "cleanup": {
+      "defaultDisplayBackClosedOwnedSession": true,
+      "ownedDisplayReleased": true,
+      "temporaryFocusSurfaceCount": 0,
+      "actualDispatcherDisplayId": 0,
+      "runningCount": 0,
+      "homeVisible": true,
+      "testHostForwardRemoved": true
+    },
+    "sources": [
+      {
+        "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/NativeGamePreview.kt",
+        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "sha256": "1baf89b93f72b0a1ec9cf0773811bb6b193ad37c72d10311e6edf23bc7668027",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/NativeGameFullscreen.kt",
+        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "sha256": "cc46ad2e2c696877adb11b3652a403f5eefc8de52e64920146c0040dcf668f98",
+        "gitContentVerified": true
+      }
+    ],
+    "limitations": [
+      "Still and Error did not naturally occur. Their common badge renderer was checked by source review and compilation, not a fabricated physical-device state.",
+      "Fullscreen was not entered in this round; its badge/menu behavior was covered by source/build only. No full gameplay or task-suite acceptance is claimed.",
+      "Only App Play and default-display Back were used. Raw screenshots, identifiers, configuration values and unfiltered device output are excluded."
+    ]
   }
 }
