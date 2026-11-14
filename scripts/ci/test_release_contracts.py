@@ -43,8 +43,17 @@ class ReleaseContracts(unittest.TestCase):
             self.assertNotEqual(call(["verify",kind,"v1.2.3"],{"assets":[]}).returncode,0)
         good=["SHA256SUMS"]+[f"baasx-1.2.3-{platform}{ext}" for platform in
               ("Linux-X64","Linux-ARM64","macOS-ARM64","macOS-X64","Windows-X64","Windows-ARM64") for ext in ("-bun.tgz",".tar.gz")]
+        good += [f"baasx-1.2.3-Linux-ARMV7L{ext}" for ext in ("-node.tgz", ".tar.gz")]
+        self.assertNotEqual(call(["verify","baasx","baasx-v1.2.3"],
+                                {"assets":[{"name":s} for s in good + ["archive.sig"]]}).returncode,0)
         self.assertEqual(call(["verify","baasx","baasx-v1.2.3"],
                               {"assets":[{"name":s} for s in good]}).returncode,0)
+        old = ["SHA256SUMS"] + [f"baasx-0.1.4-{platform}{ext}" for platform in
+               ("Linux-X64", "macOS-ARM64", "Windows-X64") for ext in ("-bun.tgz", ".tar.gz")]
+        self.assertEqual(call(["verify", "baasx", "baasx-v0.1.4"],
+                              {"assets": [{"name": name} for name in old]}).returncode, 0)
+        self.assertNotEqual(call(["verify", "baasx", "baasx-v0.1.5-rc.1"],
+                                 {"assets": [{"name": name.replace("0.1.4", "0.1.5-rc.1")} for name in old]}).returncode, 0)
 
     def test_cnb_wait_ready_only_fails_before_polling(self):
         import textwrap
