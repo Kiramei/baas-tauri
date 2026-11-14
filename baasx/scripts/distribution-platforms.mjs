@@ -19,8 +19,8 @@ export const platforms = targets.map((platform) => {
   };
 });
 
-// uname (armv7l) and Debian (armhf) identify the same ARMv7 hard-float package.
-// Keep only npm's canonical `arm` entry so optional dependencies download once.
+// These are distribution selection aliases, not host ABI detection. The payload
+// requires ARMv7, hard-float and glibc 2.35+. Keep one npm `arm` dependency.
 export function platformFor(os, cpu) {
   if (cpu === undefined) {
     const separator = os.indexOf("-");

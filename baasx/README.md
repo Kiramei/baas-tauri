@@ -46,7 +46,7 @@ The scoped package installs the JavaScript CLI. The package manager selects an e
 
 For Linux ARM32, use npm with an ARM32 Node.js 20.3+ installation, or extract `baasx-<version>-Linux-ARMV7L.tar.gz`. The standalone archive bundles Node.js 22.23.5, the Node-compatible CLI, and the ARMv7 Rust helper; it needs no installed Node.js, Bun, or Rust. Preserve `baasx`, `dist/baasx-node.mjs`, and `runtime/` together, including `runtime/node` and `runtime/NODE_LICENSE`. Bun does not support ARM32. The `-Linux-ARMV7L-node.tgz` attachment uses your installed Node.js instead.
 
-ARM32 distributions require GNU/Linux ARMv7 hard-float, glibc 2.35+, `libstdc++6`, and `libatomic1`. On a compatible Debian/Ubuntu system, install missing runtime libraries with `sudo apt install libstdc++6 libatomic1`. ARMv6, soft-float `armel`, and musl Linux are unsupported.
+ARM32 distributions require GNU/Linux ARMv7 hard-float, glibc 2.35+, `libstdc++6`, and `libatomic1`. On a compatible Debian/Ubuntu system, install missing runtime libraries with `sudo apt install libstdc++6 libatomic1`. The `armhf` label alone does not establish the CPU minimum; some distributions use it for ARMv6. ARMv6, soft-float `armel`, and musl Linux are unsupported.
 
 ARM32 supports the terminal workbench, remote service connections, configuration, task and scheduler control, logs, and demo mode. Managed local installation and local recognition are unavailable: upstream provides no ARM32 OCR prebuild, and the backend's Python/dependency/OCR stack has not been validated for ARM32. Connect to a compatible existing service with `--server` or `--pipe`. Local OCR currently supports Linux x64, macOS ARM64 and Windows x64.
 

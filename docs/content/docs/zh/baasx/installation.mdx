@@ -88,9 +88,9 @@ baasx/                   # 解压目录，可自行改名
 
 **不要只复制主程序而丢弃 `runtime/`。** 加入 PATH 时指向整个解压目录，或创建指向原程序的启动方式。Release 中的 `SHA256SUMS` 用于与下载归档的 SHA-256 对照；Linux 可在归档目录运行 `sha256sum --check --ignore-missing SHA256SUMS`，PowerShell 用 `Get-FileHash -Algorithm SHA256 <文件名>` 与清单比对。
 
-Linux ARMv7l／armhf 独立归档内置 Node.js 22.23.5 和真实的 ARMv7 硬浮点 Rust 组件，无需另装 Node.js、Bun 或 Rust。其 `baasx` 启动器还需要 `dist/baasx-node.mjs`、`runtime/node` 和 `runtime/NODE_LICENSE`，请与其余解压文件一起保留。两种 ARM32 名称对应同一个发行物，无需各下载一份。BAASX 归档和 Release 附件不包含 `.sig` 文件，使用 `SHA256SUMS` 校验完整性。
+Linux ARMv7l／armhf 独立归档内置 Node.js 22.23.5 和真实的 ARMv7 硬浮点 Rust 组件，无需另装 Node.js、Bun 或 Rust。其 `baasx` 启动器还需要 `dist/baasx-node.mjs`、`runtime/node` 和 `runtime/NODE_LICENSE`，请与其余解压文件一起保留。在符合这些 CPU 与 ABI 条件的系统上，两种名称选择同一个发行物。BAASX 归档和 Release 附件不包含 `.sig` 文件，使用 `SHA256SUMS` 校验完整性。
 
-ARM32 发行物需要 GNU/Linux ARMv7 硬浮点、glibc 2.35+、`libstdc++6` 和 `libatomic1`。兼容的 Debian／Ubuntu 系统可用 `sudo apt install libstdc++6 libatomic1` 补齐运行库。不支持 ARMv6、软浮点 `armel` 和 musl Linux。
+ARM32 发行物需要 GNU/Linux ARMv7 硬浮点、glibc 2.35+、`libstdc++6` 和 `libatomic1`。兼容的 Debian／Ubuntu 系统可用 `sudo apt install libstdc++6 libatomic1` 补齐运行库。`armhf` 这一名称本身不能确定 CPU 下限，部分发行版也用它表示 ARMv6；此发行物不支持 ARMv6、软浮点 `armel` 和 musl Linux。
 
 新版发行包使用 `runtime/baasx-runtime`（Windows 为 `baasx-runtime.exe`）。旧安装中可能仍是 `runtime/baas-cli-runtime`（Windows 为 `baas-cli-runtime.exe`），当前启动器也会识别旧名称。需要指定组件路径时可设置 `BAASX_RUNTIME_HELPER`；旧变量 `BAAS_RUNTIME_HELPER` 仍作为回退支持。
 

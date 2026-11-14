@@ -46,7 +46,7 @@ Deno 的 `-A` 为启动器授予全部权限。安装后需将 Deno 和其全局
 
 Linux ARM32 可在安装 ARM32 Node.js 20.3+ 后使用 npm，或下载 `baasx-<版本>-Linux-ARMV7L.tar.gz`。独立归档内置 Node.js 22.23.5、兼容 Node.js 的 CLI 和 ARMv7 Rust 组件，无需另装 Node.js、Bun 或 Rust。请保留 `baasx`、`dist/baasx-node.mjs` 与整个 `runtime/`，包括 `runtime/node` 和 `runtime/NODE_LICENSE`。Bun 不支持 ARM32；`-Linux-ARMV7L-node.tgz` 附件使用系统已安装的 Node.js。
 
-ARM32 发行物需要 GNU/Linux ARMv7 硬浮点、glibc 2.35+、`libstdc++6` 和 `libatomic1`。兼容的 Debian／Ubuntu 系统可用 `sudo apt install libstdc++6 libatomic1` 补齐运行库。不支持 ARMv6、软浮点 `armel` 和 musl Linux。
+ARM32 发行物需要 GNU/Linux ARMv7 硬浮点、glibc 2.35+、`libstdc++6` 和 `libatomic1`。兼容的 Debian／Ubuntu 系统可用 `sudo apt install libstdc++6 libatomic1` 补齐运行库。`armhf` 这一名称本身不能确定 CPU 下限，部分发行版也用它表示 ARMv6；此发行物不支持 ARMv6、软浮点 `armel` 和 musl Linux。
 
 ARM32 支持终端工作台、远程服务连接、配置编辑、任务与调度控制、日志及演示模式。目前不支持托管本地安装和本地识别：上游没有 ARM32 OCR 预构建，后端的 Python／依赖／OCR 整体环境也尚未在 ARM32 验证。请通过 `--server` 或 `--pipe` 连接兼容的已有服务。本地 OCR 当前支持 Linux x64、macOS ARM64 和 Windows x64。
 
