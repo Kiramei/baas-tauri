@@ -426,7 +426,7 @@
   "环境记录格式无效": "環境記録の形式が無効",
   "安装组件返回了其他环境目录": "環境ツールが別の環境ディレクトリを返しました",
   "安装组件未绑定本次独立的后端连接": "環境ツールが今回の専用バックエンド接続を設定しませんでした",
-  "缺少 BAAS 本地安装组件。请安装包含 runtime/baas-cli-runtime 的完整 CLI 发布包，或设置 BAAS_RUNTIME_HELPER 指向已构建的组件。": "BAAS 環境ツールがありません。runtime/baas-cli-runtime を含む完全版 CLI を導入するか、BAAS_RUNTIME_HELPER にビルド済みツールを指定してください。",
+  "缺少 BAAS 本地安装组件。请安装包含 runtime/baasx-runtime 的完整 CLI 发布包，或设置 BAASX_RUNTIME_HELPER 指向已构建的组件。": "BAAS 環境ツールがありません。runtime/baasx-runtime を含む完全版 CLI を導入するか、BAASX_RUNTIME_HELPER にビルド済みツールを指定してください。",
   "响应必须是带 type 的 JSON 对象": "応答は type を持つ JSON オブジェクトが必要",
   "响应类型、字段或终止消息无效": "応答の種類・フィールド・終了メッセージが無効",
   "安装组件输出超过限制": "環境ツールの出力が上限を超えました",

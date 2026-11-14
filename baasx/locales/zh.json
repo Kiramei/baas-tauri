@@ -426,7 +426,7 @@
   "环境记录格式无效": "环境记录格式无效",
   "安装组件返回了其他环境目录": "安装组件返回了其他环境目录",
   "安装组件未绑定本次独立的后端连接": "安装组件未绑定本次独立的后端连接",
-  "缺少 BAAS 本地安装组件。请安装包含 runtime/baas-cli-runtime 的完整 CLI 发布包，或设置 BAAS_RUNTIME_HELPER 指向已构建的组件。": "缺少 BAAS 本地安装组件。请安装包含 runtime/baas-cli-runtime 的完整 CLI 发布包，或设置 BAAS_RUNTIME_HELPER 指向已构建的组件。",
+  "缺少 BAAS 本地安装组件。请安装包含 runtime/baasx-runtime 的完整 CLI 发布包，或设置 BAASX_RUNTIME_HELPER 指向已构建的组件。": "缺少 BAAS 本地安装组件。请安装包含 runtime/baasx-runtime 的完整 CLI 发布包，或设置 BAASX_RUNTIME_HELPER 指向已构建的组件。",
   "响应必须是带 type 的 JSON 对象": "响应必须是带 type 的 JSON 对象",
   "响应类型、字段或终止消息无效": "响应类型、字段或终止消息无效",
   "安装组件输出超过限制": "安装组件输出超过限制",

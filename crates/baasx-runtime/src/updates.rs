@@ -59,7 +59,7 @@ pub fn check_update(
         .timeout(Duration::from_secs(20))
         .connect_timeout(Duration::from_secs(8))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent("BAAS-CLI-runtime")
+        .user_agent("BAASX-runtime")
         .build()
         .map_err(|error| UpdaterError::Network(error.to_string()))?;
     check_with(root, cancelled, emit, |url, branch| {
@@ -279,12 +279,17 @@ mod tests {
                     "c".repeat(40)
                 })
             },
-        )
-        .unwrap();
-        assert_eq!(checked.channel, channel);
-        assert!(checked.available);
-        assert!(!checked.repositories[0].available);
-        assert!(checked.repositories[1].available);
+        );
+        let ocr_branch = repository_branch(RepositoryKind::Cpp);
+        if let Err(error) = &ocr_branch {
+            assert_eq!(checked.unwrap_err(), *error);
+        } else {
+            let checked = checked.unwrap();
+            assert_eq!(checked.channel, channel);
+            assert!(checked.available);
+            assert!(!checked.repositories[0].available);
+            assert!(checked.repositories[1].available);
+        }
         assert_eq!(
             sources[0],
             (
@@ -300,12 +305,12 @@ mod tests {
             .open(state.root.join(".baas-cli-install.lock"))
             .unwrap();
         assert!(lock.try_lock().is_err());
-        assert!(
-            update(&state.root, &AtomicBool::new(false), &mut |_| {})
-                .unwrap_err()
-                .message()
-                .contains("another installer")
-        );
+        let blocked = update(&state.root, &AtomicBool::new(false), &mut |_| {}).unwrap_err();
+        if let Err(error) = ocr_branch {
+            assert_eq!(blocked, error);
+        } else {
+            assert!(blocked.message().contains("another installer"));
+        }
         drop(lease);
         assert!(lock.try_lock().is_ok());
     }

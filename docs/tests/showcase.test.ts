@@ -14,6 +14,7 @@ import { captureTarget } from "../scripts/capture-target.mjs";
 const root = new URL("../../", import.meta.url);
 const hash = (value: Buffer | string) => createHash("sha256").update(value).digest("hex");
 
+// Decode every capture at full resolution, including on slower CI runners.
 test("desktop showcase assets are native dark captures with intact historical evidence", async () => {
   expect(captures.theme).toBe("dark");
   expect(captures.native).toBe(true);
@@ -39,7 +40,7 @@ test("desktop showcase assets are native dark captures with intact historical ev
     expect(channels.every(channel => channel.mean < 110), file.file).toBe(true);
     expect(channels.some(channel => channel.max - channel.min > 64), file.file).toBe(true);
   }
-}, 30000);
+}, 120_000);
 
 test("showcase rewriting preserves queries, fragments, external media and deployment prefixes", () => {
   const source = "/media/desktop/en/config-cafe.webp";

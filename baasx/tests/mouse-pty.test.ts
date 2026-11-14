@@ -65,6 +65,7 @@ test.skipIf(process.platform === "win32" || typeof Bun.Terminal !== "function")(
       expect(output).toContain("\x1b[?1002h");
       expect(output).toContain("\x1b[38;2;");
       await key("/tasks");
+      await until("❯ /tasks");
       await key("\r");
       await until("任务列表");
       // Six header rows, navigation, a gap, task kinds and list title precede the first task.

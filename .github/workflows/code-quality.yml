@@ -2,238 +2,152 @@ name: Code Quality
 
 on:
   pull_request:
-    branches: [dev]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+  push:
+    branches: [baasx-dev]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Verify release contracts, the selected commit, or all modules
+        type: choice
+        options: [contracts, changes, full, baasx-package]
+        default: contracts
+      target:
+        description: BAASX distribution (baasx-package mode only)
+        type: choice
+        options: [all, linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64]
+        default: all
 
 permissions:
   contents: read
 
 concurrency:
-  group: code-quality-${{ github.event.pull_request.number || github.ref }}
+  group: quality-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.mode }}-${{ inputs.target }}
   cancel-in-progress: true
 
 jobs:
   changes:
-    name: Identify native changes
+    name: Determine verification inputs
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     outputs:
-      native: ${{ steps.paths.outputs.native }}
-      client: ${{ steps.paths.outputs.client }}
+      plan: ${{ steps.paths.outputs.plan }}
+      frontend: ${{ steps.paths.outputs.frontend }}
+      bundles: ${{ steps.paths.outputs.bundles }}
+      adapters: ${{ steps.paths.outputs.adapters }}
+      native: ${{ steps.paths.outputs.client-native }}
+      baasx: ${{ steps.paths.outputs.baasx }}
+      docs: ${{ steps.paths.outputs.docs }}
+      contracts: ${{ steps.paths.outputs.contracts }}
+      docker: ${{ steps.paths.outputs.docker }}
     steps:
       - uses: actions/checkout@v6
         with:
+          # PR merge parent + head are sufficient. New branch pushes need their merge base.
+          fetch-depth: ${{ github.event_name == 'push' && '0' || '2' }}
           persist-credentials: false
-      - name: Check native build inputs
-        id: paths
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          set -euo pipefail
-          if [ -z "$BASE_SHA" ] || [[ "$BASE_SHA" =~ ^0+$ ]]; then
-            echo "native=true" >> "$GITHUB_OUTPUT"
-            echo "client=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          changed_paths="$(git diff --name-only "$BASE_SHA" HEAD)"
-          if grep -Eq '^(src-tauri/|crates/|\.cargo/|Cargo\.|scripts/(android|prepare-android|tests/test_android)|\.github/(actions/|workflows/code-quality\.yml))' <<< "$changed_paths"; then
-            echo "native=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "native=false" >> "$GITHUB_OUTPUT"
-          fi
-          if grep -Eq '^(src/|public/|tests/frontend/|scripts/|src-tauri/|crates/|\.cargo/|Cargo\.|package\.json$|bun\.lock$|tsconfig[^/]*\.json$|vite\.config\.|eslint\.config\.|\.github/actions/|\.github/workflows/(code-quality|release-app)\.yml$)' <<< "$changed_paths"; then
-            echo "client=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "client=false" >> "$GITHUB_OUTPUT"
-          fi
+      - id: paths
+        run: python3 scripts/ci/impact.py plan
 
-  generate-fonts:
-    name: Generate font assets
+  contracts:
+    name: CI and release contracts
+    if: needs.changes.outputs.contracts == 'true'
     needs: changes
-    if: needs.changes.outputs.client == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Generate font assets
-        uses: ./.github/actions/generate-font-assets
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - uses: oven-sh/setup-bun@v2
+        with: {bun-version: "1.3.14"}
+      - run: python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+      - run: bun test tests/frontend/CiPolicy.test.ts tests/frontend/ReleaseWorkflows.test.ts tests/frontend/ReleasePublishing.test.ts
+      - name: Lint workflow expressions and job dependencies
+        shell: bash
+        run: |
+          base=https://github.com/rhysd/actionlint/releases/download/v1.7.12
+          curl --fail --silent --show-error --location "$base/actionlint_1.7.12_linux_amd64.tar.gz" -o "$RUNNER_TEMP/actionlint.tgz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tgz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/actionlint.tgz" -C "$RUNNER_TEMP" actionlint
+          # 1.7.12 predates GitHub's queue: max syntax. The queue policy is tested separately.
+          "$RUNNER_TEMP/actionlint" -shellcheck= -pyflakes= -ignore '^unexpected key "queue" for "concurrency" section'
 
   frontend:
-    name: Frontend checks
-    # The Android runtime tests require Python 3.9, unavailable on Ubuntu 26.04.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    needs: [changes, generate-fonts]
-    if: needs.changes.outputs.client == 'true'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    uses: ./.github/workflows/client-frontend.yml
+    with:
+      modes: ${{ toJSON(fromJSON(needs.changes.outputs.plan).frontend) }}
+      bundles: ${{ fromJSON(needs.changes.outputs.bundles) }}
+      adapters: ${{ needs.changes.outputs.adapters }}
 
-      - name: Download generated font assets
-        uses: ./.github/actions/download-font-assets
-
-      - name: Setup Bun dependencies
-        uses: ./.github/actions/setup-bun-deps
-
-      - name: Setup Android runtime Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.9"
-
-      - name: Validate client source and translations
-        run: |
-          bunx eslint src tests/frontend --ext .ts,.tsx
-          bun run i18n:check
-
-      - name: Test client behavior and authenticated transport
-        run: bun run test:transport
-
-      - name: Test Android bootstrap preservation
-        run: bun run test:android-bootstrap
-
-      - name: Verify Android private worker protocol and redaction
-        run: python scripts/tests/test_android_plugin_worker.py
-
-      - name: Build WebUI frontend
-        run: bun run build:webui
-
-      - name: Build desktop frontend
-        run: bun run build:tauri
-
-      - name: Build Android frontend
-        run: bun run build:tauri:android
-
-  desktop-rust:
-    name: ${{ matrix.name }} Rust tests
+  client-native:
     needs: changes
     if: needs.changes.outputs.native == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Windows
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-          - name: Linux
-            os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-          - name: macOS
-            os: macos-latest
-            target: aarch64-apple-darwin
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    uses: ./.github/workflows/client-native.yml
+    with:
+      desktop: ${{ toJSON(fromJSON(needs.changes.outputs.plan).desktop) }}
+      android: ${{ toJSON(fromJSON(needs.changes.outputs.plan).android) }}
+      android-tests: ${{ fromJSON(needs.changes.outputs.plan).android-tests }}
+
+  baasx:
+    needs: changes
+    if: needs.changes.outputs.baasx == 'true'
+    uses: ./.github/workflows/baasx-checks.yml
+    with:
+      source: ${{ fromJSON(needs.changes.outputs.plan).baasx-source }}
+      platforms: ${{ toJSON(fromJSON(needs.changes.outputs.plan).baasx-platform) }}
+      registry: ${{ fromJSON(needs.changes.outputs.plan).registry }}
+
+  baasx-package:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'baasx-package'
+    uses: ./.github/workflows/baasx.yml
+    with:
+      target: ${{ inputs.target }}
+
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    uses: ./.github/workflows/docs-validation.yml
+    with:
+      site: ${{ fromJSON(needs.changes.outputs.plan).site }}
+      readme: ${{ fromJSON(needs.changes.outputs.plan).readme }}
+
+  docker:
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Setup Rust test environment
-        uses: ./.github/actions/setup-tauri-build-env
-        with:
-          target: ${{ matrix.target }}
-          download-fonts: "false"
-          install-frontend: "false"
-          save-cache: "false"
-
-      - name: Install Linux Tauri dependencies
-        if: matrix.name == 'Linux'
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev
-
-      - name: Run Rust tests
-        run: cargo test --workspace --all-targets --locked
-
-  android:
-    name: Android arm64 debug APK
-    runs-on: ubuntu-22.04
-    timeout-minutes: 60
-    needs: [changes, generate-fonts]
-    if: needs.changes.outputs.native == 'true'
-    env:
-      NODE_OPTIONS: --max_old_space_size=4096
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Setup Tauri build environment
-        uses: ./.github/actions/setup-tauri-build-env
-        with:
-          target: aarch64-linux-android
-          save-cache: "false"
-
-      - name: Install Android build dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends make perl unzip
-          SDKMANAGER="${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER="$(command -v sdkmanager)"
-          fi
-          set +o pipefail
-          yes | "$SDKMANAGER" --licenses >/dev/null
-          set -o pipefail
-          "$SDKMANAGER" \
-            "platforms;android-36" \
-            "build-tools;36.0.0" \
-            "ndk;28.2.13676358"
-
-      - name: Build Android debug APK
-        run: bun run tauri:android:build:debug -- --abi arm64
-
-      - name: Run Android release lint
-        working-directory: src-tauri/gen/android
-        run: ./gradlew :app:lintVitalArm64Release -x rustBuildArm64Release
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - run: python3 -m unittest discover -s scripts/tests -p 'test_docker*.py'
 
   quality-gate:
     name: Dev quality gate
     if: always()
-    needs: [changes, generate-fonts, frontend, desktop-rust, android]
+    needs: [changes, contracts, frontend, client-native, baasx, baasx-package, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify required jobs
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - name: Require the exact planned conclusions
         env:
-          CHANGES: ${{ needs.changes.result }}
-          CLIENT_CHANGED: ${{ needs.changes.outputs.client }}
-          NATIVE_CHANGED: ${{ needs.changes.outputs.native }}
-          FONTS: ${{ needs.generate-fonts.result }}
-          FRONTEND: ${{ needs.frontend.result }}
-          RUST: ${{ needs.desktop-rust.result }}
-          ANDROID: ${{ needs.android.result }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$CHANGES" == success ]]
-          if [[ "$CLIENT_CHANGED" == true ]]; then
-            [[ "$FONTS" == success && "$FRONTEND" == success ]]
-          else
-            [[ "$CLIENT_CHANGED" == false && "$FONTS" == skipped && "$FRONTEND" == skipped ]]
-          fi
-          if [[ "$NATIVE_CHANGED" == true ]]; then
-            [[ "$RUST" == success && "$ANDROID" == success ]]
-          else
-            [[ "$NATIVE_CHANGED" == false && "$RUST" == skipped && "$ANDROID" == skipped ]]
-          fi
+          PLAN: ${{ needs.changes.outputs.plan }}
+          NEEDS: ${{ toJSON(needs) }}
+        run: python3 scripts/ci/impact.py gate
+
+  documentation-gate:
+    name: Dev documentation gate
+    if: always()
+    needs: [changes, docs]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - name: Require the exact planned conclusions
+        env:
+          PLAN: ${{ needs.changes.outputs.plan }}
+          NEEDS: ${{ toJSON(needs) }}
+        run: python3 scripts/ci/impact.py gate --docs

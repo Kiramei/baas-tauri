@@ -173,7 +173,7 @@ bun run baasx:binary
 bun run baasx:pack
 ```
 
-Keep the native executable together with its `runtime/` directory. baasx continues to use the existing `baas` configuration directory and `BAAS_*` environment variables, so existing CLI settings and local installations need no migration. See [CLI setup and packaging](baasx/README.md) for platform archives and Bun package installation.
+Keep the native executable together with its `runtime/` directory. New packages use `runtime/baasx-runtime`; the launcher also recognizes the legacy `runtime/baas-cli-runtime` name. Existing `baas` configuration and `BAAS_*` environment variables remain supported. See [BAASX setup and packaging](baasx/README.md) for platform archives and Bun package installation.
 
 ## 🧱 Project Layout
 

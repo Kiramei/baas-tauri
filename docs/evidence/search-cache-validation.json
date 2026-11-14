@@ -1,13 +1,13 @@
 {
-  "checkedAt": "2026-11-07T12:59:58.160Z",
-  "platform": "darwin",
+  "checkedAt": "2026-11-13T14:03:22.836Z",
+  "platform": "linux",
   "basePath": "",
   "scope": "Real browser HTTP cache, stale-revision rejection and reload recovery; no game or emulator operated",
   "cases": 24,
   "failures": 0,
-  "searchIndexPath": "search-index/2f1811f94e20c3d3139de3a3f372843a0bb159f42f03d7ae5f397fc567bc291a.json",
-  "searchIndexRevision": "2f1811f94e20c3d3139de3a3f372843a0bb159f42f03d7ae5f397fc567bc291a",
-  "searchIndexSha256": "94668fb6f0e98668df0b4fef2c501c8df1e714da0f361257c78c263575902d79",
+  "searchIndexPath": "search-index/502dec432ce6f5de850e2a3e81d83cfa3538b6b57467642e81580099f8476557.json",
+  "searchIndexRevision": "502dec432ce6f5de850e2a3e81d83cfa3538b6b57467642e81580099f8476557",
+  "searchIndexSha256": "2463e1ec2b3ca1aa4412ad1925be73839a5b8ba77fb0b9a919e5e63d5316bcd7",
   "testedSources": {
     "docs/scripts/check-search-cache.mjs": "ce161a7839e7d09adc2922bb6f15da4768ffa6467b1fb68c1f5479300a031b99",
     "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d",

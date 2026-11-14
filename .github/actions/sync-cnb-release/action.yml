@@ -43,6 +43,10 @@ inputs:
     description: Polling interval while waiting for GitHub release readiness.
     required: false
     default: "60"
+  asset-contract:
+    description: Validate the named official app, baasx, or updater asset set before synchronizing.
+    required: false
+    default: ""
   minimum-assets:
     description: Minimum GitHub release asset count before syncing.
     required: false
@@ -204,6 +208,14 @@ runs:
 
           sleep "$POLL_INTERVAL_SECONDS"
         done
+
+    - name: Check the completed product release
+      if: inputs.asset-contract != ''
+      shell: bash
+      env:
+        CONTRACT: ${{ inputs.asset-contract }}
+        TAG: ${{ steps.tag.outputs.tag }}
+      run: node scripts/ci/release-contract.mjs verify "$CONTRACT" "$TAG" < github-release.json
 
     - name: Download GitHub release assets
       if: inputs.upload-assets == 'true'

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { configureNewPcProfile } from "../../src/platform/windows/configurePcProfile";
 import {
   buildServerOptions,
   isPcServer,
@@ -6,12 +7,7 @@ import {
   supportsPcServers,
 } from "../../src/shared/serverOptions";
 import { serverMap, serverMapSpec } from "../../src/shared/GlobalUtilities";
-import {
-  configureNewPcProfile,
-  PC_DEFAULT_METHODS,
-  pcMethodOptions,
-  validPcMethods,
-} from "../../src/shared/PcProfiles";
+import { PC_DEFAULT_METHODS, pcMethodOptions, validPcMethods } from "../../src/shared/PcProfiles";
 
 describe("PC profiles use the native Windows host", () => {
   test("Windows browsers, Android, macOS and Linux do not offer PC profile creation", () => {

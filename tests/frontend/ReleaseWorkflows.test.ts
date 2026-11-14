@@ -116,7 +116,7 @@ shellTest(
 );
 
 shellTest("Docker Hub versions are mirrored without promoting release candidates to latest", () => {
-  const script = step(docker, "build-and-push", "Mirror Docker Hub image to CNB").run!;
+  const script = step(docker, "mirror", "Mirror Docker Hub image to CNB").run!;
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "baas-docker-mirror-"));
   const executable = path.join(root, "skopeo");
   const output = path.join(root, "calls");

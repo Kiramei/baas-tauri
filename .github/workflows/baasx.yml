@@ -1,0 +1,169 @@
+name: BAASX distributions
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Distribution to build
+        type: choice
+        default: all
+        options: [all, linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64]
+  workflow_call:
+    inputs:
+      target:
+        description: OS and CPU from the distribution manifest, or all
+        type: string
+        default: all
+
+concurrency:
+  group: baasx-package-${{ github.workflow }}-${{ github.ref }}-${{ inputs.target }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  platforms:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false }
+      - id: select
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          node --input-type=module <<'JS' >> "$GITHUB_OUTPUT"
+          import { platforms } from './baasx/scripts/distribution-platforms.mjs';
+          const target = process.env.TARGET;
+          const include = target === "all" ? platforms : platforms.filter(p => p.os + "-" + p.cpu === target);
+          if (!include.length) throw new Error("Unknown BAASX distribution: " + target);
+          console.log("matrix=" + JSON.stringify({include}));
+          JS
+  baasx:
+    name: BAASX ${{ matrix.asset }}
+    needs: platforms
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.platforms.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # Native objects depend on the runner image ABI (for example glibc 2.35 vs 2.39).
+          prefix-key: baasx-runtime-${{ matrix.runner }}
+          cache-all-crates: true
+      - name: Install headless Rust build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libssl-dev cmake make g++
+      - uses: ./.github/actions/setup-baasx
+      - name: Verify Windows npm package assembly
+        if: runner.os == 'Windows'
+        run: bun test baasx/tests/registry-package.test.mjs -t "Windows bsdtar"
+      - name: Verify native architectures of Bun and Rust
+        env:
+          EXPECTED_OS: ${{ matrix.os }}
+          EXPECTED_CPU: ${{ matrix.cpu }}
+        run: |
+          bun -e 'if(process.platform!==process.env.EXPECTED_OS || process.arch!==process.env.EXPECTED_CPU) throw new Error("Runner/Bun architecture mismatch")'
+          rust_arch=x86_64
+          if [[ "$EXPECTED_CPU" == arm64 ]]; then rust_arch=aarch64; fi
+          rustc -vV | grep -E "^host: ${rust_arch}-"
+      - name: Test native helper protocol, update and lifecycle
+        run: cargo test --locked -p baasx-runtime -p baas-cli-runtime
+      - if: matrix.os == 'linux' && matrix.cpu == 'x64'
+        run: bun run baasx:check
+      - run: bun run baasx:test
+      - if: matrix.os == 'linux' && matrix.cpu == 'x64'
+        run: bunx eslint baasx/src baasx/tests baasx/scripts baasx/packages/baas-client/src baasx/packages/baas-client/tests src/shared/SecureWebSocket.ts
+      - name: Build the JS bundle, native helper and trimmed executable
+        run: bun run baasx:binary
+      - run: bun baasx/bin/baasx.mjs --demo --json status
+      - name: Use the minimum supported Node.js version
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.os == 'win32' && matrix.cpu == 'arm64' && '24' || '20.3.0' }}
+      - name: Check the Node.js bundle
+        run: |
+          node baasx/dist/baasx-node.mjs --demo --json status
+          node baasx/dist/baasx-node.mjs --demo --json packs
+          node --test baasx/tests/node-bundle.check.mjs
+      - name: Restore the CI Node.js version
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - uses: denoland/setup-deno@v2
+        if: matrix.os == 'linux' && matrix.cpu == 'x64'
+        with:
+          deno-version: v2.x
+      - name: Check the Deno bundle
+        if: matrix.os == 'linux' && matrix.cpu == 'x64'
+        run: deno run -A baasx/dist/baasx-node.mjs --demo --json status
+      - name: Exercise the compiled CLI and terminal
+        shell: bash
+        env:
+          BAASX_TEST_BINARY: ${{ github.workspace }}/baasx/dist/${{ matrix.executable }}
+        run: bun test baasx/tests/binary.test.ts
+      - name: Check the compiled program and its bundled installer
+        shell: bash
+        run: |
+          ./baasx/dist/${{ matrix.executable }} --demo --json status
+          ./baasx/dist/runtime/${{ matrix.helper }} inspect --root "$RUNNER_TEMP/baasx-not-installed"
+      - name: Pack the already verified JS bundle and helper
+        working-directory: baasx
+        run: bun pm pack --destination dist --ignore-scripts
+      - name: Archive platform-specific distributions and verify extraction
+        run: |
+          set -euo pipefail
+          version=$(node -p 'require("./baasx/package.json").version')
+          asset="baasx-${version}-${RUNNER_OS}-${RUNNER_ARCH}"
+          mkdir -p baasx/dist/release
+          packages=(baasx/dist/*.tgz)
+          test "${#packages[@]}" -eq 1
+          mv "${packages[0]}" "baasx/dist/release/${asset}-bun.tgz"
+          tar -czf "baasx/dist/release/${asset}.tar.gz" -C baasx/dist "${{ matrix.executable }}" runtime -C .. README.md README_zh.md LICENSE
+
+          smoke=$(mktemp -d)
+          mkdir -p "$smoke/native" "$smoke/package"
+          tar -xzf "baasx/dist/release/${asset}.tar.gz" -C "$smoke/native"
+          tar -xzf "baasx/dist/release/${asset}-bun.tgz" -C "$smoke/package"
+          "$smoke/native/${{ matrix.executable }}" --demo --json status
+          "$smoke/native/runtime/${{ matrix.helper }}" inspect --root "$smoke/not-installed"
+          node baasx/scripts/check-runtime-alias.mjs "$smoke/native/runtime/${{ matrix.legacyHelper }}" "$smoke/native/runtime/${{ matrix.helper }}"
+          bun "$smoke/package/package/bin/baasx.mjs" --demo --json status
+          "$smoke/package/package/runtime/${{ matrix.helper }}" inspect --root "$smoke/not-installed"
+          "$smoke/package/package/runtime/${{ matrix.legacyHelper }}" inspect --root "$smoke/not-installed"
+      - name: Install the platform npm tarball and test both executable names
+        if: runner.os == 'Windows'
+        run: |
+          node baasx/scripts/registry-package.mjs --host-only --assets baasx/dist/release --bundle baasx/dist/baasx-node.mjs --output "$RUNNER_TEMP/baasx-npm" --scope kiramei > "$RUNNER_TEMP/baasx-host.json"
+          node baasx/scripts/registry-smoke.mjs "$RUNNER_TEMP/baasx-host.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baasx-${{ runner.os }}-${{ runner.arch }}
+          path: baasx/dist/release/*
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+      - name: Upload the registry JavaScript bundle
+        if: matrix.os == 'linux' && matrix.cpu == 'x64'
+        uses: actions/upload-artifact@v4
+        with:
+          retention-days: 7
+          name: registry-node-bundle
+          path: baasx/dist/baasx-node.mjs
+          if-no-files-found: error

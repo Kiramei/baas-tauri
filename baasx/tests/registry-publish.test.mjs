@@ -1,7 +1,49 @@
 import { describe, expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath, URL } from "node:url";
 import { ensureRegistryPackage } from "../scripts/registry-check.mjs";
 
 const info = { name: "@kiramei/baasx", version: "0.1.2", integrity: "sha512-expected" };
+
+test("Windows publication invokes npm through Node with the archive as one argument", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "baasx publish "));
+  try {
+    const node = path.join(root, "node.exe");
+    const npm = path.join(root, "node_modules", "npm", "bin", "npm-cli.js");
+    const guard = path.join(root, "capture.cjs");
+    const archive = path.join(root, "runtime & cli.tgz");
+    const packages = path.join(root, "packages.json");
+    const registry = "https://registry.npmjs.org/";
+    mkdirSync(path.dirname(npm), { recursive: true });
+    writeFileSync(npm, "");
+    writeFileSync(packages, JSON.stringify([{ ...info, archive }]));
+    // Replace both registry I/O and process execution in this isolated Node process.
+    writeFileSync(guard, `
+      Object.defineProperty(process, "platform", { value: "win32" });
+      Object.defineProperty(process, "execPath", { value: ${JSON.stringify(node)} });
+      globalThis.fetch = async () => ({ status: 404 });
+      require("node:child_process").execFileSync = (command, args) => {
+        process.stdout.write(JSON.stringify([command, ...args]));
+      };
+      require("node:module").syncBuiltinESMExports();
+    `);
+    const script = fileURLToPath(new URL("../scripts/registry-publish.mjs", import.meta.url));
+    const output = execFileSync(
+      "node",
+      ["--require", guard, script, "--info", packages, "--registry", registry, "--tag", "next"],
+      { encoding: "utf8" }
+    );
+    expect(JSON.parse(output)).toEqual([
+      node, npm, "publish", archive, "--ignore-scripts", "--registry", registry,
+      "--access", "public", "--tag", "next",
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 function response(status, metadata) {
   return { status, ok: status >= 200 && status < 300, json: async () => metadata };
@@ -75,4 +117,19 @@ describe("registry publication", () => {
     })).rejects.toThrow("name, version and integrity");
     expect(publications).toBe(0);
   });
+});
+
+test("backfilling older versions preserves both stable and numeric prerelease pointers", async () => {
+  for (const [version,tag,previous,expected] of [
+    ["0.1.2","latest","0.2.0","historical"],
+    ["0.1.2-rc.9","next","0.1.2-rc.10","historical"],
+    ["0.1.2-rc.10","next","0.1.2-rc.9","next"],
+    ["0.1.2","latest","0.1.2-rc.1","latest"],
+  ]) {
+    const calls=[];
+    await ensureRegistryPackage({tag, registry:"https://registry.npmjs.org/",info:{...info,version},
+      request:async()=>response(200, {versions:{}, "dist-tags":{[tag]:previous}}),
+      publish:target=>calls.push(target)});
+    expect(calls).toEqual([expected]);
+  }
 });

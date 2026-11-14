@@ -42,7 +42,8 @@ export function HitBox({
   useLayoutEffect(() => {
     callbacks.current = { onPress, onWheel };
   });
-  useEffect(() => {
+  // The first click on a newly painted view must see its registered controls.
+  useLayoutEffect(() => {
     if (!bus || !interactive) return;
     const handler = (event: MouseEvent) => {
       if (!ref.current || bus.hasCapture) return;
@@ -101,7 +102,7 @@ export function ColumnDivider({
   useLayoutEffect(() => {
     resize.current = onResize;
   });
-  useEffect(() => () => release.current?.(), [bus]);
+  useLayoutEffect(() => () => release.current?.(), [bus]);
   return (
     <HitBox
       width={1}

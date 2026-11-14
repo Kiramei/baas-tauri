@@ -265,17 +265,9 @@ dependencies = [
 name = "baas-cli-runtime"
 version = "0.0.9"
 dependencies = [
- "baas-term",
- "baas-updater",
- "cap-fs-ext",
- "cap-std",
- "ctrlc",
- "git2",
- "reqwest",
- "serde",
+ "baasx-runtime",
  "serde_json",
  "tempfile",
- "uuid",
 ]
 
 [[package]]
@@ -374,6 +366,23 @@ dependencies = [
  "url",
  "uuid",
  "zip 8.6.0",
+]
+
+[[package]]
+name = "baasx-runtime"
+version = "0.0.9"
+dependencies = [
+ "baas-term",
+ "baas-updater",
+ "cap-fs-ext",
+ "cap-std",
+ "ctrlc",
+ "git2",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "uuid",
 ]
 
 [[package]]

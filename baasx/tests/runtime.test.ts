@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import distributionPlatforms from "../scripts/distribution-platforms.json";
 import { RuntimeManager, type RuntimeEvent } from "../src/runtime";
 import { prepareExecutableFixtures, writeExecutableFixture } from "./executable-fixture";
 
@@ -57,7 +58,8 @@ async function fixture(mode: Record<string, unknown> = {}) {
     backend,
     `
     import { createServer } from 'node:net';
-    import { readFile, writeFile, appendFile } from 'node:fs/promises';
+    import { readFile, writeFile } from 'node:fs/promises';
+    import { appendFileSync } from 'node:fs';
     import { encodePipeFrame, PipeFrameDecoder } from ${JSON.stringify(protocol)};
     const mode = JSON.parse(await readFile(${JSON.stringify(modeFile)}, 'utf8'));
     await writeFile(${JSON.stringify(pidFile)}, String(process.pid));
@@ -73,7 +75,7 @@ async function fixture(mode: Record<string, unknown> = {}) {
         for (const frame of decoder.feed(chunk)) {
           const message = JSON.parse(frame.payload.toString('utf8'));
           if (message.type === 'open') {
-            void appendFile(${JSON.stringify(opens)}, JSON.stringify(message) + '\\n');
+            appendFileSync(${JSON.stringify(opens)}, JSON.stringify(message) + '\\n');
             socket.write(encodePipeFrame(1, Buffer.from(JSON.stringify({type:'open_ok',channel:message.channel}))));
           } else if (message.command === 'status') {
             void (async () => {
@@ -396,7 +398,7 @@ describe("owned local backend", () => {
   const actualHelper = join(
     import.meta.dir,
     "../../target/debug",
-    process.platform === "win32" ? "baas-cli-runtime.exe" : "baas-cli-runtime"
+    process.platform === "win32" ? "baasx-runtime.exe" : "baasx-runtime"
   );
   test.skipIf(process.platform === "win32" || !existsSync(actualHelper))(
     "the built Rust helper and Bun manager agree on inspect and launch-spec without downloads",
@@ -450,7 +452,11 @@ describe("owned local backend", () => {
         });
         const competingOutput = await new Response(competing.stdout).text();
         expect(await competing.exited).toBe(1);
-        expect(JSON.parse(competingOutput).message).toContain("another installer");
+        const supportsOcr = distributionPlatforms.some(
+          (p) => p.os === process.platform && p.cpu === process.arch && p.localRuntime
+        );
+        const expectedError = supportsOcr ? "another installer" : "unsupported Cpp repository platform";
+        expect(JSON.parse(competingOutput).message).toContain(expectedError);
         expect(await readFile(join(root, ".baas-cli-runtime.json"), "utf8")).toBe(marker);
         await manager.stopWhenIdle();
 
@@ -482,9 +488,7 @@ describe("owned local backend", () => {
             stdout: "pipe",
             stderr: "pipe",
           });
-          expect(JSON.parse(await new Response(blocked.stdout).text()).message).toContain(
-            "another installer"
-          );
+          expect(JSON.parse(await new Response(blocked.stdout).text()).message).toContain(expectedError);
           expect(await blocked.exited).toBe(1);
           detachedBackend.kill();
           await detachedBackend.exited;
