@@ -101,14 +101,16 @@ test.skipIf(!executable || process.platform === "win32" || typeof Bun.Terminal !
     };
     const key = async (value: string) => {
       terminal.write(value);
-      await Bun.sleep(100);
+      await Bun.sleep(100 * timeoutScale);
     };
     try {
       await until("已连接");
       await until("输入 /");
       await key("/config");
       await key("\r");
+      await until("配置分类");
       await key("screenshot_method");
+      await until("截图方式");
       await key("\r");
       await until("保存");
       await key("\x1b[B");

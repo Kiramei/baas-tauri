@@ -83,4 +83,7 @@ runs:
           echo "CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=${{ inputs.triplet }}-gcc" >> "$GITHUB_ENV"
           echo "CC_armv7_unknown_linux_gnueabihf=${{ inputs.triplet }}-gcc" >> "$GITHUB_ENV"
           echo "CXX_armv7_unknown_linux_gnueabihf=${{ inputs.triplet }}-g++" >> "$GITHUB_ENV"
+          # Native Git must handle filesystems whose inode numbers exceed 32 bits.
+          echo "CFLAGS_armv7_unknown_linux_gnueabihf=-D_FILE_OFFSET_BITS=64" >> "$GITHUB_ENV"
+          echo "CXXFLAGS_armv7_unknown_linux_gnueabihf=-D_FILE_OFFSET_BITS=64" >> "$GITHUB_ENV"
         fi

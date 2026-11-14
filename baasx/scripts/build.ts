@@ -91,8 +91,15 @@ if (!jsOnly) {
   if (typeof targetDirectory !== "string")
     throw new Error("Cargo did not return its target directory");
   const rustTarget = nodeBinary ? platform.rustTarget : process.env.CARGO_BUILD_TARGET;
+  const buildEnvironment = { ...process.env };
+  if (nodeBinary) {
+    // libgit2 must use readdir64/stat64 on ARM32 filesystems with 64-bit inodes.
+    for (const key of ["CFLAGS_armv7_unknown_linux_gnueabihf", "CXXFLAGS_armv7_unknown_linux_gnueabihf"])
+      buildEnvironment[key] = [buildEnvironment[key], "-D_FILE_OFFSET_BITS=64"].filter(Boolean).join(" ");
+  }
   const build = Bun.spawn(["cargo", "build", "--release", "--locked", "-p", "baasx-runtime", ...(rustTarget ? ["--target", rustTarget] : [])], {
     cwd: root,
+    env: buildEnvironment,
     stdout: "inherit",
     stderr: "inherit",
   });
