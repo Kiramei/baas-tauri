@@ -32,12 +32,20 @@ export function validateAssets(kind, tag, names) {
     );
   } else if (kind === "baasx") {
     const version = tag.replace(/^baasx-v/, "");
-    expected = platforms
-      .map((p) => p.asset)
+    const numbers = /^(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.+-]+)?$/.exec(version);
+    if (!numbers) throw new Error("Invalid BAASX release version");
+    const [major, minor, patch] = numbers.slice(1, 4).map(Number);
+    const legacy = major === 0 && (minor < 1 || (minor === 1 && patch <= 4));
+    const published = legacy
+      ? platforms.filter((p) => ["Linux-X64", "macOS-ARM64", "Windows-X64"].includes(p.asset))
+      : platforms;
+    expected = published
       .flatMap((platform) =>
-        [".tar.gz", "-bun.tgz"].map((ext) => `baasx-${version}-${platform}${ext}`)
+        [".tar.gz", platform.packageExtension].map((ext) => `baasx-${version}-${platform.asset}${ext}`)
       );
     expected.push("SHA256SUMS");
+    if (names.some((name) => name.endsWith(".sig")))
+      throw new Error("BAASX distributions must not contain signature assets");
   } else if (kind === "updater") {
     expected = [
       "",

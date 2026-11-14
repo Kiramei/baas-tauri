@@ -105,7 +105,10 @@ try {
         files: ["runtime", "LICENSE"],
       },
       (stage) => {
-        const archive = path.join(assets, `baasx-${version}-${platform.asset}-bun.tgz`);
+        const archive = path.join(
+          assets,
+          `baasx-${version}-${platform.asset}${platform.packageExtension}`
+        );
         const members = [platform.helper, platform.legacyHelper].map(
           (name) => `package/runtime/${name}`
         );

@@ -95,11 +95,12 @@ jobs:
           set -euo pipefail
           cd release-assets
           native=(baasx-"$BAASX_VERSION"-*.tar.gz)
-          packages=(baasx-"$BAASX_VERSION"-*-bun.tgz)
+          packages=(baasx-"$BAASX_VERSION"-*.tgz)
           node --input-type=module <<'JS'
           import { platforms } from '../baasx/scripts/distribution-platforms.mjs';
-          import { statSync } from 'node:fs';
-          for (const p of platforms) for (const ext of ['.tar.gz','-bun.tgz']) {
+          import { readdirSync, statSync } from 'node:fs';
+          if (readdirSync('.').some(name => name.endsWith('.sig'))) throw new Error('BAASX assets must not include .sig files');
+          for (const p of platforms) for (const ext of ['.tar.gz',p.packageExtension]) {
             if (!statSync(`baasx-${process.env.BAASX_VERSION}-${p.asset}${ext}`).size) throw new Error('Empty asset');
           }
           JS
@@ -121,10 +122,11 @@ jobs:
             ## Installation
             Standalone baasx automation terminal. This release is separate from the BAAS Tauri desktop client.
 
-            - Download the native archive for your operating system and architecture. Keep its `runtime` directory beside `baasx` / `baasx.exe`; Bun and Rust are not required on the target machine.
-            - The platform-specific `-bun.tgz` packages include the matching installer helper and require Bun 1.4.4 or newer.
+            - Download the native archive for your operating system and architecture and preserve all extracted directories; Bun and Rust are not required on the target machine.
+            - Linux ARMv7 hard-float (`armv7l` / `armhf`) uses `Linux-ARMV7L`, with bundled Node.js and a native ARM32 Rust helper. Its `-node.tgz` package requires Node.js 20.3+. Other platforms retain their `-bun.tgz` packages.
+            - ARM32 supports the terminal, remote services and scheduling. Managed local setup requires a published OCR payload and validated Python/dependencies and is unavailable on ARM32.
             - `SHA256SUMS` contains checksums for all platform distributions.
-            - Builds use the pinned Bun compiler and must pass source tests, compiled CLI checks and extracted-package smoke tests on all supported platforms before publication.
+            - Builds use the pinned Bun compiler and must pass source tests, CLI checks and extracted-package smoke tests on all supported platforms, including ARM32 Rust, Node and terminal tests through QEMU, before publication. Archives have no `.sig` files.
 
   sync-cnb-release:
     name: Sync baasx release to CNB
@@ -192,7 +194,10 @@ jobs:
       - name: Smoke test the actual split packages before publication
         env:
           BAASX_SMOKE_BUN: bun
-        run: node baasx/scripts/registry-smoke.mjs "$RUNNER_TEMP/baasx-registry-info.json"
+        run: |
+          node baasx/scripts/registry-smoke.mjs "$RUNNER_TEMP/baasx-registry-info.json"
+          node baasx/scripts/registry-smoke.mjs "$RUNNER_TEMP/baasx-registry-info.json" --target linux-armv7l --install-only
+          node baasx/scripts/registry-smoke.mjs "$RUNNER_TEMP/baasx-registry-info.json" --target linux-armhf --install-only
       - name: Publish package
         env:
           NODE_AUTH_TOKEN: ${{ matrix.registry == 'GitHub Packages' && github.token || secrets.NPM_TOKEN }}

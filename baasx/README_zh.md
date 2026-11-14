@@ -42,7 +42,13 @@ cnpm 默认使用 npm 镜像，新版本可能需要等待镜像同步。若暂�
 
 Deno 的 `-A` 为启动器授予全部权限。安装后需将 Deno 和其全局可执行目录（默认 `~/.deno/bin`）加入 PATH。Deno 2.9 起默认等待版本发布满 24 小时；如需立即安装，可在 Deno 2.9 或更新版本的命令中加入 `--min-dep-age=0`。
 
-带作用域的包安装 JavaScript CLI。包管理器根据系统和 CPU 自动选择同版本的运行时。Linux、macOS 和 Windows 各提供 x64、ARM64 CLI。本地 OCR 当前支持 Linux x64、macOS ARM64 和 Windows x64，其他平台可连接远程服务或使用演示模式。GitHub Packages 发布带作用域的包。
+带作用域的包安装 JavaScript CLI。包管理器根据系统和 CPU 自动选择同版本的运行时。Linux、macOS 和 Windows 各提供 x64、ARM64 CLI；从 v0.1.5 起另支持 Linux ARMv7 硬浮点。`armv7l` 与 Debian `armhf` 使用同一个 `@kiramei/baasx-linux-arm` 包，对应 npm 的 `arm` CPU 值。GitHub Packages 发布带作用域的包；无作用域的 `baasx` 包仍暂缓发布。
+
+Linux ARM32 可在安装 ARM32 Node.js 20.3+ 后使用 npm，或下载 `baasx-<版本>-Linux-ARMV7L.tar.gz`。独立归档内置 Node.js 22.23.5、兼容 Node.js 的 CLI 和 ARMv7 Rust 组件，无需另装 Node.js、Bun 或 Rust。请保留 `baasx`、`dist/baasx-node.mjs` 与整个 `runtime/`，包括 `runtime/node` 和 `runtime/NODE_LICENSE`。Bun 不支持 ARM32；`-Linux-ARMV7L-node.tgz` 附件使用系统已安装的 Node.js。
+
+ARM32 发行物需要 GNU/Linux ARMv7 硬浮点、glibc 2.35+、`libstdc++6` 和 `libatomic1`。兼容的 Debian／Ubuntu 系统可用 `sudo apt install libstdc++6 libatomic1` 补齐运行库。不支持 ARMv6、软浮点 `armel` 和 musl Linux。
+
+ARM32 支持终端工作台、远程服务连接、配置编辑、任务与调度控制、日志及演示模式。目前不支持托管本地安装和本地识别：上游没有 ARM32 OCR 预构建，后端的 Python／依赖／OCR 整体环境也尚未在 ARM32 验证。请通过 `--server` 或 `--pipe` 连接兼容的已有服务。本地 OCR 当前支持 Linux x64、macOS ARM64 和 Windows x64。
 
 ## 从源码开始使用
 
@@ -56,7 +62,7 @@ bun run baasx --help
 
 无参数进入终端工作台。`--demo` 使用明确标记的内存数据，可体验任务、配置档、配置修改、日志与指令包，不连接真实设备。演示数据不跨进程保留。
 
-`bun run baasx` 会增量构建与当前源码匹配的无界面 Rust 安装组件。已打包的 Bun 包只需 Bun；本机可执行发行包无需 Bun 或 Rust，见下方分发说明。
+`bun run baasx` 会增量构建与当前源码匹配的无界面 Rust 安装组件。源码开发需要支持 Bun 的 x64 或 ARM64 电脑。发行 tarball 使用兼容 Node.js 的启动器，需要 Node.js 20.3+；独立归档内置 JavaScript 运行时，无需 Bun 或 Rust，见下方分发说明。
 
 工作台使用往返伸缩的星芒、连接和等待时的文字扫光，以及执行时每两秒一次的颜色呼吸。动画共享时钟，只刷新各自的小组件；选中长标签和窗口末行长日志保留横向滚动。设置 `BAAS_REDUCED_MOTION=1` 可保留静态状态指示，重定向输出或 `TERM=dumb` 时也会关闭动画。窄终端将选项名称与详情分成两行，低高度终端采用两行页头。进入配置页时若尚未选配置档，会先引导选择并自动返回配置页。
 
@@ -109,6 +115,8 @@ bun run baasx --help
 调度保存检查读取时的字段基线，拒绝覆盖并发变更。任务列表与总览显示当前任务、等待队列、已启用数量和下次安排，运行结束后刷新调度数据。
 
 ## 更新本地环境
+
+终端程序本身通过 `npm update -g @kiramei/baasx` 升级，或整体替换解压后的独立归档，包括 `runtime/` 和 ARM32 的 `dist/`。`/update` 更新受支持的 CLI 托管后端／OCR 环境，不升级 BAASX。下载归档使用 `SHA256SUMS` 校验完整性，不提供 `.sig` 附件。
 
 工作台使用 `/update` 检查并更新环境；脚本使用 `check-update` 读取本地后端与 OCR 仓库版本，`update` 应用可用更新：
 
@@ -246,16 +254,18 @@ bun add -g "./baasx/dist/baas-baasx-<版本>.tgz"
 baasx --help
 ```
 
-`baasx:build` 会构建原生 Rust helper 和 `baasx/dist/baasx.js`。`baasx:binary` 还会生成 `baasx/dist/baasx`（Windows 为 `baasx.exe`）。构建按当前操作系统和架构进行；不同平台分别构建，不将某个平台的 helper 混入其他平台的包。
+`baasx:build` 会构建原生 Rust helper、`baasx/dist/baasx.js` 和兼容 Node.js 的 `baasx/dist/baasx-node.mjs`。`baasx:binary` 还会生成 `baasx/dist/baasx`（Windows 为 `baasx.exe`）。x64、ARM64 在各自操作系统和架构上构建。
 
-JS 发行包经过压缩，二进制采用 ESM 和浅层 bytecode 缓存以减少启动解析。瘦身编译器固定为 `baasx/package.json` 中的 `bun@1.4.4-canary.20261105.1`（revision `b1007f117`）；CI 安装在临时目录，构建脚本核对完整 revision，拒绝其他版本及浮动 canary。此版本的 [运行时裁剪功能](https://bun.com/docs/compiler/size) 仍属实验性：仅删除未使用的 Bun 构建/测试工具、图片、数据库等 API，保留 JIT、WASM、Intl、网络、加密及进程能力，不启用 AOT。配置与指令包功能通过实际编译产物验证。稳定版 Bun 1.4.4 尚不支持裁剪，不能仅升级版本就保证 exe 变小；要回退到完整运行时，使用 `bun run baasx:binary --no-trim`。不支持裁剪的编译器会明确报错，避免悄悄生成更大的发行包。
+Linux ARM32 从支持 Bun 的 Linux 主机交叉编译。安装 `armv7-unknown-linux-gnueabihf` Rust target 及硬浮点 C/C++ 交叉工具链后，运行 `bun run baasx:binary --target=linux-arm`；`--target=linux-armv7l` 和 `--target=linux-armhf` 等价。构建会生成真实的 ARMv7 Rust 组件，并下载固定版本、校验 SHA-256 的 Node.js 22.23.5 ARMv7 运行时，不会使用不存在的 Bun ARM32 编译目标。CI 通过 `.github/actions/setup-linux-arm` 准备交叉工具链和 QEMU 检查。
+
+JS 发行包经过压缩，x64、ARM64 二进制采用 ESM 和浅层 bytecode 缓存以减少启动解析。其瘦身编译器固定为 `baasx/package.json` 中的 `bun@1.4.4-canary.20261105.1`（revision `b1007f117`）；CI 安装在临时目录，构建脚本核对完整 revision，拒绝其他版本及浮动 canary。此版本的 [运行时裁剪功能](https://bun.com/docs/compiler/size) 仍属实验性：仅删除未使用的 Bun 构建/测试工具、图片、数据库等 API，保留 JIT、WASM、Intl、网络、加密及进程能力，不启用 AOT。配置与指令包功能通过实际编译产物验证。稳定版 Bun 1.4.4 尚不支持裁剪，不能仅升级版本就保证 exe 变小；要回退到完整运行时，使用 `bun run baasx:binary --no-trim`。ARM32 使用 Node.js bundle，不应用 Bun bytecode 或裁剪。
 
 两种分发方式都必须包含安装组件：
 
-- Bun 包使用 `bin/baasx.mjs`、`dist/baasx.js`、`runtime/baasx-runtime`（Windows 带 `.exe`）、指令包和许可文件。`bun run baasx:pack` 会先执行 `prepack` 构建，再调用 `bun pm pack --ignore-scripts` 生成 `.tgz`。
+- JavaScript tarball 使用 `bin/baasx.mjs`、`dist/baasx-node.mjs`、`runtime/baasx-runtime`（Windows 带 `.exe`）、指令包和许可文件。ARMv7／armhf 安装 Node.js 20.3+ 后，可用 `npm install -g ./baasx-<版本>-Linux-ARMV7L-node.tgz` 安装 ARM32 附件；现有 x64／ARM64 附件保留 `-bun.tgz` 文件名。`bun run baasx:pack` 会先执行 `prepack` 构建，再调用 `bun pm pack --ignore-scripts` 生成 `.tgz`。
 - 本机可执行发行包保持 `baasx` / `baasx.exe` 与 `runtime/baasx-runtime` / `runtime/baasx-runtime.exe` 的相对目录。新包保留旧名称 `baas-cli-runtime`，新版也能识别旧包内的同名组件。复制发行包时请保留 `runtime` 文件夹。构建脚本会同时将 helper 放入 `baasx/runtime` 和 `baasx/dist/runtime`，分别供这两种分发方式使用。
 
-CI 在 Windows、Linux、macOS 上检查并构建，上传的构建产物包含 Bun 包 `.tgz` 与原生发行包 `.tar.gz`，两种归档都带有对应平台的安装组件、中英文 README 和许可文件。下载后解开所需归档，保留目录结构与可执行权限。使用这些包首次安装 BAAS 环境时无需 Rust 编译工具链。
+CI 在 Windows、Linux、macOS 上检查并构建，每个目标上传 JavaScript 包 `.tgz` 与独立发行包 `.tar.gz`，两种归档都带有对应平台的组件、中英文 README 和许可文件。ARM32 独立归档还包含 `dist/baasx-node.mjs`、`runtime/node` 和 `runtime/NODE_LICENSE`。解压及升级时请保留全部目录与可执行权限。`SHA256SUMS` 覆盖发行归档，BAASX 不发布 `.sig` 文件。目标电脑无需 Rust 编译工具链；托管本地 BAAS 安装仅适用于后端和 OCR 依赖可用的平台。
 
 
 ## 开发与验证

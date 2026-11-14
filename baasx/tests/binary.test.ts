@@ -7,6 +7,7 @@ import { terminalText } from "../src/ui";
 // Source tests cannot detect a dependency reaching an API removed by --trim.
 // CI runs these checks against the actual native artifact on every platform.
 const executable = process.env.BAASX_TEST_BINARY;
+const timeoutScale = process.env.BAASX_TEST_EMULATED === "1" ? 4 : 1;
 
 test.skipIf(!executable)(
   "compiled CLI supports direct start without confirmation, configuration and packs",
@@ -55,7 +56,8 @@ test.skipIf(!executable)(
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
-  }
+  },
+  5000 * timeoutScale
 );
 
 test.skipIf(!executable || process.platform === "win32" || typeof Bun.Terminal !== "function")(
@@ -84,7 +86,7 @@ test.skipIf(!executable || process.platform === "win32" || typeof Bun.Terminal !
     });
     let cursor = 0;
     const until = async (value: string) => {
-      const deadline = Date.now() + 8000;
+      const deadline = Date.now() + 8000 * timeoutScale;
       for (;;) {
         const text = terminalText(output);
         const index = text.indexOf(value, cursor);
@@ -152,5 +154,5 @@ test.skipIf(!executable || process.platform === "win32" || typeof Bun.Terminal !
       await rm(directory, { recursive: true, force: true });
     }
   },
-  25000
+  25000 * timeoutScale
 );

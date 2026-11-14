@@ -42,7 +42,13 @@ cnpm uses an npm mirror by default. A new version may take time to appear there.
 
 Deno's `-A` grants all permissions to the launcher. Ensure Deno and its global executable directory (by default `~/.deno/bin`) are on PATH. Deno 2.9 and newer wait 24 hours after publication by default. To install immediately, add `--min-dep-age=0` to the command on Deno 2.9 or newer.
 
-The scoped package installs the JavaScript CLI. The package manager selects an exact-version optional runtime for your OS and CPU. Linux, macOS and Windows each have x64 and ARM64 CLI builds. Local OCR currently supports Linux x64, macOS ARM64 and Windows x64. Other builds support demo mode and remote servers. GitHub Packages publishes the scoped names.
+The scoped package installs the JavaScript CLI. The package manager selects an exact-version optional runtime for your OS and CPU. Linux, macOS and Windows each have x64 and ARM64 CLI builds; Linux also supports ARMv7 hard-float from v0.1.5. `armv7l` and Debian `armhf` select the same `@kiramei/baasx-linux-arm` package, using npm's `arm` CPU value. GitHub Packages publishes the scoped names. The unscoped `baasx` package remains on hold.
+
+For Linux ARM32, use npm with an ARM32 Node.js 20.3+ installation, or extract `baasx-<version>-Linux-ARMV7L.tar.gz`. The standalone archive bundles Node.js 22.23.5, the Node-compatible CLI, and the ARMv7 Rust helper; it needs no installed Node.js, Bun, or Rust. Preserve `baasx`, `dist/baasx-node.mjs`, and `runtime/` together, including `runtime/node` and `runtime/NODE_LICENSE`. Bun does not support ARM32. The `-Linux-ARMV7L-node.tgz` attachment uses your installed Node.js instead.
+
+ARM32 distributions require GNU/Linux ARMv7 hard-float, glibc 2.35+, `libstdc++6`, and `libatomic1`. On a compatible Debian/Ubuntu system, install missing runtime libraries with `sudo apt install libstdc++6 libatomic1`. ARMv6, soft-float `armel`, and musl Linux are unsupported.
+
+ARM32 supports the terminal workbench, remote service connections, configuration, task and scheduler control, logs, and demo mode. Managed local installation and local recognition are unavailable: upstream provides no ARM32 OCR prebuild, and the backend's Python/dependency/OCR stack has not been validated for ARM32. Connect to a compatible existing service with `--server` or `--pipe`. Local OCR currently supports Linux x64, macOS ARM64 and Windows x64.
 
 ## Getting started from source
 
@@ -56,7 +62,7 @@ bun run baasx --help
 
 Running without a command opens the terminal workbench. `--demo` uses clearly marked, in-memory data to explore tasks, profiles, configuration editing, logs, and command packs without connecting to a real device. Demo changes do not persist between processes.
 
-`bun run baasx` incrementally builds the headless Rust installation helper from the current source. A packaged Bun installation only requires Bun; a native executable distribution requires neither Bun nor Rust. See the distribution details below.
+`bun run baasx` incrementally builds the headless Rust installation helper from the current source. Source development requires a Bun-supported x64 or ARM64 machine. Release tarballs use the Node-compatible launcher and require Node.js 20.3+; standalone archives bundle their JavaScript runtime and require neither Bun nor Rust. See the distribution details below.
 
 The workbench uses a growing and shrinking star, directional text sweeps while connecting or waiting, and a two-second color breath while executing. Effects share a clock and update only their small animation components. Selected long labels and the last visible long log line scroll horizontally. Set `BAAS_REDUCED_MOTION=1` to keep status indicators static; redirected output and `TERM=dumb` also disable motion. Narrow terminals place labels and details on separate lines; short terminals use a two-line header. Opening configuration without a selected profile first opens the profile picker, then returns to configuration automatically.
 
@@ -107,6 +113,8 @@ Open One-off tasks from `/tasks`, or use `/oneoff`, to run normal/hard progressi
 Saving a schedule checks the field values read earlier and rejects overwriting concurrent changes. The task list and overview show the current task, waiting queue, enabled-task count, and next scheduled execution. Schedule data refreshes when a run ends.
 
 ## Updating the local environment
+
+Upgrade the terminal itself with `npm update -g @kiramei/baasx`, or replace the complete extracted standalone archive, including `runtime/` and ARM32's `dist/`. `/update` updates a supported CLI-managed backend/OCR environment; it does not upgrade BAASX. Downloads use `SHA256SUMS` for integrity and contain no `.sig` attachments.
 
 Use `/update` in the workbench to check and update the environment. For scripts, `check-update` reads local backend and OCR repository versions, and `update` applies available updates:
 
@@ -244,16 +252,18 @@ bun add -g "./baasx/dist/baas-baasx-<version>.tgz"
 baasx --help
 ```
 
-`baasx:build` builds the native Rust helper and `baasx/dist/baasx.js`. `baasx:binary` also generates `baasx/dist/baasx` (`baasx.exe` on Windows). Builds target the current operating system and architecture; build separately for each platform so that packages contain the correct helper.
+`baasx:build` builds the native Rust helper, `baasx/dist/baasx.js`, and the Node-compatible `baasx/dist/baasx-node.mjs`. `baasx:binary` also generates `baasx/dist/baasx` (`baasx.exe` on Windows). x64 and ARM64 builds run on their native OS and architecture.
 
-The JS bundle is minified, and executables use ESM with a shallow bytecode cache to reduce startup parsing. The slim compiler is pinned in `baasx/package.json` to `bun@1.4.4-canary.20261105.1` (revision `b1007f117`); CI installs it in a temporary directory, and the build checks the full revision to reject other versions and floating canaries. Its [runtime trimming](https://bun.com/docs/compiler/size) is experimental: only unused build/test tools, image, database and related APIs are removed. JIT, WASM, Intl, networking, cryptography and process support remain; AOT is disabled. Tests exercise configuration and command packs in the compiled artifact. Stable Bun 1.4.4 does not support trimming, and upgrading alone does not guarantee a smaller executable. Use `bun run baasx:binary --no-trim` to fall back to the full runtime. A compiler without trimming support fails explicitly rather than silently producing a larger release.
+Linux ARM32 is cross-compiled from a Bun-supported Linux host. Install the `armv7-unknown-linux-gnueabihf` Rust target and its hard-float C/C++ cross toolchain, then run `bun run baasx:binary --target=linux-arm`. `--target=linux-armv7l` and `--target=linux-armhf` are equivalent. This builds a real ARMv7 Rust helper and downloads the pinned, checksum-verified Node.js 22.23.5 ARMv7 runtime; it does not compile Bun for an unsupported target. CI uses `.github/actions/setup-linux-arm` for its cross toolchain and QEMU checks.
+
+The JS bundles are minified. x64 and ARM64 executables use ESM with a shallow bytecode cache to reduce startup parsing. Their slim compiler is pinned in `baasx/package.json` to `bun@1.4.4-canary.20261105.1` (revision `b1007f117`); CI installs it in a temporary directory, and the build checks the full revision to reject other versions and floating canaries. Its [runtime trimming](https://bun.com/docs/compiler/size) is experimental: only unused build/test tools, image, database and related APIs are removed. JIT, WASM, Intl, networking, cryptography and process support remain; AOT is disabled. Tests exercise configuration and command packs in the compiled artifact. Stable Bun 1.4.4 does not support trimming, and upgrading alone does not guarantee a smaller executable. Use `bun run baasx:binary --no-trim` to fall back to the full runtime. ARM32 uses the Node bundle and does not apply Bun bytecode or trimming.
 
 Both distribution formats must include the installation helper:
 
-- The Bun package contains `bin/baasx.mjs`, `dist/baasx.js`, `runtime/baasx-runtime` (with `.exe` on Windows), command packs, and license files. `bun run baasx:pack` first runs the `prepack` build, then invokes `bun pm pack --ignore-scripts` to generate the `.tgz`.
+- JavaScript tarballs contain `bin/baasx.mjs`, `dist/baasx-node.mjs`, `runtime/baasx-runtime` (with `.exe` on Windows), command packs, and license files. Install the ARM32 `-node.tgz` attachment with `npm install -g ./baasx-<version>-Linux-ARMV7L-node.tgz` on ARMv7/armhf with Node.js 20.3+. Existing x64/ARM64 attachments retain their `-bun.tgz` names. `bun run baasx:pack` first runs the `prepack` build, then invokes `bun pm pack --ignore-scripts` to generate the `.tgz`.
 - Native executable distributions keep `baasx` / `baasx.exe` beside `runtime/baasx-runtime` / `runtime/baasx-runtime.exe`. The older executable name `baas-cli-runtime` remains available in new packages. BAASX also recognizes that name in existing installs. Keep the `runtime` directory when copying the executable. The build script copies the helper into both `baasx/runtime` and `baasx/dist/runtime` for the two distribution formats.
 
-CI checks and builds on Windows, Linux, and macOS. Uploaded build artifacts contain the Bun `.tgz` package and native `.tar.gz` distribution, each with its platform's installation helper, both README languages, and the license. Extract the appropriate archive and preserve its directory structure and executable permissions. Users of these packages do not need a Rust toolchain to install the BAAS environment on first launch.
+CI checks and builds on Windows, Linux, and macOS. Uploaded artifacts contain a JavaScript `.tgz` package and standalone `.tar.gz` distribution for each target, each with its platform's helper, both README languages, and the license. ARM32 standalone archives additionally contain `dist/baasx-node.mjs`, `runtime/node`, and `runtime/NODE_LICENSE`. Preserve every directory and executable permission when extracting or upgrading. `SHA256SUMS` covers the distributions; BAASX publishes no `.sig` files. A Rust toolchain is unnecessary on the target machine. Managed local BAAS installation is supported only where its backend and OCR dependencies are available.
 
 
 ## Development and verification
