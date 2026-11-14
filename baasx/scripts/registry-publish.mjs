@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { npmCommand } from "./host-npm.mjs";
 import { ensureRegistryPackage } from "./registry-check.mjs";
 
 const { values } = parseArgs({
@@ -26,22 +27,18 @@ for (const info of packages) {
     token: process.env.NODE_AUTH_TOKEN,
     tag: values.tag,
     publish(publishTag) {
-      const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-      execFileSync(
-        npm,
-        [
-          "publish",
-          info.archive,
-          "--ignore-scripts",
-          "--registry",
-          values.registry,
-          "--access",
-          "public",
-          "--tag",
-          publishTag,
-        ],
-        { stdio: "inherit" }
-      );
+      const [npm, ...args] = npmCommand([
+        "publish",
+        info.archive,
+        "--ignore-scripts",
+        "--registry",
+        values.registry,
+        "--access",
+        "public",
+        "--tag",
+        publishTag,
+      ]);
+      execFileSync(npm, args, { stdio: "inherit" });
     },
   });
   if (status === "matching") {
