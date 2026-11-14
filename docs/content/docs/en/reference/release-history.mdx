@@ -7,18 +7,21 @@ This page tracks BAAS Tauri changes across the desktop client, Android client, u
 
 ## 0.0.10
 
-**In preparation; not published.** The planned release adds signed Android client updates, stable backend defaults and device-local MirrorChyan CDK management. Packages will appear on the [0.0.10 release page](https://github.com/Kiramei/baas-tauri/releases/tag/0.0.10) after publication.
+This version adds signed Android client updates, stable backend defaults and device-local MirrorChyan CDK management, alongside client interaction and release-workflow improvements. See the [0.0.10 release page](https://github.com/Kiramei/baas-tauri/releases/tag/0.0.10) for packages and publication status.
 
 - New backend installations default to Stable; existing installations retain their saved channel. Development remains available in Preferences.
 - Android verifies signed APK downloads before opening the system installer, avoids restarting an active game during reconnection and recognizes Global Teen and ONE store variants. The separate device-launch button is hidden. Device-specific capture and launch limits remain in the [Android guide](../guide/android).
+- Android virtual-display focus recovery keeps preview frames advancing after interface interactions and removes temporary focus surfaces. Waiting, black-frame, stalled-frame and error states use only the upper-right badge without covering the game image; tapping the badge opens native controls.
 - Desktop and Android store verified MirrorChyan CDKs in private device storage. Stable backend packages are checked against SHA-256 before application. See [update settings](../features/update).
 - CI checks follow the changed module, frontend/backend layer and applicable platform. Documentation and README changes use their own checks.
 - BAASX supports six OS/architecture combinations with optional npm runtime packages and the `baasx-runtime` helper, retaining legacy-name lookup. Registry installation uses `@kiramei/baasx`; the unscoped name remains on hold. See [BAASX installation](../baasx/installation).
 - Profile imports accept ZIPs and folders, preserve existing names with numbered suffixes and safely import `default_config`. macOS uses the native menu bar; wide plugin panes scroll independently.
 - Windows portable client updates retain portable mode. Successful managed dependency setup cleans the private UV cache. Profiles retain explicit run failures, desktop notifications group run updates, and appearance settings include BACursors.
-- Android Home writes action feedback to profile logs and hides profile/global long-press menus; queue inspection and log copying remain available. Seven-language UI coverage and interpolation checks are expanded.
+- Android Home writes action feedback to profile logs and removes unused space for hidden profile actions. Its task queue keeps the preview visible, and native text selection/copy remains available. App context menus are disabled across Android pages; explicit action menus remain available outside Home.
+- Global Settings is now Preferences. Inspect and Reload are removed from app context menus on every platform; Preferences → General provides a Reload button and translated search entries. Configuration dropdowns retain up/down overflow indicators without shifting the list or snapping it back during touch scrolling.
+- Client release automation uploads standard Windows installers, macOS DMGs, Linux DEBs and Android ARM64 APKs to MirrorChyan's `baas-tauri` resource and synchronizes release notes. Optional upstream mirroring transfers only platform-named installers as `tauri-<version>` prereleases, excluding Windows portable files, updater archives and signatures while leaving upstream Latest unchanged.
 
-Export important profiles before upgrading. Android APK installation needs system confirmation; background game support depends on the device and its privileged-display capabilities.
+Export important profiles before upgrading. Android APK installation needs system confirmation. Scoped Android 12 ARM64 debug-device checks covered startup, local OCR, the existing `restart` task and preview focus/frame progress; they do not establish full daily-task completion, every gesture, other-device compatibility or long-running reliability.
 
 ## 0.0.9.post1
 

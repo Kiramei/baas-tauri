@@ -1,6 +1,6 @@
 ## 0.0.10
 
-> Release in preparation. Android updates, stable backend defaults, local MirrorChyan credentials, and platform-specific client improvements.
+> Android updates, stable backend defaults, local MirrorChyan credentials, and platform-specific client improvements.
 
 ### New Features
 
@@ -10,18 +10,21 @@
 4. Moved macOS application actions into the native system menu bar, with synchronized shortcuts, action availability and standard window actions.
 5. Added a persistent, soft coral failure indicator beside affected profiles. A new run clears it; normal stops and historical error logs do not create a failure.
 6. Added a BACursors preference above BAComet in desktop and WebUI appearance settings, enabled by default.
+7. Added a Reload button in Preferences → General across desktop, Android and WebUI, with translated search entries. Reload rebuilds the interface without restarting the backend.
 
 ### Improvements
 
 1. New backend installations default to Stable across desktop, Android, WebUI/Docker and BAASX. Existing installations keep their saved channel; Development remains selectable.
 2. Moved Android backend update checking, OCR/model verification and shared-resource preparation into startup, with explicit retry or verified-local continuation before any update has begun.
-3. Improved Android game package detection, virtual-display ownership and restart handling, including Global Teen and ONE store variants. Home retains preview state while hiding the separate device-launch action.
+3. Improved Android game package detection, virtual-display ownership and restart handling, including Global Teen and ONE store variants. Home retains the upper-right preview state while hiding the separate device-launch action.
 4. Separated frontend, native backend, platform adapters, BAASX and documentation CI. README-only changes use lightweight documentation checks.
 5. Prepared six-target BAASX distributions and optional platform npm runtime packages. The scoped `@kiramei/baasx` entry remains available; unscoped `baasx` publication is on hold. The native helper is now `baasx-runtime`, with legacy-name compatibility.
 6. Gave the wide-screen plugin list and settings pane independent scrolling.
-7. Grouped desktop run notifications and improved failure reporting, replacement and expiry. Android Home action messages use the selected profile's log; its long-press profile/global menus and add/ellipsis controls are hidden on Home while queue inspection and log copying remain available.
+7. Grouped desktop run notifications and improved failure reporting, replacement and expiry. Android Home action messages use the selected profile's log; its compact profile strip omits add/ellipsis controls and their unused space while retaining queue inspection and native log copying.
 8. Renamed global client Settings to **Preferences** across desktop, Android and WebUI, including navigation, search and menu shortcuts.
-9. Added an optional release job to mirror platform installers to the upstream repository under isolated `tauri-` prereleases, using explicit platform filenames and resumable verification.
+9. Added optional installer-only mirroring to the upstream repository as `tauri-<version>` prereleases, with explicit platform filenames, SHA-256 verification and resumable transfer. Windows portable files, updater archives and signatures are excluded; upstream Latest is unchanged.
+10. Added client installer uploads and release-note synchronization for MirrorChyan's `baas-tauri` resource: standard Windows installers, macOS DMGs, Linux DEBs and Android ARM64 APKs.
+11. Disabled app context menus across Android pages while preserving native text selection/copy and explicit action menus. Removed Inspect and Reload from app context menus on every platform; Reload is available in General preferences.
 
 ### Fixes
 
@@ -33,15 +36,19 @@
 6. Kept MirrorChyan credentials out of synchronized frontend configuration and sanitized credential-bearing download diagnostics.
 7. Prevented Android log viewing from opening the keyboard; completed missing translations across all seven interface languages and added UI-literal and interpolation checks.
 8. Corrected BAASX packaging, Windows archive handling, runtime compatibility and native release version alignment; moved Renovate to the repository root.
+9. Fixed Android virtual-display focus recovery and temporary focus-surface cleanup, addressing stalled preview frames after interface interactions. The Home task queue can remain open while the preview advances.
+10. Kept waiting, black-frame, stalled-frame and error messages in the preview's corner badge without covering the game image. The badge opens native controls; closing remains in the action menu or system Back path.
+11. Prevented configuration-dropdown overflow indicators from resizing the list or snapping the focused item back during touch scrolling. Up/down indicators, keyboard selection and mouse hover scrolling remain available.
 
 ### Upgrade Notes
 
 - Export important profiles before upgrading. Existing backend installations keep their saved channel.
 - Android APK installation requires system confirmation and may require permission to install packages. Background game capture and execution still depend on device support; a live preview alone does not establish successful task execution.
+- Scoped physical-device checks used Android 12 ARM64 debug candidates and covered startup, local OCR, the existing `restart` task, preview focus/frame progress and interface return/cleanup. They do not establish full daily-task completion, every gesture, other devices or long-running reliability.
 - Enter a personal MirrorChyan CDK on each device. Do not include credentials in screenshots or exported configuration.
 - Use `@kiramei/baasx` for npm installations while the unscoped name is pending appeal.
 - Linux ARM64, Intel macOS and Windows ARM64 BAASX support remote connections and demo mode. Local OCR prebuilds currently cover Linux x64, Apple Silicon macOS and Windows x64.
-- Winget publication remains disabled for 0.x releases. This version has not been pushed or published.
+- Winget publication remains disabled for 0.x releases.
 
 ## 0.0.9.post1
 

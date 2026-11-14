@@ -1,6 +1,6 @@
 [package]
 name = "baas-notifier"
-version = "0.0.10-0.post.1"
+version = "0.0.10"
 edition = "2021"
 
 [dependencies]
