@@ -155,7 +155,13 @@ jobs:
             librsvg2-dev \
             patchelf \
             rpm \
-            libfuse2
+            libfuse2 \
+            xdg-utils \
+            file \
+            binutils
+          for tool in xdg-mime xdg-open patchelf file readelf glib-compile-schemas; do
+            command -v "$tool"
+          done
 
       - name: Install x86 OpenSSL (macOS only)
         if: matrix.target == 'x86_64-apple-darwin'

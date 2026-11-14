@@ -114,6 +114,15 @@ test("manual native verification can package AppImages without release writes or
   expect(smoke.run).toContain('"createUpdaterArtifacts":false');
   expect(smoke.run).toContain("--appimage-extract");
   expect(smoke.run).not.toMatch(/release create|action-gh-release|SIGNING_PRIVATE_KEY|\.sig/);
+  for (const preparation of [
+    step(native, "desktop-rust", "Install optional AppImage tooling").run!,
+    step(app, "release", "Install dependencies (ubuntu only)").run!,
+  ]) {
+    expect(preparation).toContain("xdg-utils");
+    expect(preparation).toContain("xdg-mime");
+    expect(preparation).toContain("xdg-open");
+    expect(preparation).toContain("glib-compile-schemas");
+  }
   expect(step(app, "release", "Normalize macOS artifacts").run).toContain("scripts/archive-signatures.mjs");
   expect(step(app, "release", "Normalize macOS artifacts").run).not.toContain('cp -v "$APP_TAR_SIG"');
 });
