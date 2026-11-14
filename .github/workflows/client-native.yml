@@ -80,6 +80,10 @@ jobs:
         if: matrix.target != 'armv7-unknown-linux-gnueabihf'
         run: cargo test --workspace --exclude baasx-runtime --exclude baas-cli-runtime --all-targets --locked --target ${{ matrix.target }}
 
+      - name: Test macOS release bundle verification
+        if: runner.os == 'macOS'
+        run: python3 -m unittest discover -s scripts/tests -p test_macos_bundles.py
+
   android:
     name: Android ${{ matrix.abi }} native build
     runs-on: ubuntu-22.04

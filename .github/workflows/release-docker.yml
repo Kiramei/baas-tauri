@@ -2,6 +2,12 @@ name: Release WebUI Docker Image
 
 on:
   workflow_dispatch:
+    inputs:
+      release-tag:
+        description: Existing app release tag to recover; leave empty to build the selected branch
+        required: false
+        default: ""
+        type: string
   push:
     tags:
       - "[0-9]*.[0-9]*.[0-9]*"
@@ -18,14 +24,19 @@ concurrency:
 env:
   IMAGE_NAME: ghcr.io/kiramei/baas-webui
   CNB_IMAGE_NAME: docker.cnb.cool/kiramei/baas-tauri/baas-webui
-  PUBLISH_IMAGE: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') }}
-  PUBLISH_LATEST: ${{ github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/') && !contains(github.ref_name, '.rc')) }}
 
 jobs:
   prepare:
     name: Validate release and generate fonts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
+    outputs:
+      release-tag: ${{ steps.source.outputs.release-tag }}
+      image-version: ${{ steps.source.outputs.image-version }}
+      source-sha: ${{ steps.source.outputs.source-sha }}
+      source-short-sha: ${{ steps.source.outputs.source-short-sha }}
+      publish-image: ${{ steps.source.outputs.publish-image }}
+      publish-latest: ${{ steps.source.outputs.publish-latest }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -33,26 +44,88 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Check release tag
-        uses: ./.github/actions/check-release-tag
+      - name: Set up Node for release validation
+        uses: actions/setup-node@v6
         with:
-          allow-non-tag: "true"
+          node-version: "22"
+
+      - name: Resolve and validate image source
+        id: source
+        shell: bash
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release-tag }}
+        run: |
+          set -euo pipefail
+          node --version
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          import { parseReleaseVersion } from './src/shared/ReleaseVersion.mjs';
+          const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+          const input = process.env.INPUT_RELEASE_TAG || '';
+          const ref = process.env.GITHUB_REF;
+          if (input && (process.env.GITHUB_EVENT_NAME !== 'workflow_dispatch' || ref !== 'refs/heads/main')) {
+            throw new Error('Release recovery must run the workflow from main');
+          }
+          const tag = input || (ref?.startsWith('refs/tags/') ? process.env.GITHUB_REF_NAME : '');
+          const parsed = tag ? parseReleaseVersion(tag.replace(/^v/, '')) : null;
+          if (tag && (!parsed || (tag !== parsed.canonical && tag !== 'v' + parsed.canonical))) {
+            throw new Error('Expected an app release tag with one optional v prefix');
+          }
+          if (tag) git('fetch', 'origin', 'main', '--tags');
+          const sha = git('rev-parse', '--verify', tag ? 'refs/tags/' + tag + '^{commit}' : 'HEAD^{commit}');
+          if (tag) git('merge-base', '--is-ancestor', sha, 'origin/main');
+          const publish = Boolean(tag || ref === 'refs/heads/main');
+          const values = {
+            'release-tag': tag,
+            'image-version': parsed?.canonical || '',
+            'source-sha': sha,
+            'source-short-sha': sha.slice(0, 7),
+            'publish-image': publish,
+            'publish-latest': publish && parsed?.kind !== 'rc',
+          };
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(values).map(([key, value]) => key + '=' + value + '\n').join(''));
+          NODE
+
+      - name: Checkout validated image source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.source.outputs.source-sha }}
+          persist-credentials: false
+
+      - name: Check selected release version
+        if: steps.source.outputs.release-tag != ''
+        env:
+          RELEASE_TAG: ${{ steps.source.outputs.release-tag }}
+        run: node scripts/check-release-version.mjs "$RELEASE_TAG"
 
       - name: Generate font assets
         uses: ./.github/actions/generate-font-assets
 
   build-and-push:
     name: Build and publish image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
       promoted: ${{ steps.promotion.outputs.latest }}
+      publish-image: ${{ needs.prepare.outputs.publish-image }}
+      release-tag: ${{ needs.prepare.outputs.release-tag }}
+      image-version: ${{ needs.prepare.outputs.image-version }}
     needs: prepare
+    env:
+      PUBLISH_IMAGE: ${{ needs.prepare.outputs.publish-image }}
+      PUBLISH_LATEST: ${{ needs.prepare.outputs.publish-latest }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          ref: ${{ needs.prepare.outputs.source-sha }}
           persist-credentials: false
+
+      - name: Set up Node for release promotion
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
 
       - name: Download generated font assets
         uses: ./.github/actions/download-font-assets
@@ -90,20 +163,20 @@ jobs:
       - name: Resolve canonical image version
         id: image-version
         shell: bash
+        env:
+          IMAGE_VERSION: ${{ needs.prepare.outputs.image-version }}
         run: |
           set -euo pipefail
-          version=""
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            version="${GITHUB_REF_NAME#v}"
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "version=$IMAGE_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Avoid promoting an older stable version
-        if: env.PUBLISH_LATEST == 'true' && startsWith(github.ref, 'refs/tags/')
+        if: env.PUBLISH_LATEST == 'true' && needs.prepare.outputs.release-tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ needs.prepare.outputs.release-tag }}
         run: |
+          set -euo pipefail
+          node --version
           # App and container builds run independently. Include unpublished app tags
           # by recording the currently published image's version as well.
           prior="$(docker buildx imagetools inspect "$IMAGE_NAME:latest" --format '{{json .Image}}' 2>"$RUNNER_TEMP/inspect-latest.err")" || {
@@ -111,7 +184,28 @@ jobs:
           }
           previous_tag="$(jq -r '.. | objects | .["org.opencontainers.image.version"]? // empty' <<< "$prior" | sort -u)"
           if [[ "$previous_tag" == *$'\n'* ]]; then echo "::error::Latest image platforms disagree on version"; exit 1; fi
-          candidate="$(gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' | jq --arg prior "$previous_tag" 'flatten + [{tag_name:$prior}]' | node scripts/ci/release-contract.mjs promote "$TAG")"
+          promotion_dir="$(mktemp -d "$RUNNER_TEMP/docker-promotion.XXXXXX")"
+          trap 'rm -rf "$promotion_dir"' EXIT
+          gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' > "$promotion_dir/releases.json" || {
+            code=$?
+            echo '::error::Could not list releases for Docker promotion' >&2
+            exit "$code"
+          }
+          jq --arg prior "$previous_tag" 'flatten + [{tag_name:$prior}]' "$promotion_dir/releases.json" > "$promotion_dir/candidates.json" || {
+            code=$?
+            echo '::error::Could not prepare Docker promotion candidates' >&2
+            exit "$code"
+          }
+          node scripts/ci/release-contract.mjs promote "$TAG" < "$promotion_dir/candidates.json" > "$promotion_dir/decision.txt" || {
+            code=$?
+            echo '::error::Release comparison failed before publishing the Docker image' >&2
+            exit "$code"
+          }
+          candidate="$(cat "$promotion_dir/decision.txt")"
+          if [[ "$candidate" != true && "$candidate" != false ]]; then
+            echo '::error::Release promotion returned an invalid decision'
+            exit 1
+          fi
           echo "PUBLISH_LATEST=$candidate" >> "$GITHUB_ENV"
 
       - name: Extract GitHub Container Registry metadata
@@ -120,10 +214,13 @@ jobs:
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=raw,value=${{ steps.image-version.outputs.version }},enable=${{ startsWith(github.ref, 'refs/tags/') }}
-            type=sha
+            type=ref,event=branch,enable=${{ needs.prepare.outputs.release-tag == '' }}
+            type=raw,value=${{ steps.image-version.outputs.version }},enable=${{ needs.prepare.outputs.release-tag != '' }}
+            type=raw,value=sha-${{ needs.prepare.outputs.source-short-sha }}
             type=raw,value=latest,enable=${{ env.PUBLISH_LATEST == 'true' }}
+          labels: |
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.source-sha }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.image-version || github.ref_name }}
 
       - name: Log in to Docker Hub
         if: env.PUBLISH_IMAGE == 'true'
@@ -140,8 +237,8 @@ jobs:
         with:
           images: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/baas-webui
           tags: |
-            type=raw,value=${{ steps.image-version.outputs.version }},enable=${{ startsWith(github.ref, 'refs/tags/') }}
-            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ steps.image-version.outputs.version }},enable=${{ needs.prepare.outputs.release-tag != '' }}
+            type=raw,value=main,enable=${{ needs.prepare.outputs.release-tag == '' && github.ref == 'refs/heads/main' }}
             type=raw,value=latest,enable=${{ env.PUBLISH_LATEST == 'true' }}
 
       - name: Build and publish Docker image
@@ -163,12 +260,13 @@ jobs:
   mirror:
     name: Mirror published Docker Hub image to CNB
     needs: build-and-push
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
+    if: needs.build-and-push.outputs.publish-image == 'true'
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
     env:
+      PUBLISH_IMAGE: ${{ needs.build-and-push.outputs.publish-image }}
       PUBLISH_LATEST: ${{ needs.build-and-push.outputs.promoted }}
     steps:
       - name: Install skopeo
@@ -185,11 +283,13 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           CNB_DOCKER_TOKEN: ${{ secrets.CNB_DOCKER_TOKEN }}
+          RELEASE_TAG: ${{ needs.build-and-push.outputs.release-tag }}
+          IMAGE_VERSION: ${{ needs.build-and-push.outputs.image-version }}
         run: |
           set -euo pipefail
           source_image="docker.io/${DOCKERHUB_USERNAME}/baas-webui"
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            tags=("${GITHUB_REF_NAME#v}")
+          if [[ -n "$RELEASE_TAG" ]]; then
+            tags=("$IMAGE_VERSION")
           else
             tags=(main)
           fi
