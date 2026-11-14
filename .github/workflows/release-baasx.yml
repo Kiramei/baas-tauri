@@ -185,7 +185,7 @@ jobs:
         with:
           name: registry-node-bundle
           path: registry-bundle
-      - name: Assemble platform packages, scoped CLI and npm entry point
+      - name: Assemble platform packages and scoped CLI
         run: node baasx/scripts/registry-package.mjs --assets release-assets --bundle registry-bundle/baasx-node.mjs --output "$RUNNER_TEMP/baasx-registry" --scope "${{ matrix.scope }}" > "$RUNNER_TEMP/baasx-registry-info.json"
       - uses: oven-sh/setup-bun@v2
         with: { bun-version: "1.3.14" }

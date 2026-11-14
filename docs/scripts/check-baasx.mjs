@@ -48,7 +48,7 @@ try {
           ["npm", "npm install -g @kiramei/baasx"],
           ["pnpm", "pnpm add -g @kiramei/baasx"],
           ["yarn", "yarn global add @kiramei/baasx"],
-          ["bun", "bun add -g baasx"],
+          ["bun", "bun add -g @kiramei/baasx"],
           ["cnpm", "cnpm install -g @kiramei/baasx"],
           ["deno", "deno install -g -A npm:@kiramei/baasx"],
         ]) {
