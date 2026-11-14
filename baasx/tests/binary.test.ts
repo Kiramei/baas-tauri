@@ -132,7 +132,15 @@ test.skipIf(!executable || process.platform === "win32" || typeof Bun.Terminal !
         "screenshot search",
         (frame) => inputIs("screenshot_method")(frame) && frame.includes("截图方式")
       );
-      await key("\r", "enum editor", contains("保存"));
+      await key(
+        "\r",
+        "enum editor",
+        (frame) =>
+          frame.includes("截图方式") &&
+          frame.includes("❯ ● ADB") &&
+          frame.includes("保存 [Ctrl+S]") &&
+          frame.includes("↑↓ 选择 · Enter 确认")
+      );
       await key("\x1b[B", "scrcpy selection", contains("❯ ● scrcpy"));
       await key("\r", "enum confirmation", contains("确认提交 BAAS 操作"));
       await key("\r", "saved enum", saved);
