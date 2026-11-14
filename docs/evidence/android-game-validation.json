@@ -104,5 +104,271 @@
   "gameTaskCompletionVerified": false,
   "nativeTakeoverRestartVerified": false,
   "nativeCloseButtonTapped": false,
-  "scope": "One hash-bound cold launch; a prior exploratory launch reproduced the placement failure. Cleanup exercised the overlay event handler through the probe, not a physical native-button tap. No game data was cleared, no login performed and no Shizuku mode or permissions changed. Raw screenshots, profile backup and system dumps remain in ignored cache, not public media. This is not a timing benchmark or proof of failure on every Android device."
+  "scope": "One hash-bound cold launch; a prior exploratory launch reproduced the placement failure. Cleanup exercised the overlay event handler through the probe, not a physical native-button tap. No game data was cleared, no login performed and no Shizuku mode or permissions changed. Raw screenshots, profile backup and system dumps remain in ignored cache, not public media. This is not a timing benchmark or proof of failure on every Android device.",
+  "currentReviewSupplement": {
+    "recordedAt": "2026-11-14T12:49:51.468461Z",
+    "verificationKind": "User-authorized physical-device tests; sanitized APK-specific observations, separate from the historical emulator run above.",
+    "applicationId": "io.github.kiramei.baas_tauri.review",
+    "apkKind": "debug-review",
+    "environment": {
+      "manufacturer": "Xiaomi",
+      "model": "Redmi K30",
+      "android": "12",
+      "sdk": 31,
+      "abi": "arm64-v8a"
+    },
+    "runs": [
+      {
+        "id": "initial-review",
+        "sourceRevision": "8f3d5f2e8564428cf0f3e7d09c13970d071f4156",
+        "apkSha256": "afd7da581380f10f8b4e3d989fab40811f65a81eeead4dea97554438b3d23344",
+        "startupResourcesAndHome": "passed",
+        "localOcr": "passed",
+        "restartTask": "passed",
+        "sustainedQueueFrameProgress": "not-verified",
+        "note": "A later actual Home preview was Live and non-black; the initial transient BLACK observation was not the final state."
+      },
+      {
+        "id": "status-only",
+        "sourceRevision": "9287be0930560bb0158c927925e36f2295164291",
+        "apkSha256": "3232205c5687196cd67e9e416257504c9cc167753f3994b67f41709a29337809",
+        "startupResourcesAndHome": "passed",
+        "localOcr": "passed",
+        "restartTask": "passed",
+        "statusOnlyLayout": "passed",
+        "sustainedQueueFrameProgress": "failed",
+        "actualDispatcherDisplayId": 0,
+        "note": "After the title scene stabilized, queue interaction left all three frame counters unchanged; an initial Live sample did not establish sustained progress."
+      },
+      {
+        "id": "display-overlay-shield",
+        "sourceRevision": "3861e919f857a49cdf21e7e8d8c7f54b39344e56",
+        "apkSha256": "943c5b3be75a5d427d93009ce78d5d8fdc08b469d08498a4da4e11c2fbb2b408",
+        "startupResourcesAndHome": "passed",
+        "embeddedFocusRecovery": "failed",
+        "actualDispatcherDisplayId": 0,
+        "ocrRepeated": false,
+        "restartTaskRepeated": false,
+        "note": "Type 2026 remained below the game in a different Surface parent; the safety guard rejected focus injection. An initial Activity launch did not enter Home; retry with the same live main process succeeded, without evidence of a crash."
+      },
+      {
+        "id": "owned-focus-surface",
+        "sourceRevision": "7b433477ff55c244cd9022161a88408e3a6983fa",
+        "apkSha256": "f14a425e412815cafdda5e2601d1f6a740e575564f664d780299151487dd3b67",
+        "outcome": "stated-smoke-scope-passed-with-unintended-manual-game-tap",
+        "observations": {
+          "startupResourcesAndHome": "passed",
+          "embeddedFocus": {
+            "ownedDisplayId": 10,
+            "actualDispatcherAfterShieldRemoval": 10,
+            "safetyGuardBypassed": false,
+            "postRemovalProgress": {
+              "samples": 4,
+              "elapsedSeconds": 6.98,
+              "firstCounters": {
+                "capturedFrames": 1048,
+                "presentedFrames": 1041,
+                "displayedFrames": 1027
+              },
+              "lastCounters": {
+                "capturedFrames": 1254,
+                "presentedFrames": 1247,
+                "displayedFrames": 1224
+              },
+              "allLiveWithOwnedFocusAndNoShield": true
+            }
+          },
+          "queueProgress": {
+            "samples": 5,
+            "elapsedSeconds": 8.884,
+            "firstCounters": {
+              "capturedFrames": 2057,
+              "presentedFrames": 2050,
+              "displayedFrames": 2053
+            },
+            "lastCounters": {
+              "capturedFrames": 2357,
+              "presentedFrames": 2349,
+              "displayedFrames": 2311
+            },
+            "allLiveWithOwnedFocusAndNoShield": true
+          },
+          "visuallyChangingNonBlackGameSceneObserved": true,
+          "statusOnlyLayout": {
+            "topRightStatus": true,
+            "permanentInlineXAbsent": true
+          },
+          "ocr": {
+            "language": "zh-cn",
+            "recognizedExpectedStaticChineseLabels": [
+              "通知",
+              "点击任意区域进入游戏",
+              "菜单"
+            ],
+            "serverReportedMilliseconds": 4784,
+            "latencyScope": "one observation, not a benchmark"
+          },
+          "runner": {
+            "task": "restart",
+            "responseResult": 0,
+            "deviceAndInitializationLogMarkersObserved": true,
+            "checkRestartLogMarkerObserved": true,
+            "finalRunning": false,
+            "finalTask": null,
+            "finalExitCode": null,
+            "schedulerOrResourceTasksStarted": false
+          },
+          "logSelection": {
+            "nativeSelectionAndCopyActionObserved": true,
+            "editableElements": 0,
+            "imeShown": false,
+            "clipboardReadbackVerified": false,
+            "liveProgress": {
+              "samples": 3,
+              "elapsedSeconds": 4.404,
+              "firstCounters": {
+                "capturedFrames": 10247,
+                "presentedFrames": 10239,
+                "displayedFrames": 10160
+              },
+              "lastCounters": {
+                "capturedFrames": 10367,
+                "presentedFrames": 10359,
+                "displayedFrames": 10288
+              },
+              "allLiveWithOwnedFocusAndNoShield": true
+            }
+          },
+          "fullscreen": {
+            "enteredViaNativeMenu": true,
+            "returnedUsingDefaultDisplayBack": true,
+            "stablePortraitViewport": [
+              392,
+              822
+            ],
+            "inlineLiveAfterReturn": true
+          },
+          "unintendedInteraction": {
+            "manualGameTapCount": 1,
+            "context": "A delayed fullscreen orientation transition left a test tap using old portrait coordinates inside the fullscreen game.",
+            "gameHomeAnnouncementEntered": true,
+            "automatedGameplayCompletion": false,
+            "purchasesOrClaimsAttempted": false,
+            "response": "Further game-region touches and the planned extra Play/Back repetition were canceled."
+          },
+          "cleanup": {
+            "action": "default-display Back closed the inline session",
+            "ownedDisplayReleased": true,
+            "temporaryFocusSurfaceCount": 0,
+            "actualDispatcherDisplayId": 0,
+            "tasksIdle": true,
+            "homeVisible": true,
+            "remainingTestHostForwards": 0
+          }
+        }
+      }
+    ],
+    "sources": [
+      {
+        "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/NativeFocusSurface.kt",
+        "revision": "7b433477ff55c244cd9022161a88408e3a6983fa",
+        "sha256": "4182ea702c8df46ca7e5245f482e1c4a85c129641d7f8028e8927aebd8829c33",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/DisplayInput.kt",
+        "revision": "7b433477ff55c244cd9022161a88408e3a6983fa",
+        "sha256": "efe135d6779126f7fd850c161ba706761004b7573c28e10560b6d99a4b9eba74",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/PrivilegedExecution.kt",
+        "revision": "7b433477ff55c244cd9022161a88408e3a6983fa",
+        "sha256": "fcc9d21b607cffadbff72486dd0e88bcc614168c38d89b2c57da529203779501",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/NativeGamePreview.kt",
+        "revision": "7b433477ff55c244cd9022161a88408e3a6983fa",
+        "sha256": "7eec694cedd9b86b740f00a2ac340d30b418743658daa15a5522987c6c02ff30",
+        "gitContentVerified": true
+      }
+    ],
+    "limitations": [
+      "These observations cover one physical Redmi K30 and four distinct debug APKs; later results do not relabel earlier failures or prove long-term behavior on other devices.",
+      "Only the existing restart backend task was exercised. The full daily suite, resource-consumption tasks and scheduler operation were not validated; manual entry into an announcement is not automatic task success.",
+      "Account/login state and account changes were not independently audited. One unintended manual game tap occurred during the fullscreen test.",
+      "The production client package was not overwritten. No complete pre-install configuration-byte baseline exists; normal review initialization and Play may update state and display markers.",
+      "Baseline display 6 disappeared during application rebinding or Play without an explicit stop request; its transition was not isolated, so preservation is not claimed.",
+      "Raw screenshots, unfiltered OCR output, game identifiers, phone configuration and private device artifacts are excluded from this summary."
+    ]
+  },
+  "badgeOnlyReviewSupplement": {
+    "recordedAt": "2026-11-14T13:13:09.248261Z",
+    "verificationKind": "Separate physical-device smoke check of natural inline-preview states; the four earlier APK runs remain unchanged.",
+    "sourceRevision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+    "apkSha256": "36f0a9a4549ddfbe4b6be5c1f1f7a417e2d5ceba5c73b1bb55450e4755f91139",
+    "applicationId": "io.github.kiramei.baas_tauri.review",
+    "apkKind": "debug-review",
+    "environment": {
+      "model": "Redmi K30",
+      "android": "12",
+      "sdk": 31,
+      "abi": "arm64-v8a"
+    },
+    "baseline": {
+      "waitedForNaturalTaskIdleAndUserConfirmation": true,
+      "existingUserDisplayNotManuallyStopped": true
+    },
+    "observations": {
+      "startupResourcesAndHome": "passed",
+      "observedNaturalStates": [
+        "waiting",
+        "black",
+        "live"
+      ],
+      "stateSamples": 41,
+      "statesArtificiallyForced": false,
+      "onlyUpperRightStatusBadgeObserved": true,
+      "centerStatusTextOrPanelObserved": false,
+      "waitingAndBlackCenterRegionUniform": true,
+      "stableNonBlackLivePreviewObserved": true,
+      "gameAreaTouches": 0,
+      "solveOrSchedulerCommands": 0,
+      "fullscreenEntered": false
+    },
+    "sourceAndBuildOnlyCoverage": [
+      "still",
+      "error",
+      "fullscreen"
+    ],
+    "cleanup": {
+      "defaultDisplayBackClosedOwnedSession": true,
+      "ownedDisplayReleased": true,
+      "temporaryFocusSurfaceCount": 0,
+      "actualDispatcherDisplayId": 0,
+      "runningCount": 0,
+      "homeVisible": true,
+      "testHostForwardRemoved": true
+    },
+    "sources": [
+      {
+        "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/NativeGamePreview.kt",
+        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "sha256": "1baf89b93f72b0a1ec9cf0773811bb6b193ad37c72d10311e6edf23bc7668027",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/NativeGameFullscreen.kt",
+        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "sha256": "cc46ad2e2c696877adb11b3652a403f5eefc8de52e64920146c0040dcf668f98",
+        "gitContentVerified": true
+      }
+    ],
+    "limitations": [
+      "Still and Error did not naturally occur. Their common badge renderer was checked by source review and compilation, not a fabricated physical-device state.",
+      "Fullscreen was not entered in this round; its badge/menu behavior was covered by source/build only. No full gameplay or task-suite acceptance is claimed.",
+      "Only App Play and default-display Back were used. Raw screenshots, identifiers, configuration values and unfiltered device output are excluded."
+    ]
+  }
 }

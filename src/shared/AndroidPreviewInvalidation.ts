@@ -1,6 +1,6 @@
 /** Ignore log/token churn; only actual overlay changes can cover the native host. */
 export const ANDROID_PREVIEW_BLOCKERS =
-  '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-slot="popover-content"], [data-native-preview-blocker]';
+  '[role="dialog"]:not([data-native-preview-compatible]), [role="alertdialog"]:not([data-native-preview-compatible]), [role="menu"]:not([data-native-preview-compatible]), [role="listbox"]:not([data-native-preview-compatible]), [data-slot="popover-content"]:not([data-native-preview-compatible]), [data-native-preview-blocker]:not([data-native-preview-compatible])';
 
 const element = (node: Node): Element | null => (node.nodeType === 1 ? (node as Element) : null);
 const containsBlocker = (node: Node): boolean => {

@@ -129,6 +129,20 @@ class BundleValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(VERIFY.VerificationError, "sealed resource"):
                 VERIFY.run_tool(["codesign", "--verify", self.app])
 
+    def test_tool_delivers_one_text_response_followed_by_eof(self):
+        command = [sys.executable, "-c", "import sys; print(repr(sys.stdin.read()))"]
+        self.assertEqual(VERIFY.run_tool(command, input_text="Y\n"), "'Y\\n'")
+
+    def test_tool_rejects_refused_or_missing_license_response(self):
+        command = [
+            sys.executable, "-c",
+            "import sys; raise SystemExit(0 if sys.stdin.read() == 'Y\\n' else 'license refused')",
+        ]
+        for response in ("N\n", ""):
+            with self.subTest(response=response):
+                with self.assertRaisesRegex(VERIFY.VerificationError, "license refused"):
+                    VERIFY.run_tool(command, input_text=response)
+
     def test_safe_framework_symlinks_are_preserved(self):
         archive = self.root / "framework.tar.gz"
         base = APP_NAME + "/Contents/Frameworks/Fixture.framework/"
@@ -171,7 +185,9 @@ class BundleValidationTests(unittest.TestCase):
                 with VERIFY.mounted_dmg(self.artifacts[2], mountpoint):
                     raise VERIFY.VerificationError("bad mounted app")
         self.assertEqual(tool.call_args_list[0].args[0], ["hdiutil", "attach", "-readonly", "-nobrowse", "-mountpoint", mountpoint, self.artifacts[2]])
+        self.assertEqual(tool.call_args_list[0].kwargs, {"input_text": "Y\n"})
         self.assertEqual(tool.call_args_list[-1].args[0], ["hdiutil", "detach", mountpoint])
+        self.assertEqual(tool.call_args_list[-1].kwargs, {})
 
     def test_partial_attach_failure_still_attempts_detach(self):
         error = VERIFY.VerificationError("attach timed out after mounting")
@@ -180,6 +196,17 @@ class BundleValidationTests(unittest.TestCase):
                 with VERIFY.mounted_dmg(self.artifacts[2], self.root / "mount"):
                     self.fail("failed attach must not enter verification")
         self.assertEqual(tool.call_args_list[-1].args[0][0:2], ["hdiutil", "detach"])
+
+    def test_rejected_attach_keeps_primary_error_when_cleanup_also_fails(self):
+        rejected = VERIFY.VerificationError("hdiutil: attach canceled")
+        missing = VERIFY.VerificationError("No such file or directory")
+        with mock.patch.object(VERIFY, "run_tool", side_effect=[rejected, missing, missing]) as tool:
+            with self.assertRaisesRegex(VERIFY.VerificationError, "attach canceled"):
+                with VERIFY.mounted_dmg(self.artifacts[2], self.root / "mount"):
+                    self.fail("rejected attach must not enter verification")
+        self.assertEqual(tool.call_args_list[0].kwargs, {"input_text": "Y\n"})
+        self.assertEqual(tool.call_args_list[1].args[0][0:2], ["hdiutil", "detach"])
+        self.assertEqual(tool.call_args_list[2].args[0][0:3], ["hdiutil", "detach", "-force"])
 
     def test_detach_failure_retries_force_and_fails_if_volume_remains(self):
         error = VERIFY.VerificationError("volume busy")

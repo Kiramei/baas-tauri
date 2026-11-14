@@ -9,7 +9,7 @@ The APK includes Python; first launch also downloads the backend. Automation req
 
 Download a trusted Android build from the project's [Releases](https://github.com/Kiramei/baas-tauri/releases). Match the device's real architecture, not only the game's architecture. Allow installation from the chosen browser/file manager if Android asks. The APK declares a minimum of Android 7.0/API 24; native game capture requires Android 8.0/API 26 or newer. Meeting these versions still requires checking the device's privileged-display support.
 
-Keep network access available on first launch. The startup page exposes five stages:
+Keep network access available on first launch. Confirm **Stable** to install the upstream BAAS backend, or select **Development** to use `Kiramei/baas-dev`. Later backend updates follow the channel saved in Preferences. The startup page keeps preparation, resource verification and update progress visible before Home opens:
 
 | Stage                         | What happens                                                                       |
 | ----------------------------- | ---------------------------------------------------------------------------------- |
@@ -17,9 +17,14 @@ Keep network access available on first launch. The startup page exposes five sta
 | Runtime installation          | Check embedded Python, download/install the backend and apply Android adapters     |
 | Local service                 | Start Python in the dedicated backend service process                              |
 | Connection verification       | Establish the authenticated encrypted client/backend session                       |
-| Configuration synchronization | Load profiles and tasks; OCR initialization can continue in the background         |
+| OCR runtime and models        | Start the required native OCR runtime and verify recognition models before Home opens |
+| Script resources              | Validate static configuration, RGB catalogs and image resources                    |
+| Configuration synchronization | Finish authenticated profile/task synchronization                                 |
+| Backend update check          | Follow the selected channel and update policy; prepare a restarted backend before restoring scheduler state |
 
-Expand a stage to inspect its stdout/stderr terminal. A preparing indicator is not a completed installation. Preserve the full error output before retrying. Do not force-close during download, extraction or an update.
+Expand a stage to inspect its stdout/stderr terminal. A preparing indicator is not a completed installation. Home remains blocked until the current backend confirms its required resources are ready; failures stay on this page with logs and retry controls. Preserve the full error output before retrying. Do not force-close during download, extraction or an update.
+
+If the version check fails on the network, or startup is waiting for a long-running script, **Continue with verified local resources** is available only while local resources are verified and no backend files have been changed. This is an explicit choice. Once applying an update or restarting has failed, retry preparation; that shortcut cannot bypass recovery. OCR/resource preparation can take up to ten minutes, and post-update readiness has a separate fifteen-minute deadline. APK checks at startup and on the periodic timer are quiet; installing an APK still needs system confirmation.
 
 Ordinary runtime/profile data lives in app-private storage; granting broad shared-storage access is not the general fix for startup. Uninstalling/clearing app data can remove that runtime and profiles, so export needed profiles first.
 
@@ -31,9 +36,9 @@ Ordinary runtime/profile data lives in app-private storage; granting broad share
   alt="Android Home example with profiles and bottom navigation"
 />
 
-The top strip selects profiles; the add icon creates/imports one. Give a new profile a name and choose the server that matches the installed game. Server selection is locked afterward; use another profile for another package. Edit, Copy, Export and Delete are in the profile menu.
+The top strip selects profiles. Android Home hides add/profile actions and disables profile/global long-press menus; use Tasks or Config to create, import or manage profiles. Imports preserve existing profiles and assign unique names. Select the installed game’s server when creating a profile; it remains locked afterward.
 
-Home, Tasks, Config and Settings are bottom navigation items. The central play/stop button controls the selected **scheduler**, not just the preview. Home's separate play button starts the game background display without starting scheduled tasks. Start with all resource-consuming tasks disabled until their configuration is checked.
+Home, Tasks, Config and Preferences are bottom navigation items. The central play/stop button controls the selected **scheduler**, not just the preview. Home's separate play button starts the game background display without starting scheduled tasks. Start with all resource-consuming tasks disabled until their configuration is checked.
 
 | Profile server    | Required installed package             |
 | ----------------- | -------------------------------------- |
@@ -68,7 +73,7 @@ After authorization, choose the matching profile and tap the play icon on Home's
 
 <AndroidGameDemo locale="en" />
 
-The demonstration above and image below record the older embedded preview. Current builds add native fullscreen manual control. The embedded preview remains **read-only**; tapping it opens native controls:
+The demonstration above and image below record the older embedded preview. Current builds add native fullscreen manual control. The embedded preview remains **read-only**; tap its upper-right status badge or the image to open native controls:
 
 | Icon action | Behavior                                                                                                |
 | ----------- | ------------------------------------------------------------------------------------------------------- |
@@ -82,11 +87,13 @@ The demonstration above and image below record the older embedded preview. Curre
   alt="Native preview controls: Close, Take over and Restart from left to right"
 />
 
-The embedded preview does not send game taps; enter fullscreen for manual control. Its draggable floating menu provides **Return to preview** and **Close game**. Returning retains the same game session. Menus and dialogs hide the embedded preview so it cannot cover controls; a visible Home restores it. Changing pages does not automatically stop the background game or Python service.
+The embedded preview does not send game taps; enter fullscreen for manual control. Its draggable floating menu provides **Return to preview** and **Close game**. Returning retains the same game session. Blocking application menus and modal dialogs temporarily hide the embedded preview. The Home task-queue popover keeps it visible; dismiss blocking UI and return Home to restore a hidden preview. Changing pages does not automatically stop the background game or Python service.
 
 The close path sends a stop request without waiting for backend confirmation. The bottom Stop control alone leaves the game display open. Entering fullscreen does not automatically stop scheduling. Automation input takes priority and cancels or blocks conflicting manual gestures. Manual input still changes game state; stop scheduling and inspect the logs first to avoid interference. Restart ends the session and recreates the display; it does not restart the scheduler.
 
-### Preview States
+If the preview stays black, frames stop or the game exits, stop the scheduler, close the background session and inspect the preview state and startup/system logs before creating a new session. The upper-right preview state remains available; the separate device-launch button is hidden.
+
+## Preview States
 
 The [virtual-display repair build](https://github.com/Kiramei/baas-tauri/commit/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19) introduced the state labels. APKs containing the [consumer-progress check](https://github.com/Kiramei/baas-tauri/commit/532f785b) and [unique-buffer counter](https://github.com/Kiramei/baas-tauri/commit/128983b8) use the rules below. Earlier Live indicators can overstate frame progress.
 
@@ -114,7 +121,7 @@ Sideways content, a half-filled preview or large black margins after a cold star
 
 Developers can compare `adb shell dumpsys activity activities` with `adb shell dumpsys display`: locate the actual game Activity and check whether its intended display has `FLAG_TRUSTED`. [Android 15's placement checks](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java) restrict ordinary applications launching activities on untrusted displays. A successful privileged launch of the first page does not establish that subsequent game pages can remain there. This is a diagnostic lead, not evidence that every Android device has the same problem.
 
-## Configuration, Tasks and Settings
+## Configuration, Tasks and Preferences
 
 <img
   className="baas-screenshot baas-mobile-screenshot"
@@ -146,11 +153,11 @@ Tasks contains the shared single-list scheduler, per-task switches, timing/detai
   alt="Fresh Android Appearance settings with light, dark and system theme controls"
 />
 
-Settings has five categories: General, Appearance, Connection & runtime, Updates, and Logs. Android no longer exposes desktop Shortcuts. General provides [Plugins](../features/plugins); Appearance controls Home's resource strip. Task running and backend updating have separate floating controls.
+Preferences has five categories: General, Appearance, Connection & runtime, Updates, and Logs. Android no longer exposes desktop Shortcuts. General provides [Plugins](../features/plugins); Appearance controls Home's resource strip. The scheduler control remains available. Backend update preparation and its logs now belong to the startup page; Android no longer shows a separate bottom update-log panel.
 
 ## Lifecycle and Notifications
 
-Recent ARM64 physical-device debug candidates passed scoped cold-start navigation, fullscreen return, and configuration ZIP round-trip checks. The full gesture matrix, Android 15 shell-mode input, release builds, and long-running background operation still require separate validation. One device's result does not establish compatibility with every phone. The older emulator failures above remain diagnostic examples, not a claim that all current devices exhibit them.
+Earlier ARM64 physical-device debug candidates passed scoped cold-start navigation, fullscreen return, and configuration ZIP round-trip checks. The current startup/update gates, complete script execution, full gesture matrix, release builds and long-running operation still require separate validation. One device's result does not establish compatibility with every phone. The older emulator failures above remain diagnostic examples, not a claim that all current devices exhibit them.
 
 Python is owned by the dedicated backend service, not the Activity. WebView reloads and Activity recreation reconnect instead of starting another Python owner. System Back dismisses overlays/navigation first, then can background the Activity; it is not the scheduler Stop command.
 
@@ -158,9 +165,9 @@ The foreground service uses a low-priority ongoing notification that opens the a
 
 ## Updates and Diagnostics
 
-Android's manual backend-update entry does not wait for every task to stop. Check each profile's runtime state and stop tasks first. The current command defers service restart; successful file synchronization, WebView reload and new Python code taking effect require separate confirmation. To restart the backend process after successful synchronization, stop all tasks, close the background game display, then **Force stop BAAS** from its app-info screen in Android settings. Reopen it and check the backend version, logs and a supervised run. Back or swiping away the Activity can leave the service running. Some service files still come from the APK-matched overlay and are not replaced by updating the backend repository. [Updater Internals](../reference/updater-internals) explains the workflow and limitations.
+Android now prepares backend updates on the startup page, before Home opens. It first verifies the local OCR/script resources and authenticated snapshots, checks the selected channel when automatic updates are enabled, waits for scripts/manual control to become idle, preserves scheduler state, and synchronizes the backend. After scheduling a real backend restart, it waits for fresh readiness before restoring prior scheduler state. The old bottom update-log panel is removed. If startup fails, retain its complete logs and retry; a connected service alone does not establish resource readiness.
 
-Backend updates use the app's configured source and show progress/output. Preserve startup, system and update logs on failure. A failed request, authentication failure and game-recognition failure are different layers; changing screenshot intervals does not repair a download.
+Source/channel selection remains in Preferences. Startup progress distinguishes installation, OCR/model preparation, script resources and updating. For process-recovery diagnostics only, stop tasks and the background game, **Force stop BAAS** through Android app information, then reopen it. Back or swiping away the Activity can leave the service running. Some service code still comes from the APK-matched overlay; see [Updater Internals](../reference/updater-internals).
 
 | Symptom               | Check                                                                                           |
 | --------------------- | ----------------------------------------------------------------------------------------------- |

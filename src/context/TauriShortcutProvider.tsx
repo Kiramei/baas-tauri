@@ -113,8 +113,8 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
         listen<ShortcutTogglePayload>(TOGGLE_RUN_EVENT, (event) => {
           const state = useWebSocketStore.getState();
           if (!state.connections.trigger) {
-            toast.error("Shortcut trigger failed", {
-              description: "BAAS trigger connection is not ready.",
+            toast.error(t("hotkey.triggerFailed"), {
+              description: t("hotkey.triggerNotReady"),
             });
             return;
           }
@@ -146,7 +146,7 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
       disposed = true;
       unlisten?.();
     };
-  }, []);
+  }, [t]);
 
   const saveHotkeys = useCallback(
     async (nextHotkeys: HotkeyConfig[]) => {

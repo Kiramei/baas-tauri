@@ -5,7 +5,7 @@ import {
   SERVICE_TRANSPORT_DISCONNECTED_EVENT,
   type ServiceTransportDisconnectedDetail,
 } from "@/shared/ServiceTransportEvents";
-import { invoke } from "@/shared/TauriInvoke";
+import { createSystemNotificationDelivery } from "@/shared/SystemNotificationDelivery";
 
 /** Emits native notifications for backend transport outages on every Tauri platform. */
 const TauriServiceNotifier: React.FC = () => {
@@ -14,6 +14,10 @@ const TauriServiceNotifier: React.FC = () => {
 
   useEffect(() => {
     if (!__WITH_TAURI__) return;
+    const dispatcher = createSystemNotificationDelivery(
+      () => notificationsEnabled,
+      (latest) => latest
+    );
     const onDisconnected = (event: Event) => {
       if (!notificationsEnabled) return;
       const { mode } = (event as CustomEvent<ServiceTransportDisconnectedDetail>).detail;
@@ -23,18 +27,22 @@ const TauriServiceNotifier: React.FC = () => {
           : mode === "pipe"
             ? t("transport.pipe")
             : t("transport.websocket");
-      void invoke("baas_notify", {
+      void dispatcher.enqueue({
+        key: `service:disconnected:${mode}`,
+        group: `service:disconnected:${mode}`,
+        cooldownMs: 30_000,
         payload: {
           title: t("notification.service.disconnectedTitle"),
           body: t("notification.service.disconnectedBody", { transport }),
           tag: `service:disconnected:${mode}`,
         },
-      }).catch((error) => {
-        console.warn("[notifier] failed to send service notification", error);
       });
     };
     window.addEventListener(SERVICE_TRANSPORT_DISCONNECTED_EVENT, onDisconnected);
-    return () => window.removeEventListener(SERVICE_TRANSPORT_DISCONNECTED_EVENT, onDisconnected);
+    return () => {
+      window.removeEventListener(SERVICE_TRANSPORT_DISCONNECTED_EVENT, onDisconnected);
+      dispatcher.clear();
+    };
   }, [notificationsEnabled, t]);
 
   return null;

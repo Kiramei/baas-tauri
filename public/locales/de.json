@@ -3,6 +3,8 @@
     "back": "Zurück",
     "close": "Schließen",
     "collapseSidebar": "Seitenleiste einklappen",
+    "devServerHint": "Verwenden Sie für diese Entwicklungssitzung das BAAS-Tauri-Desktopfenster. Die Browseradresse stellt Vite-Ressourcen für die Tauri-WebView bereit.",
+    "devServerTitle": "Der BAAS-Tauri-Entwicklungsserver läuft",
     "expandSidebar": "Seitenleiste ausklappen",
     "forward": "Vorwärts",
     "maximize": "Maximieren",
@@ -19,10 +21,12 @@
     "mobileConfiguration": "Konfig.",
     "mobilePlugins": "Plugins",
     "mobileScheduler": "Planer",
-    "mobileSettings": "Optionen",
+    "mobileSettings": "Voreinstellungen",
     "plugins": "Plugins",
     "scheduler": "Planer",
-    "settings": "Einstellungen"
+    "scrollLeft": "Nach links scrollen",
+    "scrollRight": "Nach rechts scrollen",
+    "settings": "Voreinstellungen"
   },
   "common": {
     "add": "Hinzufügen",
@@ -34,6 +38,7 @@
     "delete": "Löschen",
     "edit": "Bearbeiten",
     "execute": "Ausführen",
+    "loading": "Wird geladen…",
     "save": "Speichern",
     "start": "Starten",
     "stop": "Stopp",
@@ -56,6 +61,7 @@
   },
   "log": {
     "$self": "Protokolle",
+    "copied": "Protokolle in die Zwischenablage kopiert",
     "empty": {
       "description": "Starte eine Aufgabe, um ihren Fortschritt hier zu sehen.",
       "title": "Noch keine Aktivität"
@@ -71,10 +77,20 @@
     "noneQueued": "Keine Aufgaben in der Warteschlange",
     "noneRunning": "Derzeit wird keine Aufgabe ausgeführt",
     "overview": "Aufgabenübersicht",
-    "running": "Laufende Aufgabe"
+    "running": "Laufende Aufgabe",
+    "status": {
+      "failed": "Fehlgeschlagen",
+      "idle": "Inaktiv",
+      "pending": "Ausstehend",
+      "running": "Wird ausgeführt",
+      "skipped": "Übersprungen",
+      "stopped": "Gestoppt",
+      "success": "Erfolgreich"
+    }
   },
   "notification": {
     "script": {
+      "batchBody": "{{count}} neue Ausführungsbenachrichtigungen. {{latest}}",
       "completedBody": "{{task}} wurde abgeschlossen.",
       "completedTitle": "BAAS-Aufgabe abgeschlossen",
       "failedBody": "{{task}} wurde unerwartet beendet. Exit-Code: {{exitCode}}.",
@@ -88,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "Einstellungskategorien",
+    "categories": "Kategorien der Voreinstellungen",
     "descriptions": {
       "assets": "Spielressourcen auf der Startseite anzeigen.",
       "idleAutoUpdate": "Skripte automatisch aktualisieren, wenn alle Profile inaktiv sind.",
@@ -106,8 +122,8 @@
       "display": "Anzeige und Effekte",
       "preferences": "Voreinstellungen"
     },
-    "noResults": "Keine passenden Einstellungen",
-    "search": "Einstellungen suchen",
+    "noResults": "Keine passenden Voreinstellungen",
+    "search": "Voreinstellungen suchen",
     "sections": {
       "appearance": "Darstellung",
       "general": "Allgemein",
@@ -177,11 +193,13 @@
       "backgroundImageSelected": "Hintergrundbild festgelegt",
       "backgroundImageTooLarge": "Das Hintergrundbild darf hoechstens 5 MB gross sein.",
       "enableBAComet": "BAComet aktivieren",
+      "enableBACursors": "BACursors aktivieren",
       "enableSafeStream": "Remote-Video verschlüsseln",
       "enableSystemNotifications": "Systembenachrichtigungen aktivieren",
       "idleAutoUpdate": "Skripte im Leerlauf automatisch aktualisieren",
       "lowPerformanceMode": "Reduzierte Effekte",
       "player": "Videodecoder",
+      "reloadInterface": "Oberfläche neu laden",
       "storageFailed": "Einstellungen konnten in diesem Browser nicht gespeichert werden. Geben Sie Website-Speicher frei oder wählen Sie ein kleineres Hintergrundbild.",
       "themeColor": "Designfarbe",
       "themeColorInvalid": "Geben Sie eine Designfarbe im Format #RRGGBB ein.",
@@ -190,11 +208,12 @@
     "updateSuccess": "Einstellungen erfolgreich aktualisiert"
   },
   "update": {
+    "androidInstallerOpened": "Bestätige das Update im Android-Installationsprogramm.",
+    "androidPackageUnavailable": "Für dieses Gerät enthält diese Version keine APK.",
     "backendAction": "BAAS aktualisieren",
     "backendStarted": "BAAS-Aktualisierung gestartet",
     "backendStartFailed": "BAAS-Aktualisierung konnte nicht gestartet werden",
     "channel": "Update-Kanal",
-    "dueDate": "Ablaufdatum",
     "enterCdk": "CDK eingeben",
     "method": "Update-Quelle",
     "mirrorCdk": "MirrorC-CDK",
@@ -204,6 +223,7 @@
     "tauriAction": "Client",
     "tauriAvailable": "Client-Update verfügbar",
     "tauriChecking": "Client-Update wird geprüft...",
+    "tauriDisabled": "Client-Updates sind in setup.toml deaktiviert.",
     "tauriDownloading": "{{version}} wird heruntergeladen...",
     "tauriFailed": "Client-Update fehlgeschlagen",
     "tauriInstalling": "Installiert und startet neu...",
@@ -224,6 +244,7 @@
     "copy": "Profil kopieren",
     "copyFailed": "Profil konnte nicht kopiert werden",
     "create": "Profil erstellen",
+    "createElsewhere": "Erstelle ein Profil unter {{tasks}} oder {{configuration}}.",
     "deleteConfirmMessage": "Sind Sie sicher, dass Sie das Profil '{{name}}' löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden!",
     "deleteConfirmTitle": "Löschung bestätigen",
     "dropAuthRequired": "Verbinde dich und authentifiziere dich, bevor du ein Profilarchiv importierst.",
@@ -238,10 +259,19 @@
     "exportFailed": "Profil konnte nicht exportiert werden",
     "import": "Profilarchiv importieren",
     "importArchive": "Profilarchiv auswählen",
+    "importEntry": "Profile importieren",
     "importFailed": "Profil konnte nicht importiert werden",
+    "importFolder": "Profile aus Ordner importieren",
+    "importFolderEmpty": "Keine Profil-Unterordner mit config.json gefunden.",
+    "importFolderProgress": "Profile werden importiert: {{completed}} von {{total}}…",
+    "importFolderResult": "{{imported}} Profile importiert; {{failed}} fehlgeschlagen.",
+    "importFolderUnsupported": "Dieser Browser unterstützt keine Ordnerauswahl. Importiere stattdessen ZIP-Archive.",
+    "importRefreshFailed": "Profile wurden importiert, aber die Liste konnte nicht aktualisiert werden. Stelle die Verbindung erneut her.",
     "list": "Profile",
     "name": "Profilname",
-    "nameExists": "Name existiert bereits"
+    "nameExists": "Name existiert bereits",
+    "runFailed": "Ausführung fehlgeschlagen",
+    "running": "Läuft"
   },
   "description": {
     "arena": "Gegner und Versuchslimits",
@@ -283,20 +313,31 @@
     "advancedHint": "Sprache, Darstellung, Update-Kanal und Verbindung.",
     "autoEnter": "Nach der Installation automatisch öffnen",
     "autoEnterHint": "Wenn deaktiviert, bleiben die Installationsprotokolle sichtbar, bis Sie auf „Startseite öffnen“ klicken.",
+    "autoLoginFailed": "Automatische Anmeldung fehlgeschlagen. Der vorhandene Backend-Schlüssel könnte abweichen.",
+    "backendNotReady": "Der Authentifizierungsdienst des Backends ist noch nicht bereit.",
+    "backToSetup": "Zurück zur Einrichtung",
     "completed": "Installation abgeschlossen",
     "directoryHint": "Laufzeitumgebung und Skriptdateien werden in diesem Ordner installiert.",
+    "duration": "Dauer",
     "enter": "Startseite öffnen",
     "entering": "Wird geöffnet…",
+    "errorHint": "Kehren Sie zur Einrichtung zurück, um den Installationspfad zu ändern oder es erneut zu versuchen. Kopieren Sie die Protokolle, bevor Sie das Problem melden.",
+    "errorTitle": "Installationsfehler",
     "exit": "Installation abbrechen",
+    "finished": "Beendet",
     "logs": "Installationsprotokoll",
     "noOutput": "Noch keine Terminalausgabe.",
+    "noStructuredLogs": "Keine strukturierten Protokolle erfasst.",
     "portableHint": "Im portablen Modus wird der Ordner der Anwendung verwendet.",
     "preparing": "Terminal wird vorbereitet…",
     "setting": "Installationseinstellungen",
     "start": "Installation starten",
+    "started": "Begonnen",
+    "stepProgress": "Schritt {{index}}/{{total}}",
     "title": {
       "wizard": "Einrichtungsassistent"
-    }
+    },
+    "workflowFailed": "Installation oder Update wurde nicht erfolgreich abgeschlossen."
   },
   "auth": {
     "authenticationFailed": "Authentifizierung fehlgeschlagen. Prüfe deinen Key und die Serververbindung.",
@@ -611,6 +652,8 @@
     "switch": {
       "start": "Start/Stopp"
     },
+    "triggerFailed": "Tastenkürzel konnte nicht ausgelöst werden",
+    "triggerNotReady": "Die BAAS-Steuerverbindung ist noch nicht bereit.",
     "usage": "Kombinationen wie"
   },
   "property": {
@@ -699,7 +742,11 @@
   },
   "mirrorc": {
     "cdk": {
-      "noInput": "Bitte geben Sie den MirrorC CDK ein!",
+      "blocked": "Der CDK ist gesperrt.",
+      "configured": "CDK auf diesem Gerät gespeichert",
+      "mismatch": "Der CDK ist für diese Ressource nicht gültig.",
+      "quota": "Das tägliche Downloadkontingent ist aufgebraucht.",
+      "requestFailed": "Der lokale CDK konnte nicht geprüft oder gespeichert werden. Bitte erneut versuchen.",
       "testOk": "CDK gültig"
     },
     "message": {
@@ -710,8 +757,6 @@
   },
   "contextMenu": {
     "copy": "Kopieren",
-    "inspect": "Pruefen",
-    "inspectWebuiHint": "F12 druecken, um Entwicklertools zu oeffnen.",
     "paste": "Einfuegen",
     "pasteFailed": "Zwischenablage ist nicht verfuegbar.",
     "reload": "Neu laden"
@@ -742,9 +787,12 @@
       "inspectFailed": "Installierte Spiele konnten nicht gelesen werden",
       "live": "Live",
       "liveDisplay": "Livebild von {{game}}",
+      "previewAlt": "Spielbild auf dem virtuellen Bildschirm",
+      "previewConnecting": "Verbindung zum Spielbild wird hergestellt…",
+      "previewHidden": "Die Spielvorschau ist nicht mehr sichtbar.",
       "restartFailed": "Spiel konnte nicht neu gestartet werden",
-      "showControls": "Spielsteuerung anzeigen",
       "startBackground": "Spiel im Hintergrund starten",
+      "takeoverBusy": "Das Spiel wird bereits manuell gesteuert oder das Backend wird aktualisiert.",
       "takeoverFailed": "Vollbild-Spielmodus konnte nicht geöffnet werden"
     },
     "start": {
@@ -777,16 +825,19 @@
     }
   },
   "androidSetup": {
+    "authStatus": "Authentifizierung: {{status}}",
     "awaitingConfirmation": "Bestätigung ausstehend",
+    "backendStatus": "Python-Backend: {{status}}",
     "channelDev": "Development",
     "channelStable": "Stable",
     "channelTitle": "Choose the update channel",
-    "channelUnavailable": "Stable ist derzeit für Android nicht verfügbar.",
     "clientAuth": "Authenticate session",
     "clientConnect": "Connect to local service",
     "clientSync": "Sync configuration",
     "clientTitle": "App connection",
+    "configStatus": "Konfigurationsabgleich: {{status}}",
     "confirmInstall": "Bestätigen und installieren",
+    "continueLocal": "Mit geprüften lokalen Ressourcen fortfahren",
     "copied": "Copied",
     "copyLogs": "Copy logs",
     "errorTitle": "Installation stopped",
@@ -794,6 +845,7 @@
     "noLogs": "Waiting for backend output…",
     "progress": "Installation progress",
     "retry": "Retry installation",
+    "startup": "Android-Start",
     "stateDone": "Done",
     "stateFailed": "Failed",
     "statePending": "Waiting",
@@ -802,9 +854,17 @@
     "stepChannel": "Choose update channel",
     "stepDownload": "Download backend",
     "stepExtract": "Install backend files",
+    "stepOcr": "OCR-Laufzeit und Modelle vorbereiten",
+    "stepResources": "Skriptressourcen vorbereiten",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
+    "stepUpdate": "Backend-Updates prüfen",
     "title": "Set up BAAS",
+    "updateApplying": "Backend-Dateien werden aktualisiert…",
+    "updateChecking": "Ausgewählter Backend-Kanal wird geprüft…",
+    "updateRestarting": "Backend wird neu gestartet und Ressourcen werden vorbereitet…",
+    "updateRestoring": "Vorheriger Skriptstatus wird wiederhergestellt…",
+    "updateWaitingIdle": "Es wird auf das Ende von Skripten und manueller Steuerung gewartet…",
     "waiting": "Working…"
   },
   "applicationShortcutHelp": {
@@ -813,8 +873,8 @@
     "fullscreen": "Vollbild ein- oder ausschalten.",
     "redo": "Rückgängig gemachte Änderung wiederholen.",
     "resetZoom": "Oberflächenskalierung auf 100 % setzen.",
-    "settings": "App-Einstellungen öffnen.",
-    "sidebar": "Profilseitenleiste umschalten; in Einstellungen bleibt sie offen.",
+    "settings": "Voreinstellungen öffnen.",
+    "sidebar": "Profilseitenleiste umschalten; in den Voreinstellungen bleibt sie geöffnet.",
     "undo": "Letzte Einstellungsänderung rückgängig machen; Suchfelder behalten Text-Undo.",
     "zoomIn": "Oberfläche vergrößern.",
     "zoomOut": "Oberfläche verkleinern."
@@ -835,6 +895,21 @@
     "unavailable": "GitHub ist nicht erreichbar. Verfügbare Versionshinweise werden angezeigt.",
     "version": "Version"
   },
+  "colorPicker": {
+    "alpha": "Alpha-Transparenz in Prozent",
+    "blue": "Blauanteil (0–255)",
+    "brightness": "Hellwert in Prozent (0–100)",
+    "currentColor": "Aktuelle Farbe: {{color}}",
+    "eyeDropper": "Farbe vom Bildschirm aufnehmen",
+    "format": "Farbformat",
+    "green": "Grünanteil (0–255)",
+    "hex": "Hex-Farbwert",
+    "hue": "Farbton in Grad (0–360)",
+    "lightness": "Helligkeit in Prozent (0–100)",
+    "noSelection": "Keine Farbe ausgewählt",
+    "red": "Rotanteil (0–255)",
+    "saturation": "Sättigung in Prozent (0–100)"
+  },
   "commitHistory": {
     "author": "Autor",
     "current": "Aktuell installiert",
@@ -842,6 +917,7 @@
     "empty": "Kein Commit-Verlauf verfügbar.",
     "emptyMessage": "(Keine Nachricht)",
     "failed": "Verlauf nicht verfügbar. Verbindung wiederherstellen oder Backend aktualisieren und erneut versuchen.",
+    "hash": "Commit-ID",
     "issue": {
       "offline": "Die Verlaufsquelle ist nicht erreichbar.",
       "rateLimited": "GitHub-API-Limit erreicht. Später erneut versuchen.",
@@ -1004,6 +1080,19 @@
     "uiautomator2Control": "Über den uiautomator2-Dienst auf dem Gerät steuern.",
     "uiautomator2Screenshot": "Über den uiautomator2-Dienst auf dem Gerät aufnehmen."
   },
+  "connection": {
+    "authenticated": "Sitzung authentifiziert",
+    "authenticating": "Sitzung wird authentifiziert…",
+    "connecting": "Verbindung zum Backend wird hergestellt…",
+    "initializing": "BAAS-Schlüssel wird initialisiert…",
+    "interrupted": "Verbindung zum Backend unterbrochen",
+    "opening": "Sicherer Steuerkanal wird geöffnet…",
+    "reconnecting": "Verbindung zum Backend wird wiederhergestellt…",
+    "resuming": "Verschlüsselte Sitzung wird wiederhergestellt…",
+    "serverVerified": "Server verifiziert. Authentifizierung wird erwartet…",
+    "synchronizing": "Verbindungsstatus wird synchronisiert…",
+    "waitingPassword": "Zum Fortfahren ist eine Authentifizierung erforderlich."
+  },
   "edit": {
     "actionFailed": "Die Bearbeitung ist fehlgeschlagen. Bitte die Zwischenablageberechtigung prüfen und erneut versuchen.",
     "cut": "Ausschneiden",
@@ -1090,7 +1179,8 @@
     "bar": "Anwendungsmenü",
     "edit": "Bearbeiten",
     "file": "Datei",
-    "view": "Ansicht"
+    "view": "Ansicht",
+    "window": "Fenster"
   },
   "placeholder": {
     "config": {
@@ -1387,7 +1477,7 @@
     "websocket": "WebSocket (kompatibel)"
   },
   "ui": {
-    "zoom": "UI-Zoom-Einstellungen"
+    "zoom": "Oberflächenskalierung"
   },
   "updateChannel": {
     "dev": "Entwicklung",

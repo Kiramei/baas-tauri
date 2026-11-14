@@ -3,6 +3,8 @@
     "back": "返回",
     "close": "关闭",
     "collapseSidebar": "收起侧栏",
+    "devServerHint": "请使用 BAAS Tauri 桌面窗口进行本次开发。浏览器地址用于向 Tauri WebView 提供 Vite 资源。",
+    "devServerTitle": "BAAS Tauri 开发服务器正在运行",
     "expandSidebar": "展开侧栏",
     "forward": "前进",
     "maximize": "最大化",
@@ -19,10 +21,12 @@
     "mobileConfiguration": "配置",
     "mobilePlugins": "插件",
     "mobileScheduler": "调度",
-    "mobileSettings": "设置",
+    "mobileSettings": "偏好",
     "plugins": "插件",
     "scheduler": "调度",
-    "settings": "设置"
+    "scrollLeft": "向左滚动",
+    "scrollRight": "向右滚动",
+    "settings": "偏好"
   },
   "common": {
     "add": "添加",
@@ -34,6 +38,7 @@
     "delete": "删除",
     "edit": "编辑",
     "execute": "执行",
+    "loading": "加载中…",
     "save": "保存",
     "start": "启动",
     "stop": "停止",
@@ -56,6 +61,7 @@
   },
   "log": {
     "$self": "日志",
+    "copied": "日志已复制到剪贴板",
     "empty": {
       "description": "启动任务后，运行过程会显示在这里。",
       "title": "还没有运行记录"
@@ -71,10 +77,20 @@
     "noneQueued": "队列中暂无任务",
     "noneRunning": "暂无正在执行的任务",
     "overview": "任务概览",
-    "running": "执行中任务"
+    "running": "执行中任务",
+    "status": {
+      "failed": "失败",
+      "idle": "空闲",
+      "pending": "等待中",
+      "running": "运行中",
+      "skipped": "已跳过",
+      "stopped": "已停止",
+      "success": "已成功"
+    }
   },
   "notification": {
     "script": {
+      "batchBody": "{{count}} 条新的运行通知。{{latest}}",
       "completedBody": "{{task}} 已执行完成。",
       "completedTitle": "BAAS 任务已完成",
       "failedBody": "{{task}} 异常退出，退出码：{{exitCode}}。",
@@ -88,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "设置分类",
+    "categories": "偏好分类",
     "descriptions": {
       "assets": "在主页展示游戏资源。",
       "idleAutoUpdate": "所有配置档空闲时自动更新脚本。",
@@ -106,8 +122,8 @@
       "display": "显示与效果",
       "preferences": "首选项"
     },
-    "noResults": "未找到相关设置",
-    "search": "搜索设置",
+    "noResults": "未找到相关偏好",
+    "search": "搜索偏好",
     "sections": {
       "appearance": "外观",
       "general": "常规",
@@ -177,11 +193,13 @@
       "backgroundImageSelected": "已设置背景图",
       "backgroundImageTooLarge": "背景图不能超过 5MB。",
       "enableBAComet": "启用 BAComet",
+      "enableBACursors": "启用 BACursors",
       "enableSafeStream": "加密远程画面",
       "enableSystemNotifications": "启用系统通知",
       "idleAutoUpdate": "空闲时自动更新脚本",
       "lowPerformanceMode": "低性能模式",
       "player": "画面解码器",
+      "reloadInterface": "重载界面",
       "storageFailed": "无法在此浏览器保存偏好设置，请清理站点存储或选择更小的背景图片。",
       "themeColor": "主题色",
       "themeColorInvalid": "请输入 #RRGGBB 格式的主题色。",
@@ -190,11 +208,12 @@
     "updateSuccess": "设置更新成功"
   },
   "update": {
+    "androidInstallerOpened": "请在 Android 系统安装器中确认更新。",
+    "androidPackageUnavailable": "此版本没有适用于当前设备的 APK。",
     "backendAction": "更新 BAAS",
     "backendStarted": "BAAS 更新已开始",
     "backendStartFailed": "BAAS 更新启动失败",
     "channel": "更新通道",
-    "dueDate": "到期时间",
     "enterCdk": "输入CDK",
     "method": "更新源",
     "mirrorCdk": "Mirror酱的CDK (可选)",
@@ -204,6 +223,7 @@
     "tauriAction": "客户端",
     "tauriAvailable": "发现客户端新版本",
     "tauriChecking": "正在检查客户端更新...",
+    "tauriDisabled": "setup.toml 已禁用客户端更新。",
     "tauriDownloading": "正在下载 {{version}}...",
     "tauriFailed": "客户端更新失败",
     "tauriInstalling": "正在安装并重启...",
@@ -224,6 +244,7 @@
     "copy": "复制配置",
     "copyFailed": "复制配置失败",
     "create": "新增配置",
+    "createElsewhere": "请在“{{tasks}}”或“{{configuration}}”页面新建配置。",
     "deleteConfirmMessage": "确认删除配置“{{name}}”？该操作不可撤销！",
     "deleteConfirmTitle": "删除确认",
     "dropAuthRequired": "请先连接并完成认证后再导入配置压缩包。",
@@ -238,10 +259,19 @@
     "exportFailed": "导出配置失败",
     "import": "导入配置压缩包",
     "importArchive": "选择配置压缩包",
+    "importEntry": "导入配置",
     "importFailed": "导入配置失败",
+    "importFolder": "从文件夹批量导入配置",
+    "importFolderEmpty": "所选文件夹中未找到包含 config.json 的子配置文件夹。",
+    "importFolderProgress": "正在导入配置：{{completed}} / {{total}}",
+    "importFolderResult": "已导入 {{imported}} 个配置，{{failed}} 个失败。",
+    "importFolderUnsupported": "当前浏览器不支持选择文件夹，请改用配置压缩包导入。",
+    "importRefreshFailed": "配置已导入，但列表刷新失败，请重新连接后查看。",
     "list": "配置列表",
     "name": "配置名",
-    "nameExists": "配置名已存在"
+    "nameExists": "配置名已存在",
+    "runFailed": "运行失败",
+    "running": "运行中"
   },
   "description": {
     "arena": "选择对手与挑战次数",
@@ -283,20 +313,31 @@
     "advancedHint": "语言、外观、更新通道与连接方式。",
     "autoEnter": "安装完成后自动进入",
     "autoEnterHint": "关闭后，安装完成时保留安装日志，点击“进入主页”继续。",
+    "autoLoginFailed": "自动登录失败，现有后端的密钥可能不同。",
+    "backendNotReady": "后端身份认证服务尚未就绪。",
+    "backToSetup": "返回安装设置",
     "completed": "安装完成",
     "directoryHint": "运行环境与脚本文件将安装到此目录。",
+    "duration": "耗时",
     "enter": "进入主页",
     "entering": "正在进入…",
+    "errorHint": "返回安装设置可修改安装路径或重试。反馈此问题前请先复制日志。",
+    "errorTitle": "安装出错",
     "exit": "取消安装",
+    "finished": "结束时间",
     "logs": "安装日志",
     "noOutput": "暂无终端输出。",
+    "noStructuredLogs": "尚未捕获结构化日志。",
     "portableHint": "便携模式使用程序所在目录。",
     "preparing": "正在准备终端…",
     "setting": "安装配置",
     "start": "开始安装",
+    "started": "开始时间",
+    "stepProgress": "步骤 {{index}}/{{total}}",
     "title": {
       "wizard": "安装向导"
-    }
+    },
+    "workflowFailed": "安装或更新未能成功完成。"
   },
   "auth": {
     "authenticationFailed": "无法完成认证，请检查 Key 和服务器连接。",
@@ -611,6 +652,8 @@
     "switch": {
       "start": "开始/停止"
     },
+    "triggerFailed": "快捷键触发失败",
+    "triggerNotReady": "BAAS 控制连接尚未就绪。",
     "usage": "使用组合键，例如"
   },
   "property": {
@@ -699,7 +742,11 @@
   },
   "mirrorc": {
     "cdk": {
-      "noInput": "请输入Mirror酱CDK!",
+      "blocked": "CDK 已被封禁。",
+      "configured": "此设备已保存 CDK",
+      "mismatch": "此 CDK 不适用于所选资源。",
+      "quota": "今日下载额度已用尽。",
+      "requestFailed": "无法验证或保存本地 CDK，请重试。",
       "testOk": "CDK 验证成功"
     },
     "message": {
@@ -710,8 +757,6 @@
   },
   "contextMenu": {
     "copy": "复制",
-    "inspect": "检查",
-    "inspectWebuiHint": "请按 F12 打开开发者工具。",
     "paste": "粘贴",
     "pasteFailed": "剪贴板不可用。",
     "reload": "重载"
@@ -742,9 +787,12 @@
       "inspectFailed": "无法读取已安装的游戏",
       "live": "实时",
       "liveDisplay": "{{game}}实时画面",
+      "previewAlt": "虚拟屏游戏画面",
+      "previewConnecting": "正在连接游戏画面…",
+      "previewHidden": "游戏预览已不可见。",
       "restartFailed": "游戏重启失败",
-      "showControls": "显示游戏控制",
       "startBackground": "后台启动游戏",
+      "takeoverBusy": "游戏已处于手动控制状态，或后端正在更新。",
       "takeoverFailed": "无法进入横屏游戏模式"
     },
     "start": {
@@ -777,16 +825,19 @@
     }
   },
   "androidSetup": {
+    "authStatus": "身份认证：{{status}}",
     "awaitingConfirmation": "等待确认",
+    "backendStatus": "Python 后端：{{status}}",
     "channelDev": "开发版",
     "channelStable": "稳定版",
     "channelTitle": "选择更新通道",
-    "channelUnavailable": "稳定版暂不支持 Android。",
     "clientAuth": "验证会话",
     "clientConnect": "连接本地服务",
     "clientSync": "同步配置",
     "clientTitle": "应用连接",
+    "configStatus": "配置同步：{{status}}",
     "confirmInstall": "确认并安装",
+    "continueLocal": "使用已验证的本地资源继续",
     "copied": "已复制",
     "copyLogs": "复制日志",
     "errorTitle": "安装已中止",
@@ -794,6 +845,7 @@
     "noLogs": "等待后端输出…",
     "progress": "安装进度",
     "retry": "重试安装",
+    "startup": "Android 启动状态",
     "stateDone": "已完成",
     "stateFailed": "失败",
     "statePending": "等待",
@@ -802,9 +854,17 @@
     "stepChannel": "选择更新通道",
     "stepDownload": "下载后端",
     "stepExtract": "写入后端文件",
+    "stepOcr": "准备 OCR 运行时和模型",
+    "stepResources": "准备脚本资源",
     "stepService": "启动本地服务",
     "stepStorage": "准备应用私有目录",
+    "stepUpdate": "检查后端更新",
     "title": "配置 BAAS",
+    "updateApplying": "正在更新后端文件…",
+    "updateChecking": "正在检查所选后端通道…",
+    "updateRestarting": "正在重启后端并准备资源…",
+    "updateRestoring": "正在恢复之前的脚本状态…",
+    "updateWaitingIdle": "正在等待脚本与手动控制停止…",
     "waiting": "处理中…"
   },
   "applicationShortcutHelp": {
@@ -813,8 +873,8 @@
     "fullscreen": "进入或退出全屏。",
     "redo": "重做已撤销的配置修改。",
     "resetZoom": "恢复 100% 界面缩放。",
-    "settings": "打开应用设置。",
-    "sidebar": "收起或展开配置栏；设置页始终展开。",
+    "settings": "打开偏好。",
+    "sidebar": "收起或展开配置栏；偏好页始终展开。",
     "undo": "撤销最近的配置修改；搜索框保留文本撤销。",
     "zoomIn": "放大界面。",
     "zoomOut": "缩小界面。"
@@ -835,6 +895,21 @@
     "unavailable": "无法连接 GitHub，正在显示已有的发布说明。",
     "version": "版本"
   },
+  "colorPicker": {
+    "alpha": "透明度百分比",
+    "blue": "蓝色分量（0–255）",
+    "brightness": "明度百分比（0–100）",
+    "currentColor": "当前颜色：{{color}}",
+    "eyeDropper": "从屏幕拾取颜色",
+    "format": "颜色格式",
+    "green": "绿色分量（0–255）",
+    "hex": "十六进制颜色值",
+    "hue": "色相角度（0–360）",
+    "lightness": "亮度百分比（0–100）",
+    "noSelection": "未选择颜色",
+    "red": "红色分量（0–255）",
+    "saturation": "饱和度百分比（0–100）"
+  },
   "commitHistory": {
     "author": "作者",
     "current": "当前安装",
@@ -842,6 +917,7 @@
     "empty": "暂无可用的提交历史。",
     "emptyMessage": "（无提交信息）",
     "failed": "无法读取历史。请重新连接或更新后端后重试。",
+    "hash": "提交标识",
     "issue": {
       "offline": "暂时无法连接历史数据源。",
       "rateLimited": "GitHub API 请求已达限额，请稍后重试。",
@@ -1004,6 +1080,19 @@
     "uiautomator2Control": "通过设备上的 uiautomator2 服务操作。",
     "uiautomator2Screenshot": "通过设备上的 uiautomator2 服务截图。"
   },
+  "connection": {
+    "authenticated": "会话已认证",
+    "authenticating": "正在验证会话…",
+    "connecting": "正在连接后端…",
+    "initializing": "正在初始化 BAAS 密钥…",
+    "interrupted": "后端连接已中断",
+    "opening": "正在建立安全控制连接…",
+    "reconnecting": "正在重新建立后端连接…",
+    "resuming": "正在恢复加密会话…",
+    "serverVerified": "服务端已验证，等待身份认证…",
+    "synchronizing": "正在同步连接状态…",
+    "waitingPassword": "需要身份认证才能继续。"
+  },
   "edit": {
     "actionFailed": "编辑操作失败，请检查剪贴板权限后重试。",
     "cut": "剪切",
@@ -1090,7 +1179,8 @@
     "bar": "应用菜单",
     "edit": "编辑",
     "file": "文件",
-    "view": "视图"
+    "view": "视图",
+    "window": "窗口"
   },
   "placeholder": {
     "config": {
@@ -1387,7 +1477,7 @@
     "websocket": "WebSocket（兼容模式）"
   },
   "ui": {
-    "zoom": "UI 缩放设置"
+    "zoom": "界面缩放"
   },
   "updateChannel": {
     "dev": "开发版",

@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useAppTranslation } from "@/shared/useAppTranslation";
+import { authPhaseText } from "@/shared/AuthPhaseText";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { formatIsoToReadableTime } from "@/shared/GlobalUtilities.ts";
 import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
@@ -65,7 +67,8 @@ const keepRecentLogLines = (text: string, maxLines = 120) => {
 };
 
 /** Renders the loading page component. */
-const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => {
+const LoadingPage: React.FC<LoadingPageProps> = ({ message }) => {
+  const { t } = useAppTranslation();
   const androidLogCursorRef = useRef(0);
   const androidAuthResetAttemptedRef = useRef(false);
   const [authRetry] = useState(() => createStartupAuthRetry(__WITH_WEBUI__));
@@ -138,14 +141,14 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
 
   const loadingMessage =
     authPhase === "control_connecting"
-      ? "Connecting to the server..."
+      ? t("connection.connecting")
       : authPhase === "resuming"
-        ? "Restoring authenticated session..."
+        ? t("connection.resuming")
         : authPhase === "initializing"
-          ? "Initializing BAAS Key..."
+          ? t("connection.initializing")
           : authPhase === "authenticating"
-            ? "Authenticating session..."
-            : message;
+            ? t("connection.authenticating")
+            : (message ?? t("common.loading"));
 
   if (__WITH_ANDROID__)
     return (
@@ -177,13 +180,28 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
           </div>
           {__WITH_ANDROID__ && (
             <div className="w-full max-w-md rounded-xl border border-border bg-card p-4 text-sm">
-              <div className="mb-2 font-medium">Android startup</div>
+              <div className="mb-2 font-medium">{t("androidSetup.startup")}</div>
               <div className="grid gap-1 text-xs text-muted-foreground">
-                <div>Python backend: {serverVerified ? "connected" : "starting"}</div>
-                <div>Auth: {serverInitialized ? authPhase : "initial setup"}</div>
                 <div>
-                  Configuration sync:{" "}
-                  {initiating ? "running" : allDataInitialized ? "done" : "waiting"}
+                  {t("androidSetup.backendStatus", {
+                    status: serverVerified ? t("heartbeat.connected") : t("common.loading"),
+                  })}
+                </div>
+                <div>
+                  {t("androidSetup.authStatus", {
+                    status: serverInitialized
+                      ? authPhaseText(authPhase, t)
+                      : t("auth.initializeKeyTitle"),
+                  })}
+                </div>
+                <div>
+                  {t("androidSetup.configStatus", {
+                    status: initiating
+                      ? t("androidSetup.stateRunning")
+                      : allDataInitialized
+                        ? t("androidSetup.stateDone")
+                        : t("androidSetup.statePending"),
+                  })}
                 </div>
               </div>
             </div>
@@ -195,17 +213,15 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
             <React.Suspense
               fallback={
                 <pre className="h-full w-full overflow-hidden whitespace-pre-wrap p-4 font-mono text-xs leading-5 text-muted-foreground">
-                  {androidStartupLogChunk || "Waiting for backend startup logs..."}
+                  {androidStartupLogChunk || t("androidSetup.noLogs")}
                 </pre>
               }
             >
               {androidTerminalReady ? (
-                <AndroidStartupTerminal
-                  text={androidStartupLogChunk || "Waiting for backend startup logs..."}
-                />
+                <AndroidStartupTerminal text={androidStartupLogChunk || t("androidSetup.noLogs")} />
               ) : (
                 <pre className="h-full w-full overflow-hidden whitespace-pre-wrap p-4 font-mono text-xs leading-5 text-muted-foreground">
-                  {androidStartupLogChunk || "Waiting for backend startup logs..."}
+                  {androidStartupLogChunk || t("androidSetup.noLogs")}
                 </pre>
               )}
             </React.Suspense>

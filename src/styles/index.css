@@ -5,6 +5,7 @@
 @import "./components/cursor.css";
 @import "./components/term.css";
 @import "../components/ui/modal-surface.css";
+@import "../platform/windows/acrylic.css";
 @import "tw-animate-css";
 
 @plugin "@tailwindcss/typography";
@@ -202,16 +203,6 @@ html[data-window-platform="webui"] * {
 html[data-window-platform="linux"] .select-surface,
 html[data-window-platform="webui"] .select-surface {
   background: var(--select-surface-solid);
-}
-
-html[data-window-material="acrylic"],
-html[data-window-material="acrylic"] body,
-html[data-window-material="acrylic"] #root {
-  background: transparent;
-}
-
-html[data-window-material="acrylic"] .app-window-frame {
-  background: var(--chrome-tint);
 }
 
 [data-window-titlebar] {

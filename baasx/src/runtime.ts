@@ -1,5 +1,7 @@
+import { stopWindowsProcessTree } from "./platform/windows/process-tree";
+import { stopPosixProcessTree } from "./platform/posix/process-tree";
 import { BaasClient } from "@baas/client";
-import { execFile, spawn, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
   access,
@@ -133,79 +135,8 @@ function cancelled(): DOMException {
 async function stopTree(child: ChildProcess): Promise<void> {
   const pid = child.pid;
   if (!pid || pid <= 0) return;
-  if (process.platform === "win32") {
-    await new Promise<void>((done) => {
-      const killer = spawn("taskkill", ["/pid", String(pid), "/T", "/F"], {
-        stdio: "ignore",
-        windowsHide: true,
-      });
-      const timer = setTimeout(() => {
-        killer.kill();
-        child.kill();
-        done();
-      }, 2000);
-      killer.once("error", () => {
-        clearTimeout(timer);
-        child.kill();
-        done();
-      });
-      killer.once("close", () => {
-        clearTimeout(timer);
-        done();
-      });
-    });
-    return;
-  }
-  // PTYs may create a new session/process group. Snapshot descendants before
-  // signalling the helper so those processes cannot escape by becoming orphans.
-  const descendants = await new Promise<number[]>((done) => {
-    execFile(
-      "ps",
-      ["-A", "-o", "pid=,ppid="],
-      { timeout: 1500, maxBuffer: 2 * 1024 * 1024 },
-      (error, output) => {
-        if (error) return done([]);
-        const parents = new Map<number, number[]>();
-        for (const line of output.split("\n")) {
-          const fields = /^\s*(\d+)\s+(\d+)\s*$/.exec(line);
-          if (!fields) continue;
-          const processId = Number(fields[1]),
-            parentId = Number(fields[2]);
-          if (processId <= 1 || processId === process.pid) continue;
-          parents.set(parentId, [...(parents.get(parentId) || []), processId]);
-        }
-        const result: number[] = [];
-        const pending = [...(parents.get(pid) || [])];
-        const seen = new Set<number>();
-        while (pending.length && result.length < 10_000) {
-          const current = pending.pop()!;
-          if (seen.has(current)) continue;
-          seen.add(current);
-          result.push(current);
-          pending.push(...(parents.get(current) || []));
-        }
-        done(result.reverse());
-      }
-    );
-  });
-  const killGroup = (signal: NodeJS.Signals) => {
-    try {
-      process.kill(-pid, signal);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ESRCH") child.kill(signal);
-    }
-  };
-  killGroup("SIGTERM");
-  // A helper can have exited while a compiler/downloader remains in its process group.
-  await new Promise((done) => setTimeout(done, 200));
-  for (const descendant of descendants) {
-    try {
-      process.kill(descendant, "SIGKILL");
-    } catch {
-      /* The helper may already have reaped the descendant. */
-    }
-  }
-  killGroup("SIGKILL");
+  if (process.platform === "win32") await stopWindowsProcessTree(child, pid);
+  else await stopPosixProcessTree(child, pid);
 }
 
 /** Local BAAS installation and process ownership, independent of the desktop application's runtime. */
@@ -220,7 +151,7 @@ export class RuntimeManager {
   constructor(options: RuntimeManagerOptions) {
     if (!string(options.directory)) throw new RuntimeError("runtime_config", "CLI 环境目录无效");
     this.directory = resolve(options.directory);
-    this.helperPath = options.helperPath || process.env.BAAS_RUNTIME_HELPER;
+    this.helperPath = options.helperPath || process.env.BAASX_RUNTIME_HELPER || process.env.BAAS_RUNTIME_HELPER;
   }
 
   async getConfigRoot(): Promise<string> {
@@ -242,11 +173,11 @@ export class RuntimeManager {
       if (this.backend) throw new RuntimeError("runtime_busy", "请先关闭当前本地后端再更新环境");
       const previous = await this.metadata();
       const root = resolve(options.root || previous?.root || join(this.directory, "runtime"));
-      const channel = options.channel || previous?.channel || "dev";
-      if (!string(root) || !CHANNELS.has(channel))
+      const channel = options.channel;
+      if (!string(root) || (channel !== undefined && !CHANNELS.has(channel)))
         throw new RuntimeError("runtime_config", "安装目录或更新通道无效");
       const data = await this.helper(
-        ["install", "--root", root, "--channel", channel],
+        ["install", "--root", root, ...(channel ? ["--channel", channel] : [])],
         operationSignal,
         onEvent
       );
@@ -452,8 +383,8 @@ export class RuntimeManager {
         throw new RuntimeError("runtime_busy", "请先检查并关闭空闲本地后端，再更新环境");
       const root = await this.getConfigRoot();
       const before = await this.inspectRoot(root, operationSignal);
-      if (!before.installed || !before.managed || before.channel !== "dev")
-        throw new RuntimeError("runtime_missing", "只能更新安装完整的 CLI 托管 dev 环境");
+      if (!before.installed || !before.managed)
+        throw new RuntimeError("runtime_missing", "只能更新安装完整的 CLI 托管环境");
       const updated = await this.state(
         await this.helper(["update", "--root", root], operationSignal, onEvent),
         root
@@ -749,23 +680,20 @@ export class RuntimeManager {
   }
 
   private async executable(): Promise<string> {
-    const filename = process.platform === "win32" ? "baas-cli-runtime.exe" : "baas-cli-runtime";
+    const suffix = process.platform === "win32" ? ".exe" : "";
     const moduleDirectory = import.meta.dir || dirname(fileURLToPath(import.meta.url));
+    const directories = [
+      join(moduleDirectory, "../runtime"),
+      join(moduleDirectory, "../platforms", `${process.platform}-${process.arch}`, "runtime"),
+      join(dirname(process.execPath), "runtime"),
+      join(moduleDirectory, "../../target/debug"),
+      join(moduleDirectory, "../../target/release"),
+    ];
     const candidates = this.helperPath
       ? [resolve(this.helperPath)]
-      : [
-          join(moduleDirectory, "../runtime", filename),
-          join(
-            moduleDirectory,
-            "../platforms",
-            `${process.platform}-${process.arch}`,
-            "runtime",
-            filename
-          ),
-          join(dirname(process.execPath), "runtime", filename),
-          join(moduleDirectory, "../../target/debug", filename),
-          join(moduleDirectory, "../../target/release", filename),
-        ];
+      : directories.flatMap((dir) =>
+          ["baasx-runtime", "baas-cli-runtime"].map((name) => join(dir, name + suffix))
+        );
     for (const candidate of candidates) {
       try {
         await access(candidate, constants.X_OK);
@@ -776,7 +704,7 @@ export class RuntimeManager {
     }
     throw new RuntimeError(
       "helper_missing",
-      "缺少 BAAS 本地安装组件。请安装包含 runtime/baas-cli-runtime 的完整 CLI 发布包，或设置 BAAS_RUNTIME_HELPER 指向已构建的组件。"
+      "缺少 BAAS 本地安装组件。请安装包含 runtime/baasx-runtime 的完整 CLI 发布包，或设置 BAASX_RUNTIME_HELPER 指向已构建的组件。"
     );
   }
 

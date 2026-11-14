@@ -1,0 +1,62 @@
+name: Resolve MirrorChyan Release
+description: Identify a published BAAS Tauri client release and its update channel.
+
+inputs:
+  tag:
+    description: BAAS Tauri client release tag.
+    required: true
+
+outputs:
+  client:
+    description: Whether the release contains a published BAAS Tauri installer.
+    value: ${{ steps.release.outputs.client }}
+  tag:
+    description: Resolved GitHub release tag.
+    value: ${{ steps.release.outputs.tag }}
+  channel:
+    description: Beta override for post releases; empty to use the action default otherwise.
+    value: ${{ steps.release.outputs.channel }}
+
+runs:
+  using: composite
+  steps:
+    - name: Identify BAAS Tauri installers
+      id: release
+      uses: actions/github-script@v8
+      env:
+        RELEASE_TAG: ${{ inputs.tag }}
+      with:
+        script: |
+          const tag = process.env.RELEASE_TAG;
+          const { data: release } = await github.rest.repos.getReleaseByTag({
+            owner: "Kiramei",
+            repo: "baas-tauri",
+            tag,
+          });
+          const version = release.tag_name.replace(/^v/, "");
+          const suffixes = [
+            "x64-setup.exe",
+            "arm64-setup.exe",
+            "x64.dmg",
+            "aarch64.dmg",
+            "amd64.deb",
+            "arm64.deb",
+            "android_arm64-v8a.apk",
+          ];
+          const client = !release.draft && release.assets.some((asset) =>
+            asset.state === "uploaded" && suffixes.some((suffix) =>
+              asset.name === `BAAS.Tauri_${version}_${suffix}`
+            )
+          );
+          core.setOutput("client", String(client));
+          core.setOutput("tag", release.tag_name);
+          const post = /[.-]post(?:[.-]?\d+)?(?:$|[.-])/i.test(version);
+          core.setOutput("channel", post ? "beta" : "");
+          if (!client) {
+            const message = `Release ${tag} has no published BAAS Tauri installer.`;
+            if (context.eventName === "release") {
+              core.notice(message);
+            } else {
+              core.setFailed(message);
+            }
+          }

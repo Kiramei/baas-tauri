@@ -581,8 +581,9 @@ describe("workspace input", () => {
       await ui.click("配置", (line) => line.includes("总览") && line.includes("日志"), true);
       expect(ui.frame).toContain("配置分类");
       await ui.click("咖啡厅");
+      await ui.waitForFrame("使用邀请券");
       await ui.send("\r");
-      expect(ui.frame).toContain("保存");
+      await ui.waitForFrame("保存");
       await ui.send("\x1b");
       expect(ui.frame).not.toContain("保存 [");
       expect(ui.frame).toContain("咖啡厅");
@@ -627,7 +628,7 @@ describe("workspace input", () => {
       await ui.send("\x1b");
       expect(ui.frame).toContain("选择商店");
       await ui.click("战术对抗赛商店");
-      expect(ui.frame).toContain("竞技商品");
+      await ui.waitForFrame("竞技商品");
       expect(ui.frame).not.toContain("普通商品");
       await ui.click("竞技商品");
       await ui.send("\x1b");
@@ -926,6 +927,7 @@ describe("workspace rendering", () => {
     try {
       await ui.send("/start");
       await ui.send("\r");
+      await ui.waitForFrame("│ 运行日志");
       const initial = divider();
       expect(initial.x).toBe(67);
       await drag("press", initial.x, initial.y);

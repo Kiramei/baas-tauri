@@ -8,6 +8,11 @@ import { copyBrowserText } from "@/shared/BrowserClipboard";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import type { TranslationKey } from "@/types/i18n";
 import {
+  continueAndroidStartupLocally,
+  retryAndroidStartupUpdate,
+  useAndroidStartupUpdateStore,
+} from "@/android/StartupBackendUpdate";
+import {
   resolveAndroidInstallState,
   androidInstallProgressId,
   androidInstallDisplayState,
@@ -22,7 +27,16 @@ const Terminal = React.lazy(() => import("@/components/AndroidStartupTerminal"))
 type StepState = "pending" | "running" | "done" | "failed";
 
 /** Step ids the bootstrap reports, in display order. */
-const STEP_IDS = ["storage", "channel", "download", "extract", "adapt", "service"] as const;
+const STEP_IDS = [
+  "storage",
+  "channel",
+  "download",
+  "extract",
+  "adapt",
+  "service",
+  "ocr",
+  "resources",
+] as const;
 
 const STEP_LABELS: Record<string, TranslationKey> = {
   storage: "androidSetup.stepStorage",
@@ -31,6 +45,20 @@ const STEP_LABELS: Record<string, TranslationKey> = {
   extract: "androidSetup.stepExtract",
   adapt: "androidSetup.stepAdapt",
   service: "androidSetup.stepService",
+  ocr: "androidSetup.stepOcr",
+  resources: "androidSetup.stepResources",
+  update: "androidSetup.stepUpdate",
+};
+
+const UPDATE_LABELS: Record<string, TranslationKey> = {
+  waiting: "androidSetup.stepUpdate",
+  checking: "androidSetup.updateChecking",
+  "waiting-idle": "androidSetup.updateWaitingIdle",
+  updating: "androidSetup.updateApplying",
+  restarting: "androidSetup.updateRestarting",
+  restoring: "androidSetup.updateRestoring",
+  ready: "androidSetup.stateDone",
+  failed: "androidSetup.stateFailed",
 };
 
 const STATE_LABELS: Record<string, TranslationKey> = {
@@ -107,6 +135,7 @@ export default function AndroidInstallStepper({ text }: { text: string }) {
   const phase = useWebSocketStore((s) => s._auth_phase);
   const authError = useWebSocketStore((s) => s._auth_error);
   const uiReady = useWebSocketStore((s) => s._android_ui_ready);
+  const startupUpdate = useAndroidStartupUpdateStore();
 
   useEffect(() => {
     let disposed = false;
@@ -131,10 +160,36 @@ export default function AndroidInstallStepper({ text }: { text: string }) {
   }, []);
 
   const bootstrap = state.bootstrap ?? {};
-  const steps = useMemo(() => normalizeSteps(bootstrap), [bootstrap]);
-  const { selectedChannel, awaitingChannel, showChannelChoice, backendError, clientError } =
-    resolveAndroidInstallState(state, pendingChannel, authError);
-  const activeStepId = androidInstallProgressId(steps, bootstrap.currentStep);
+  const updateDetail = t(i18nKey(UPDATE_LABELS[startupUpdate.phase]));
+  const steps = useMemo(
+    () => [
+      ...normalizeSteps(bootstrap),
+      {
+        id: "update",
+        state: (startupUpdate.phase === "ready"
+          ? "done"
+          : startupUpdate.phase === "failed"
+            ? "failed"
+            : startupUpdate.phase === "waiting"
+              ? "pending"
+              : "running") as StepState,
+        detail: startupUpdate.error || updateDetail,
+      },
+    ],
+    [bootstrap, startupUpdate.phase, startupUpdate.error, updateDetail]
+  );
+  const {
+    selectedChannel,
+    awaitingChannel,
+    showChannelChoice,
+    backendError,
+    clientError,
+    resourcesReady,
+  } = resolveAndroidInstallState(state, pendingChannel, authError);
+  const activeStepId =
+    resourcesReady && startupUpdate.phase !== "waiting"
+      ? "update"
+      : androidInstallProgressId(steps, bootstrap.currentStep);
 
   useEffect(() => {
     const strip = stepsRef.current;
@@ -175,18 +230,24 @@ export default function AndroidInstallStepper({ text }: { text: string }) {
     }
   };
 
-  const retry = useCallback(async () => {
+  const retry = async () => {
     if (retrying) return;
     setRetrying(true);
     setFailure("");
     try {
-      await invoke("updater_restart_backend");
+      const backendRestarted = !!backendError || startupUpdate.phase !== "failed";
+      if (backendRestarted) {
+        const result = await invoke<{ restartScheduled?: boolean }>("updater_restart_backend");
+        if (result?.restartScheduled !== true)
+          throw new Error("Android backend restart was not scheduled");
+      }
+      await retryAndroidStartupUpdate({ backendRestarted });
     } catch (error) {
       setFailure(String(error));
     } finally {
       setRetrying(false);
     }
-  }, [retrying]);
+  };
 
   const copyLogs = useCallback(async () => {
     try {
@@ -279,16 +340,13 @@ export default function AndroidInstallStepper({ text }: { text: string }) {
           >
             {(["stable", "dev"] as AndroidInstallChannel[]).map((value) => {
               const selected = selectedChannel === value;
-              const unavailable = value === "stable";
               return (
                 <button
                   key={value}
                   type="button"
                   role="radio"
                   aria-checked={selected}
-                  aria-disabled={unavailable}
-                  disabled={unavailable || channelBusy}
-                  title={unavailable ? t("androidSetup.channelUnavailable") : undefined}
+                  disabled={channelBusy}
                   onClick={() => setPendingChannel(value)}
                   className={`flex h-10 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 [@media(max-height:400px)]:h-8 ${
                     selected
@@ -333,7 +391,23 @@ export default function AndroidInstallStepper({ text }: { text: string }) {
         </section>
       )}
 
-      {(backendError || clientError || failure || pollFailure) && (
+      {resourcesReady && startupUpdate.phase !== "waiting" && startupUpdate.phase !== "failed" && (
+        <p role="status" className="shrink-0 text-xs text-muted-foreground">
+          {updateDetail}
+        </p>
+      )}
+
+      {startupUpdate.canContinueLocal && !backendError && resourcesReady && (
+        <button
+          type="button"
+          onClick={continueAndroidStartupLocally}
+          className="w-fit shrink-0 rounded-md border border-primary-500 px-2 py-1.5 text-xs font-medium text-primary-600 dark:text-primary-400"
+        >
+          {t("androidSetup.continueLocal")}
+        </button>
+      )}
+
+      {(backendError || clientError || failure || pollFailure || startupUpdate.error) && (
         <div
           role="alert"
           className="flex min-h-0 max-h-[30%] shrink-0 gap-2 rounded-lg border border-red-400 bg-red-500/10 p-2 text-xs text-red-500 [@media(max-height:400px)]:max-h-12"
@@ -342,7 +416,7 @@ export default function AndroidInstallStepper({ text }: { text: string }) {
             className="min-h-0 min-w-0 flex-1 overflow-y-auto break-words whitespace-pre-wrap"
             aria-label={t("androidSetup.errorTitle")}
           >
-            {backendError || clientError || failure || pollFailure}
+            {backendError || clientError || failure || pollFailure || startupUpdate.error}
           </p>
           <div className="flex shrink-0 flex-col justify-start gap-1.5 [@media(max-height:400px)]:flex-row">
             <button

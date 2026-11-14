@@ -5,9 +5,12 @@ use crate::{
     UpdaterResult,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+#[cfg(not(target_os = "android"))]
+use std::io::Read;
 use std::{
     fs,
-    io::{Cursor, Read},
+    io::Cursor,
     path::{Component, Path, PathBuf},
     time::Duration,
 };
@@ -45,7 +48,7 @@ pub enum MirrorUpdateType {
 }
 
 /// Parsed MirrorC latest response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct MirrorLatest {
     /// Numeric MirrorC response code.
     pub code: i32,
@@ -67,6 +70,19 @@ pub struct MirrorLatest {
     pub file_size: Option<u64>,
     /// CDK expiry timestamp from MirrorC.
     pub cdk_expired_time: Option<u64>,
+}
+
+impl std::fmt::Debug for MirrorLatest {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("MirrorLatest")
+            .field("code", &self.code)
+            .field("has_data", &self.has_data)
+            .field("has_url", &self.has_url())
+            .field("update_type", &self.update_type)
+            .field("file_size", &self.file_size)
+            .finish_non_exhaustive()
+    }
 }
 
 impl MirrorLatest {
@@ -122,26 +138,38 @@ pub trait MirrorHttp {
 #[derive(Debug, Clone, Default)]
 pub struct ReqwestMirrorHttp;
 
-fn mirrorc_http_client(timeout: Duration) -> UpdaterResult<reqwest::blocking::Client> {
+#[cfg(not(target_os = "android"))]
+fn mirrorc_http_client(
+    timeout: Duration,
+    follow_redirects: bool,
+) -> UpdaterResult<reqwest::blocking::Client> {
     reqwest::blocking::Client::builder()
         // MirrorC API requests and package redirects must always use a direct connection.
         .no_proxy()
+        .referer(false)
+        .redirect(if follow_redirects {
+            reqwest::redirect::Policy::limited(10)
+        } else {
+            reqwest::redirect::Policy::none()
+        })
         .timeout(timeout)
         .build()
         .map_err(mirrorc_network_error)
 }
 
+#[cfg(not(target_os = "android"))]
 fn mirrorc_network_error(error: reqwest::Error) -> UpdaterError {
     // API URLs contain the CDK, and package URLs may contain temporary credentials.
     UpdaterError::Network(error.without_url().to_string())
 }
 
+#[cfg(not(target_os = "android"))]
 impl MirrorHttp for ReqwestMirrorHttp {
     /// Returns the get json result.
     fn get_json(&self, url: &str, timeout: Duration) -> UpdaterResult<serde_json::Value> {
-        let client = mirrorc_http_client(timeout)?;
+        let client = mirrorc_http_client(timeout, false)?;
         let response = client.get(url).send().map_err(mirrorc_network_error)?;
-        let status = response.status();
+        let status = response.status().as_u16();
         let body = response.text().map_err(mirrorc_network_error)?;
 
         parse_mirrorc_json_body(status, &body)
@@ -154,7 +182,7 @@ impl MirrorHttp for ReqwestMirrorHttp {
         timeout: Duration,
         output: &(impl OutputSink + ?Sized),
     ) -> UpdaterResult<Vec<u8>> {
-        let client = mirrorc_http_client(timeout)?;
+        let client = mirrorc_http_client(timeout, true)?;
         let mut response = client
             .get(url)
             .send()
@@ -197,6 +225,42 @@ impl MirrorHttp for ReqwestMirrorHttp {
     }
 }
 
+// Android already ships minreq with bundled TLS roots. No JVM trust-store bootstrap is needed.
+#[cfg(target_os = "android")]
+impl MirrorHttp for ReqwestMirrorHttp {
+    fn get_json(&self, url: &str, timeout: Duration) -> UpdaterResult<serde_json::Value> {
+        let response = minreq::get(url)
+            .with_timeout(timeout.as_secs())
+            .with_follow_redirects(false)
+            .send()
+            .map_err(|_| UpdaterError::Network("MirrorC API request failed".into()))?;
+        let body = response
+            .as_str()
+            .map_err(|_| UpdaterError::Network("MirrorC returned invalid text".into()))?;
+        parse_mirrorc_json_body(response.status_code, body)
+    }
+
+    fn download(
+        &self,
+        url: &str,
+        timeout: Duration,
+        _: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<Vec<u8>> {
+        let response = minreq::get(url)
+            .with_timeout(timeout.as_secs())
+            .with_max_redirects(10)
+            .send()
+            .map_err(|_| UpdaterError::Network("MirrorC package download failed".into()))?;
+        if !(200..300).contains(&response.status_code) {
+            return Err(UpdaterError::Network(format!(
+                "MirrorC package HTTP {}",
+                response.status_code
+            )));
+        }
+        Ok(response.into_bytes())
+    }
+}
+
 /// MirrorC API client.
 pub struct MirrorCClient<H> {
     http: H,
@@ -225,8 +289,25 @@ impl<H: MirrorHttp> MirrorCClient<H> {
         current_version: &str,
         cdk: &str,
     ) -> UpdaterResult<MirrorLatest> {
-        let url = mirrorc_latest_url(kind, channel, current_version, cdk);
-        parse_latest_response(self.http.get_json(&url, self.timeout)?)
+        let url = mirrorc_latest_url(kind, channel, current_version, cdk)?;
+        let mut latest = parse_latest_response(self.http.get_json(&url, self.timeout)?)?;
+        if !cdk.trim().is_empty() {
+            // Both error messages and metadata can be echoed by a gateway.
+            latest.message = redact_cdk(&latest.message, cdk.trim());
+            if let Some(note) = latest.release_note.as_mut() {
+                *note = redact_cdk(note, cdk.trim());
+            }
+            if latest
+                .latest_version_name
+                .as_deref()
+                .is_some_and(|v| redact_cdk(v, cdk.trim()) != v)
+            {
+                return Err(UpdaterError::MirrorC(
+                    "MirrorC returned an invalid version".into(),
+                ));
+            }
+        }
+        Ok(latest)
     }
 
     /// Performs a MirrorC full or incremental update.
@@ -243,6 +324,13 @@ impl<H: MirrorHttp> MirrorCClient<H> {
         )?;
         if !latest.is_success() {
             return Err(mirrorc_error(&latest));
+        }
+        if request.current_version.is_empty()
+            && latest.update_type == Some(MirrorUpdateType::Incremental)
+        {
+            return Err(UpdaterError::MirrorC(
+                "MirrorC returned an incremental package without an installed base version".into(),
+            ));
         }
         let version = latest
             .latest_version_name
@@ -265,7 +353,36 @@ impl<H: MirrorHttp> MirrorCClient<H> {
             .download_url
             .as_deref()
             .ok_or_else(|| mirrorc_error(&latest))?;
-        let package = self.http.download(download_url, self.timeout, output)?;
+        if !download_url.starts_with("https://") {
+            return Err(UpdaterError::MirrorC(
+                "MirrorC returned an insecure package URL".into(),
+            ));
+        }
+        let expected_sha = latest
+            .sha256
+            .as_deref()
+            .filter(|s| s.len() == 64 && s.bytes().all(|c| c.is_ascii_hexdigit()))
+            .ok_or_else(|| UpdaterError::MirrorC("MirrorC package has no valid SHA-256".into()))?;
+        // API calls are short. A full repository package can take several minutes.
+        let download_timeout = self.timeout.max(Duration::from_secs(300));
+        let package = self.http.download(download_url, download_timeout, output)?;
+        if latest
+            .file_size
+            .is_some_and(|size| size != package.len() as u64)
+        {
+            return Err(UpdaterError::MirrorC(
+                "MirrorC package size does not match".into(),
+            ));
+        }
+        let actual_sha: String = Sha256::digest(&package)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        if !actual_sha.eq_ignore_ascii_case(expected_sha) {
+            return Err(UpdaterError::MirrorC(
+                "MirrorC package SHA-256 does not match".into(),
+            ));
+        }
         match latest.update_type.unwrap_or(MirrorUpdateType::Full) {
             MirrorUpdateType::Full => {
                 output.line(OutputStyle::Info, "Applying MirrorC full package");
@@ -303,38 +420,61 @@ pub struct MirrorUpdateRequest<'a> {
     pub target_dir: &'a Path,
 }
 
-/// Builds a MirrorC latest URL.
+/// Only the upstream stable repository is published as a BAAS backend on MirrorChyan.
+/// BAAS_Cpp is a separate release product, not the platform-specific OCR prebuild checkout.
+pub fn supports_mirror_package(kind: RepositoryKind, channel: UpdateChannel) -> bool {
+    kind == RepositoryKind::Main && channel == UpdateChannel::Stable
+}
+
+fn redact_cdk(text: &str, cdk: &str) -> String {
+    let encoded: String = url::form_urlencoded::byte_serialize(cdk.as_bytes()).collect();
+    text.replace(cdk, "[redacted]")
+        .replace(&encoded, "[redacted]")
+}
+
+/// Builds the official resource URL and percent-encodes each user-supplied value.
 pub fn mirrorc_latest_url(
     kind: RepositoryKind,
-    _channel: UpdateChannel,
+    channel: UpdateChannel,
     current_version: &str,
     cdk: &str,
-) -> String {
-    let app = match kind {
-        RepositoryKind::Main => "BAAS_repo",
-        RepositoryKind::Cpp => "BAAS_Cpp",
-    };
-    let mut url = format!(
-        "{MIRRORC_BASE_URL}/{app}/latest?channel={}&current_version={}&user_agent={USER_AGENT}&cdk={}",
-        "stable", current_version, cdk
-    );
-    if kind == RepositoryKind::Cpp {
-        let (os, arch) = mirrorc_system_info();
-        url.push_str(&format!("&os={os}&arch={arch}"));
+) -> UpdaterResult<String> {
+    if !supports_mirror_package(kind, channel) {
+        return Err(UpdaterError::MirrorC("MirrorChyan only publishes the stable BAAS backend. Use Git for development or OCR packages.".into()));
     }
-    url
+    let mut url =
+        url::Url::parse(&format!("{MIRRORC_BASE_URL}/BAAS_repo/latest")).expect("MirrorC base URL");
+    url.query_pairs_mut()
+        .append_pair("channel", "stable")
+        .append_pair("current_version", current_version)
+        .append_pair("user_agent", USER_AGENT);
+    if !cdk.trim().is_empty() {
+        url.query_pairs_mut().append_pair("cdk", cdk.trim());
+    }
+    Ok(url.into())
 }
 
 /// Parses a MirrorC latest JSON response.
 pub fn parse_latest_response(value: serde_json::Value) -> UpdaterResult<MirrorLatest> {
-    let response: RawLatestResponse =
-        serde_json::from_value(value).map_err(|error| UpdaterError::MirrorC(error.to_string()))?;
-    let has_data_code = matches!(response.code, 0 | 7001 | 7002 | 7003 | 7004 | 7005);
+    let response: RawLatestResponse = serde_json::from_value(value)
+        .map_err(|_| UpdaterError::MirrorC("MirrorC returned malformed metadata".into()))?;
+    let has_data = response.data.is_some();
+    if response.code == 0
+        && !response
+            .data
+            .as_ref()
+            .and_then(|d| d.version_name.as_deref())
+            .is_some_and(|s| !s.trim().is_empty())
+    {
+        return Err(UpdaterError::MirrorC(
+            "MirrorC success response missing version".into(),
+        ));
+    }
     let data = response.data.unwrap_or_default();
     Ok(MirrorLatest {
         code: response.code,
         message: response.message,
-        has_data: response.code >= 0 && has_data_code,
+        has_data,
         latest_version_name: data.version_name,
         release_note: data.release_note,
         download_url: data.url,
@@ -346,22 +486,17 @@ pub fn parse_latest_response(value: serde_json::Value) -> UpdaterResult<MirrorLa
 }
 
 /// Returns the parse mirrorc json body result.
-fn parse_mirrorc_json_body(
-    status: reqwest::StatusCode,
-    body: &str,
-) -> UpdaterResult<serde_json::Value> {
+fn parse_mirrorc_json_body(status: u16, body: &str) -> UpdaterResult<serde_json::Value> {
     if let Ok(value) = serde_json::from_str::<serde_json::Value>(body) {
         return Ok(value);
     }
 
-    if status.is_success() {
-        Err(UpdaterError::Network(format!(
-            "MirrorC returned invalid JSON: {body}"
-        )))
+    if (200..300).contains(&status) {
+        Err(UpdaterError::Network(
+            "MirrorC returned invalid JSON".into(),
+        ))
     } else {
-        Err(UpdaterError::Network(format!(
-            "MirrorC HTTP {status}: {body}"
-        )))
+        Err(UpdaterError::Network(format!("MirrorC HTTP {status}")))
     }
 }
 
@@ -391,7 +526,7 @@ pub fn apply_incremental_package_with_output(
     target_dir: &Path,
     output: &(impl OutputSink + ?Sized),
 ) -> UpdaterResult<()> {
-    let temp = tempfile::tempdir()?;
+    let temp = package_staging_dir(target_dir)?;
     with_optional_spinner(output, "Extracting MirrorC incremental package", || {
         extract_zip(package, temp.path())
     })?;
@@ -412,11 +547,20 @@ pub fn apply_full_package_with_output(
     target_dir: &Path,
     output: &(impl OutputSink + ?Sized),
 ) -> UpdaterResult<()> {
-    let temp = tempfile::tempdir()?;
+    let temp = package_staging_dir(target_dir)?;
     with_optional_spinner(output, "Extracting MirrorC full package", || {
         extract_zip(package, temp.path())
     })?;
-    let source_root = first_child_dir(temp.path()).unwrap_or_else(|| temp.path().to_path_buf());
+    let entries = fs::read_dir(temp.path())?.collect::<Result<Vec<_>, _>>()?;
+    let source_root = match entries.as_slice() {
+        [entry] if entry.file_type()?.is_dir() => entry.path(),
+        [] => {
+            return Err(UpdaterError::MirrorC(
+                "MirrorC full package is empty".into(),
+            ));
+        }
+        _ => temp.path().to_path_buf(),
+    };
     with_optional_spinner(output, "Installing MirrorC full package", || {
         copy_dir_contents(&source_root, target_dir)
     })
@@ -438,54 +582,61 @@ pub fn apply_changes_with_output(
     target_dir: &Path,
     output: &(impl OutputSink + ?Sized),
 ) -> UpdaterResult<()> {
-    let total = (changes.deleted.len() + changes.added.len() + changes.modified.len()) as u64;
-    if let Some(term) = output.thread_output() {
-        return term
-            .with_progress_bar(
-                "mirror apply",
-                total.max(1),
-                30,
-                "MirrorC update applied",
-                |bar| {
-                    let mut current = 0;
-                    for deleted in &changes.deleted {
-                        let target = target_dir.join(remove_first_dir(deleted));
-                        if target.is_file() {
-                            fs::remove_file(target).map_err(|error| error.to_string())?;
-                        }
-                        current += 1;
-                        bar.set(current, format!("delete {current}/{total}"));
-                    }
-                    for added in &changes.added {
-                        copy_changed_file(source_dir, target_dir, added)
-                            .map_err(|error| error.message())?;
-                        current += 1;
-                        bar.set(current, format!("add {current}/{total}"));
-                    }
-                    for modified in &changes.modified {
-                        copy_changed_file(source_dir, target_dir, modified)
-                            .map_err(|error| error.message())?;
-                        current += 1;
-                        bar.set(current, format!("modify {current}/{total}"));
-                    }
-                    Ok(())
-                },
-            )
-            .map_err(UpdaterError::MirrorC);
-    }
-    for deleted in &changes.deleted {
-        let target = target_dir.join(remove_first_dir(deleted));
-        if target.is_file() {
-            fs::remove_file(target)?;
+    // Preflight the whole manifest before deleting or replacing any live file.
+    let mut operations = Vec::new();
+    for (kind, paths) in [
+        ("delete", &changes.deleted),
+        ("add", &changes.added),
+        ("modify", &changes.modified),
+    ] {
+        for path in paths {
+            let source_path = checked_package_path(path)?;
+            let relative = remove_first_dir(path);
+            if is_local_path(&relative) {
+                continue;
+            }
+            let target = checked_destination(target_dir, &relative)?;
+            let source = if kind == "delete" {
+                None
+            } else {
+                let file = checked_destination(source_dir, &source_path)?;
+                if !file.is_file() {
+                    return Err(UpdaterError::MirrorC(
+                        "MirrorC manifest references a missing file".into(),
+                    ));
+                }
+                Some(file)
+            };
+            operations.push((kind, target, source));
         }
     }
-    for added in &changes.added {
-        copy_changed_file(source_dir, target_dir, added)?;
+    let total = operations.len() as u64;
+    let apply = |progress: &mut dyn FnMut(u64, &str)| -> UpdaterResult<()> {
+        for (index, (kind, target, source)) in operations.iter().enumerate() {
+            if let Some(source) = source {
+                copy_package_file(source, target)?;
+            } else if target.is_file() {
+                fs::remove_file(target)?;
+            }
+            progress(index as u64 + 1, kind);
+        }
+        Ok(())
+    };
+    if let Some(term) = output.thread_output() {
+        term.with_progress_bar(
+            "mirror apply",
+            total.max(1),
+            30,
+            "MirrorC update applied",
+            |bar| {
+                apply(&mut |current, kind| bar.set(current, format!("{kind} {current}/{total}")))
+                    .map_err(|e| e.message())
+            },
+        )
+        .map_err(UpdaterError::MirrorC)
+    } else {
+        apply(&mut |_, _| {})
     }
-    for modified in &changes.modified {
-        copy_changed_file(source_dir, target_dir, modified)?;
-    }
-    Ok(())
 }
 
 /// Handles the with optional spinner workflow.
@@ -551,70 +702,131 @@ fn mirrorc_error(latest: &MirrorLatest) -> UpdaterError {
     UpdaterError::MirrorC(format!("MirrorC did not provide a download URL: {detail}"))
 }
 
-/// Handles the mirrorc system info workflow.
-fn mirrorc_system_info() -> (&'static str, &'static str) {
-    let os = match std::env::consts::OS {
-        "macos" => "darwin",
-        "windows" => "windows",
-        "linux" => "linux",
-        _ => "universal",
-    };
-    let arch = match std::env::consts::ARCH {
-        "x86" | "i386" | "i686" => "386",
-        "x86_64" => "amd64",
-        "aarch64" => "arm64",
-        other => other,
-    };
-    (os, arch)
-}
-
 /// Returns the extract zip result.
 fn extract_zip(package: &[u8], out_dir: &Path) -> UpdaterResult<()> {
     let mut archive = ZipArchive::new(Cursor::new(package))?;
+    for i in 0..archive.len() {
+        let entry = archive.by_index(i)?;
+        checked_package_path(entry.name())?;
+        if entry.is_symlink() || entry.enclosed_name().is_none() {
+            return Err(UpdaterError::MirrorC(
+                "MirrorC archive contains an unsafe entry".into(),
+            ));
+        }
+    }
     archive.extract(out_dir)?;
     Ok(())
 }
 
-/// Handles the first child dir workflow.
-fn first_child_dir(path: &Path) -> Option<PathBuf> {
-    fs::read_dir(path)
-        .ok()?
-        .flatten()
-        .map(|entry| entry.path())
-        .find(|path| path.is_dir())
+fn package_staging_dir(target: &Path) -> UpdaterResult<tempfile::TempDir> {
+    fs::create_dir_all(target)?;
+    Ok(tempfile::Builder::new()
+        .prefix(".mirrorc-staging-")
+        .tempdir_in(target)?)
 }
 
-/// Performs the copy dir contents operation.
-fn copy_dir_contents(source: &Path, target: &Path) -> UpdaterResult<()> {
-    fs::create_dir_all(target)?;
-    for entry in fs::read_dir(source)? {
-        let entry = entry?;
-        let source_path = entry.path();
-        let target_path = target.join(entry.file_name());
-        if source_path.is_dir() {
-            copy_dir_contents(&source_path, &target_path)?;
-        } else {
-            if let Some(parent) = target_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::copy(&source_path, target_path)?;
+fn checked_package_path(name: &str) -> UpdaterResult<PathBuf> {
+    let path = Path::new(name);
+    if name.is_empty()
+        || name.contains(['\\', ':', '\0'])
+        || path
+            .components()
+            .any(|c| !matches!(c, Component::Normal(_)))
+    {
+        return Err(UpdaterError::MirrorC(
+            "MirrorC package contains an invalid path".into(),
+        ));
+    }
+    Ok(path.into())
+}
+
+// These paths belong to the installation and its user, independently of the backend checkout.
+fn is_local_path(relative: &Path) -> bool {
+    let top = relative
+        .components()
+        .next()
+        .map(|c| c.as_os_str().to_string_lossy().to_ascii_lowercase());
+    matches!(
+        top.as_deref(),
+        Some(
+            "setup.toml"
+                | "config"
+                | "output"
+                | "screenshot"
+                | "screenshots"
+                | "data"
+                | ".git"
+                | ".secret"
+                | ".baas-updater"
+                | ".baas-cli-runtime.json"
+                | ".baas-cli-install.lock"
+                | ".venv"
+                | "toolkit"
+                | "tmp"
+        )
+    ) || relative.starts_with("core/ocr/baas_ocr_client/bin")
+}
+
+fn checked_destination(root: &Path, relative: &Path) -> UpdaterResult<PathBuf> {
+    let mut target = root.to_path_buf();
+    for component in relative.components() {
+        target.push(component.as_os_str());
+        if target
+            .symlink_metadata()
+            .is_ok_and(|meta| meta.file_type().is_symlink())
+        {
+            return Err(UpdaterError::MirrorC(
+                "MirrorC destination contains a symbolic link".into(),
+            ));
         }
     }
+    Ok(target)
+}
+
+fn copy_package_file(source: &Path, target: &Path) -> UpdaterResult<()> {
+    let parent = target
+        .parent()
+        .ok_or_else(|| UpdaterError::MirrorC("Invalid package destination".into()))?;
+    fs::create_dir_all(parent)?;
+    let temporary = tempfile::NamedTempFile::new_in(parent)?;
+    fs::copy(source, temporary.path())?;
+    temporary.persist(target).map_err(|e| e.error)?;
     Ok(())
 }
 
-/// Performs the copy changed file operation.
-fn copy_changed_file(source_dir: &Path, target_dir: &Path, changed: &str) -> UpdaterResult<()> {
-    let source = source_dir.join(changed);
-    let target = target_dir.join(remove_first_dir(changed));
-    if let Some(parent) = target.parent() {
-        fs::create_dir_all(parent)?;
+pub(crate) fn copy_dir_contents(source: &Path, target: &Path) -> UpdaterResult<()> {
+    fs::create_dir_all(target)?;
+    let mut dirs = vec![PathBuf::new()];
+    let mut files = Vec::new();
+    while let Some(dir) = dirs.pop() {
+        for entry in fs::read_dir(source.join(&dir))? {
+            let entry = entry?;
+            let relative = dir.join(entry.file_name());
+            if is_local_path(&relative) {
+                continue;
+            }
+            let destination = checked_destination(target, &relative)?;
+            let file_type = entry.file_type()?;
+            if file_type.is_symlink() {
+                return Err(UpdaterError::MirrorC(
+                    "MirrorC staging contains a symbolic link".into(),
+                ));
+            }
+            if file_type.is_dir() {
+                dirs.push(relative);
+            } else if file_type.is_file() {
+                files.push((entry.path(), destination));
+            }
+        }
     }
-    fs::copy(source, target)?;
+    for (source, destination) in files {
+        copy_package_file(&source, &destination)?;
+    }
     Ok(())
 }
 
 /// Handles the transfer detail workflow.
+#[cfg(not(target_os = "android"))]
 fn transfer_detail(current: u64, total: u64, started: std::time::Instant) -> String {
     let elapsed = started.elapsed().as_secs_f64().max(0.001);
     let speed = current as f64 / elapsed;
@@ -627,6 +839,7 @@ fn transfer_detail(current: u64, total: u64, started: std::time::Instant) -> Str
 }
 
 /// Returns the format bytes result.
+#[cfg(not(target_os = "android"))]
 fn format_bytes(bytes: u64) -> String {
     const UNITS: [&str; 4] = ["B", "KiB", "MiB", "GiB"];
     let mut value = bytes as f64;
@@ -642,7 +855,7 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(target_os = "android")))]
 mod tests {
     use super::*;
     use std::{io::Write, net::TcpListener, process::Command, thread, time::Instant};
@@ -789,6 +1002,34 @@ mod tests {
         assert!(!api_error.contains(&origin));
     }
 
+    #[test]
+    fn only_supported_sources_receive_encoded_credentials() {
+        let cdk = "fixture a+b/1&2";
+        let url: url::Url =
+            mirrorc_latest_url(RepositoryKind::Main, UpdateChannel::Stable, "v+1", cdk)
+                .unwrap()
+                .parse()
+                .unwrap();
+        let params: std::collections::HashMap<_, _> = url.query_pairs().collect();
+        assert_eq!(params["cdk"], cdk);
+        assert_eq!(params["current_version"], "v+1");
+        assert_eq!(params["channel"], "stable");
+        assert!(!redact_cdk(url.as_str(), cdk).contains("fixture"));
+        assert!(mirrorc_latest_url(RepositoryKind::Main, UpdateChannel::Dev, "", cdk).is_err());
+        assert!(mirrorc_latest_url(RepositoryKind::Cpp, UpdateChannel::Stable, "", cdk).is_err());
+        assert!(
+            !mirrorc_latest_url(RepositoryKind::Main, UpdateChannel::Stable, "", "")
+                .unwrap()
+                .contains("cdk=")
+        );
+        assert!(
+            !parse_mirrorc_json_body(502, cdk)
+                .unwrap_err()
+                .message()
+                .contains("fixture")
+        );
+    }
+
     /// Verifies the parses latest response and cdk state behavior.
     #[test]
     fn parses_latest_response_and_cdk_state() {
@@ -858,7 +1099,7 @@ mod tests {
     #[test]
     fn accepts_mirrorc_json_body_from_http_error_status() {
         let value = parse_mirrorc_json_body(
-            reqwest::StatusCode::FORBIDDEN,
+            403,
             r#"{"code":7001,"msg":"The cdk has expired","data":{"version_name":"sha"}}"#,
         )
         .unwrap();

@@ -1,0 +1,61 @@
+name: mirrorchyan_release_note
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published BAAS Tauri client release tag
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+    secrets:
+      MirrorChyanUploadToken:
+        required: true
+  release:
+    types: [edited]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: mirrorchyan-release-note-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ github.repository_owner == 'Kiramei' && (github.event_name != 'release' || contains(join(github.event.release.assets.*.name, ','), 'BAAS.Tauri_')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      client: ${{ steps.release.outputs.client }}
+      tag: ${{ steps.release.outputs.tag }}
+      channel: ${{ steps.release.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/resolve-mirrorchyan-release
+        id: release
+        with:
+          tag: ${{ github.event.release.tag_name || inputs.tag }}
+
+  mirrorchyan:
+    needs: [release]
+    if: ${{ github.repository_owner == 'Kiramei' && needs.release.outputs.client == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: MirrorChyan/release-note-action@v1
+        with:
+          mirrorchyan_rid: baas-tauri
+          version_name: ${{ needs.release.outputs.tag }}
+          channel: ${{ needs.release.outputs.channel }}
+          owner: Kiramei
+          repo: baas-tauri
+          upload_token: ${{ secrets.MirrorChyanUploadToken }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}

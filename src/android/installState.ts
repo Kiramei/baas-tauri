@@ -18,6 +18,8 @@ export interface AndroidBootstrap {
   awaitingChannel?: boolean;
   currentStep?: string;
   channelFallback?: boolean;
+  resourcesReady?: boolean;
+  startedAt?: number;
 }
 
 export interface AndroidStartupState {
@@ -34,11 +36,12 @@ export function androidInstallProgressId(
   steps: readonly { id: string; state: string }[],
   currentStep?: string
 ) {
+  const completed = steps.filter((step) => step.state === "done");
   return (
     steps.find((step) => step.id === currentStep)?.id ??
     steps.find((step) => step.state === "failed")?.id ??
     steps.find((step) => step.state === "running")?.id ??
-    steps.filter((step) => step.state === "done").at(-1)?.id ??
+    completed[completed.length - 1]?.id ??
     steps[0]?.id
   );
 }
@@ -71,7 +74,7 @@ export function resolveAndroidInstallState(
 ) {
   const bootstrap = state.bootstrap ?? {};
   const channel: AndroidInstallChannel =
-    (bootstrap.channel ?? state.channel) === "stable" ? "stable" : "dev";
+    (bootstrap.channel ?? state.channel) === "dev" ? "dev" : "stable";
   const installed = bootstrap.backendInstalled === true || state.baasRootExistsNonEmpty === true;
   const failedStep = bootstrap.steps?.find((step) => step.state === "failed");
   const backendError =
@@ -93,14 +96,21 @@ export function resolveAndroidInstallState(
     (serviceStep
       ? serviceStep.state === "done"
       : !bootstrap.steps?.length && bootstrap.stage === "service" && installed);
+  const resourcesReady =
+    serviceReady &&
+    bootstrap.resourcesReady === true &&
+    ["ocr", "resources"].every((id) =>
+      bootstrap.steps?.some((step) => step.id === id && step.state === "done")
+    );
 
   return {
     channel,
-    selectedChannel: installed ? (pendingChannel ?? channel) : "dev",
+    selectedChannel: pendingChannel ?? channel,
     installed,
     awaitingChannel,
     showChannelChoice: !installed && (awaitingChannel || !!backendError),
     backendError,
+    resourcesReady,
     clientError:
       serviceReady && authError !== "Backend transport startup is cooling down after a failure"
         ? authError

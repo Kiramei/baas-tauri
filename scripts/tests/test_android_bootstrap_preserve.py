@@ -163,7 +163,8 @@ class AndroidBootstrapPreserveTest(unittest.TestCase):
             service = types.ModuleType("service")
             service.android_ocr_client = types.ModuleType("service.android_ocr_client")
             service.android_ocr_installer = types.ModuleType("service.android_ocr_installer")
-            with patch.dict(sys.modules, {"service": service}):
+            cache_guard = types.SimpleNamespace(install_ocr_cache_guards=Mock())
+            with patch.dict(sys.modules, {"service": service, "android_backend.ocr_runtime_cache": cache_guard}):
                 namespace = {"sys": sys}
                 exec(compile(patched, str(injection), "exec"), namespace)
                 namespace["_install_android_ocr_modules"]()
@@ -175,6 +176,7 @@ class AndroidBootstrapPreserveTest(unittest.TestCase):
                     sys.modules["core.ocr.baas_ocr_client.server_installer"],
                     service.android_ocr_installer,
                 )
+                cache_guard.install_ocr_cache_guards.assert_called_once_with(service.android_ocr_client, service.android_ocr_installer)
 
             bootstrap._patch_android_ocr_module_injection(root)
             self.assertEqual(injection.read_text(encoding="utf-8"), patched)

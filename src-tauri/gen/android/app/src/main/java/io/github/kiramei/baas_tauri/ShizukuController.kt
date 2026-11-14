@@ -168,10 +168,23 @@ object ShizukuController {
     }
   }
 
-  fun takeOverGame(context: Context, packageName: String) {
-    setPreviewSurface(context, null)
-    callService(context) { it.moveGameToDisplay(packageName, android.view.Display.DEFAULT_DISPLAY) }
-    stopVirtualDisplay(context)
+  /** Returns true when an existing task was moved. An empty session needs a fresh launcher intent. */
+  fun takeOverGame(context: Context, packageName: String): Boolean {
+    val displayId = virtualDisplayId(context)
+    if (displayId < 0) return false
+    val owner = currentGamePackage(context)
+    check(owner.isEmpty() || owner == packageName) { "Another game owns the background display" }
+    val top = topGamePackage(context)
+    check(top.isEmpty() || (top == packageName && owner == packageName)) {
+      "Another application is using the background display"
+    }
+    if (top == packageName) {
+      callService(context) { it.moveGameToDisplay(packageName, android.view.Display.DEFAULT_DISPLAY) }
+    }
+    // The game may already have exited or moved to the phone. Release only the
+    // display: the regular Stop action also force-stops its recorded package.
+    callService(context) { it.stopVirtualDisplay() }
+    return top == packageName
   }
 
   fun virtualDisplayId(context: Context): Int {

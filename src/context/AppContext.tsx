@@ -4,6 +4,11 @@ import { GlobalSelectProvider } from "@/components/ui/SelectGlobal";
 import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
 import { userProfileTabs, type ProfileTab } from "@/shared/ProfileTabs";
 import { useShallow } from "zustand/react/shallow";
+import { useAndroidResourcesReady } from "@/android/useAndroidResourcesReady";
+import {
+  useAndroidStartupBackendUpdate,
+  useAndroidStartupUpdateStore,
+} from "@/android/StartupBackendUpdate";
 
 import StorageUtil from "@/shared/StorageManager.ts";
 
@@ -25,6 +30,12 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
   const authPhase = useWebSocketStore((s) => s._auth_phase);
   const allDataInitialized = useWebSocketStore((s) => s._all_data_initialized);
   const androidUiReady = useWebSocketStore((s) => s._android_ui_ready);
+  const startupUpdateCycle = useAndroidStartupUpdateStore((state) => state.cycle);
+  const androidResourcesReady = useAndroidResourcesReady(
+    authPhase === "authenticated" && allDataInitialized,
+    startupUpdateCycle
+  );
+  const androidUpdatesReady = useAndroidStartupBackendUpdate(androidResourcesReady);
   const initiating = useWebSocketStore((s) => s._initiating);
   const profileEntries = useWebSocketStore(
     useShallow((state) =>
@@ -54,10 +65,13 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
   }, [unsortedProfiles]);
 
   useEffect(() => {
-    if (authPhase === "authenticated" && !allDataInitialized) {
+    if (
+      authPhase === "authenticated" &&
+      (__WITH_ANDROID__ ? !androidUiReady : !allDataInitialized)
+    ) {
       void init();
     }
-  }, [authPhase, allDataInitialized, init]);
+  }, [authPhase, allDataInitialized, androidUiReady, init]);
 
   useEffect(() => {
     setActiveProfile((prev) => {
@@ -69,10 +83,19 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
   useEffect(() => {
     setReady(
       authPhase === "authenticated" &&
-        (__WITH_ANDROID__ ? androidUiReady : allDataInitialized) &&
+        allDataInitialized &&
+        (!__WITH_ANDROID__ || (androidUiReady && androidResourcesReady && androidUpdatesReady)) &&
         !initiating
     );
-  }, [authPhase, allDataInitialized, androidUiReady, setReady, initiating]);
+  }, [
+    authPhase,
+    allDataInitialized,
+    androidUiReady,
+    androidResourcesReady,
+    androidUpdatesReady,
+    setReady,
+    initiating,
+  ]);
 
   useEffect(() => {
     if (!__WITH_ANDROID__ || authPhase !== "authenticated" || !activeProfile?.id) return;

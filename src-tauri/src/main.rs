@@ -7,6 +7,10 @@
 /// Handles the main workflow.
 fn main() {
     #[cfg(target_os = "windows")]
+    if let Some(code) = baas_tauri_lib::handle_portable_update_helper() {
+        std::process::exit(code);
+    }
+    #[cfg(target_os = "windows")]
     {
         use windows::Win32::UI::HiDpi::SetProcessDpiAwarenessContext;
         use windows::Win32::UI::HiDpi::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;

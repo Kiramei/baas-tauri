@@ -6,6 +6,11 @@ import { cn } from "@/shared/cn";
 import "./select-surface.css";
 
 const SelectOpenContext = React.createContext(false);
+const SelectScrollContext = React.createContext<{
+  viewport: HTMLDivElement | null;
+  up: boolean;
+  down: boolean;
+}>({ viewport: null, up: false, down: false });
 
 /** Renders the select component. */
 function Select({
@@ -80,13 +85,77 @@ function SelectContent({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   const open = React.useContext(SelectOpenContext);
+  const [viewport, setViewport] = React.useState<HTMLDivElement | null>(null);
+  const viewportRef = React.useRef<HTMLDivElement | null>(null);
+  const attachViewport = React.useCallback((node: HTMLDivElement | null) => {
+    viewportRef.current = node;
+    setViewport(node);
+  }, []);
+  const [overflow, setOverflow] = React.useState({ up: false, down: false });
+  const pointerType = React.useRef("mouse");
+  React.useLayoutEffect(() => {
+    const node = viewportRef.current;
+    if (!open || !node) {
+      setOverflow({ up: false, down: false });
+      return;
+    }
+    let interacted = false;
+    const rememberInteraction = () => {
+      interacted = true;
+    };
+    const update = () => {
+      // Popper can constrain the height after Radix focuses the selected item.
+      // Finish that initial alignment, then leave every user pan untouched.
+      const selected = node.querySelector<HTMLElement>(
+        "[data-state='checked'][data-slot='select-item']"
+      );
+      if (!interacted && selected && selected === document.activeElement) {
+        const inset =
+          parseFloat(getComputedStyle(node).getPropertyValue("--select-scroll-indicator-height")) ||
+          0;
+        if (selected.offsetTop < node.scrollTop + inset) {
+          node.scrollTop = Math.max(0, selected.offsetTop - inset);
+        } else if (
+          selected.offsetTop + selected.offsetHeight >
+          node.scrollTop + node.clientHeight - inset
+        ) {
+          node.scrollTop = selected.offsetTop + selected.offsetHeight - node.clientHeight + inset;
+        }
+      }
+      const up = node.scrollTop > 1;
+      const down = node.scrollHeight - node.clientHeight - node.scrollTop > 1;
+      setOverflow((previous) =>
+        previous.up === up && previous.down === down ? previous : { up, down }
+      );
+    };
+    update();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    observer?.observe(node);
+    const items = node.querySelector("[data-slot='select-items']");
+    if (items) observer?.observe(items);
+    node.addEventListener("scroll", update, { passive: true });
+    node.addEventListener("focusin", update);
+    node.addEventListener("pointerdown", rememberInteraction, { capture: true, passive: true });
+    node.addEventListener("wheel", rememberInteraction, { passive: true });
+    node.addEventListener("keydown", rememberInteraction, { capture: true });
+    return () => {
+      observer?.disconnect();
+      node.removeEventListener("scroll", update);
+      node.removeEventListener("focusin", update);
+      node.removeEventListener("pointerdown", rememberInteraction, true);
+      node.removeEventListener("wheel", rememberInteraction);
+      node.removeEventListener("keydown", rememberInteraction, true);
+    };
+  }, [open, viewport]);
+
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         data-slot="select-content"
+        data-android-select={__WITH_ANDROID__ ? "" : undefined}
         data-native-preview-blocker={__WITH_ANDROID__ && open ? "" : undefined}
         className={cn(
-          "select-surface text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-100 relative z-[1300] max-h-(--radix-select-content-available-height) max-w-[min(calc(100vw-24px),var(--radix-select-content-available-width))] min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto border-none",
+          "select-surface text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-100 relative z-[1300] max-h-(--radix-select-content-available-height) max-w-[min(calc(100vw-24px),var(--radix-select-content-available-width))] min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-hidden border-none",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
           className
@@ -107,17 +176,43 @@ function SelectContent({
             : {}),
         }}
       >
-        <SelectScrollUpButton />
-        <SelectPrimitive.Viewport
-          className={cn(
-            "min-w-0 p-[6px]",
-            position === "popper" &&
-              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
-          )}
-        >
-          {children}
-        </SelectPrimitive.Viewport>
-        <SelectScrollDownButton />
+        <SelectScrollContext.Provider value={{ viewport, ...overflow }}>
+          <SelectPrimitive.Viewport
+            ref={attachViewport}
+            data-slot="select-viewport"
+            onPointerDownCapture={(event) => {
+              pointerType.current = event.pointerType;
+            }}
+            onClickCapture={(event) => {
+              if (pointerType.current === "mouse" || event.detail === 0) return;
+              // Touch pans pass through hints without selecting an obscured row.
+              const node = event.currentTarget;
+              const bounds = node.getBoundingClientRect();
+              const inset =
+                (parseFloat(
+                  getComputedStyle(node).getPropertyValue("--select-scroll-indicator-height")
+                ) *
+                  bounds.height) /
+                node.clientHeight;
+              if (
+                (overflow.up && event.clientY < bounds.top + inset) ||
+                (overflow.down && event.clientY > bounds.bottom - inset)
+              ) {
+                event.preventDefault();
+                event.stopPropagation();
+              }
+            }}
+            className={cn(
+              "min-h-0 min-w-0 p-[6px]",
+              position === "popper" &&
+                "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
+            )}
+          >
+            <SelectScrollUpButton />
+            <div data-slot="select-items">{children}</div>
+            <SelectScrollDownButton />
+          </SelectPrimitive.Viewport>
+        </SelectScrollContext.Provider>
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   );
@@ -178,40 +273,82 @@ function SelectSeparator({
   );
 }
 
-/** Renders the select scroll up button component. */
-function SelectScrollUpButton({
+/** Overflow hints never resize the viewport or refocus an item during a touch pan. */
+function SelectScrollButton({
+  direction,
   className,
   style,
+  onPointerDown,
+  onPointerMove,
+  onPointerLeave,
+  onPointerCancel,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.ScrollUpButton>) {
+}: React.ComponentProps<"div"> & { direction: "up" | "down" }) {
+  const scroll = React.useContext(SelectScrollContext);
+  const timer = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const visible = scroll[direction];
+  const stop = React.useCallback(() => {
+    if (timer.current !== null) clearInterval(timer.current);
+    timer.current = null;
+  }, []);
+  React.useEffect(() => stop, [stop, scroll.viewport, visible]);
+  const start = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || event.pointerType !== "mouse" || !scroll.viewport) return;
+    const viewport = scroll.viewport;
+    viewport.closest<HTMLElement>("[data-slot='select-content']")?.focus({ preventScroll: true });
+    if (timer.current !== null) return;
+    timer.current = setInterval(() => {
+      const row = viewport.querySelector<HTMLElement>("[data-slot='select-item']");
+      viewport.scrollTop += (direction === "up" ? -1 : 1) * (row?.offsetHeight || 28);
+    }, 50);
+  };
+  if (!visible) return null;
   return (
-    <SelectPrimitive.ScrollUpButton
-      data-slot="select-scroll-up-button"
-      className={cn("flex cursor-default items-center justify-center py-1", className)}
-      {...props}
-      style={{ ...style, ...(__WITH_ANDROID__ ? { minHeight: 44 } : {}) }}
-    >
-      <ChevronUpIcon className="size-4" />
-    </SelectPrimitive.ScrollUpButton>
+    <div className={`select-surface-scroll-anchor select-surface-scroll-anchor-${direction}`}>
+      <div
+        {...props}
+        data-slot={`select-scroll-${direction}-button`}
+        aria-hidden="true"
+        className={cn(
+          `select-surface-scroll-indicator select-surface-scroll-${direction} flex cursor-default items-center justify-center py-1`,
+          className
+        )}
+        style={{ ...style, ...(__WITH_ANDROID__ ? { minHeight: 44 } : {}) }}
+        onPointerDown={(event) => {
+          onPointerDown?.(event);
+          start(event);
+        }}
+        onPointerMove={(event) => {
+          onPointerMove?.(event);
+          start(event);
+        }}
+        onPointerLeave={(event) => {
+          onPointerLeave?.(event);
+          stop();
+        }}
+        onPointerCancel={(event) => {
+          onPointerCancel?.(event);
+          stop();
+        }}
+      >
+        {direction === "up" ? (
+          <ChevronUpIcon className="size-4" />
+        ) : (
+          <ChevronDownIcon className="size-4" />
+        )}
+      </div>
+    </div>
   );
 }
 
+/** Renders the upper overflow indicator. */
+function SelectScrollUpButton(props: React.ComponentProps<"div">) {
+  return <SelectScrollButton {...props} direction="up" />;
+}
+
 /** Renders the select scroll down button component. */
-function SelectScrollDownButton({
-  className,
-  style,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.ScrollDownButton>) {
-  return (
-    <SelectPrimitive.ScrollDownButton
-      data-slot="select-scroll-down-button"
-      className={cn("flex cursor-default items-center justify-center py-1", className)}
-      {...props}
-      style={{ ...style, ...(__WITH_ANDROID__ ? { minHeight: 44 } : {}) }}
-    >
-      <ChevronDownIcon className="size-4" />
-    </SelectPrimitive.ScrollDownButton>
-  );
+function SelectScrollDownButton(props: React.ComponentProps<"div">) {
+  return <SelectScrollButton {...props} direction="down" />;
 }
 
 export {

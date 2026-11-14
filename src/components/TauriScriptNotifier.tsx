@@ -1,110 +1,69 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { invoke } from "@/shared/TauriInvoke";
-
 import { useUISetting } from "@/context/UISettingsProvider";
 import { eventNameKey } from "@/shared/I18nKeys";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import {
-  createStatusSnapshot,
-  type ScriptStatus,
-  type StatusSnapshot,
-} from "@/components/tauriScriptNotifierState";
+import { ScriptNotificationTracker } from "@/components/tauriScriptNotifierState";
+import { subscribeScriptStatus } from "@/shared/ScriptStatusEvents";
+import { createSystemNotificationDelivery } from "@/shared/SystemNotificationDelivery";
 
-/** Treats any non-zero numeric exit code or opaque non-empty exit marker as a failure. */
-const isFailureExitCode = (exitCode: number | string | null | undefined) => {
-  if (exitCode === null || exitCode === undefined || exitCode === "") return false;
-  const numeric = Number(exitCode);
-  return Number.isFinite(numeric) ? numeric !== 0 : true;
-};
-
-/** Emits native system notifications for Tauri-only script lifecycle events. */
+/** Snapshots seed the observer; only new provider events may notify in the background. */
 const TauriScriptNotifier: React.FC = () => {
   const { t } = useTranslation();
   const notificationsEnabled = useUISetting((settings) => settings.enableSystemNotifications);
-  const statusStore = useWebSocketStore((state) => state.statusStore);
-  const previousRef = useRef<Record<string, StatusSnapshot>>({});
-  const initializedRef = useRef(false);
-
-  const notify = useCallback(
-    (title: string, body: string, tag: string) => {
-      if (!notificationsEnabled) return;
-      void invoke("baas_notify", {
-        payload: { title, body, tag },
-      }).catch((error) => {
-        console.warn("[notifier] failed to send system notification", error);
-      });
-    },
-    [notificationsEnabled]
-  );
+  const enabled = useRef(notificationsEnabled);
+  const translate = useRef(t);
+  useEffect(() => {
+    enabled.current = notificationsEnabled;
+    translate.current = t;
+  }, [notificationsEnabled, t]);
 
   useEffect(() => {
     if (!__WITH_TAURI__) return;
-
-    const nextSnapshots: Record<string, StatusSnapshot> = {};
-
-    for (const [configId, status] of Object.entries(statusStore as Record<string, ScriptStatus>)) {
-      const previous = previousRef.current[configId];
-      const next = createStatusSnapshot(status, previous);
-      if (!next) continue;
-      const currentTask = next.currentTask;
-      nextSnapshots[configId] = next;
-
-      if (!initializedRef.current || !previous) {
-        continue;
+    const tracker = new ScriptNotificationTracker();
+    const dispatcher = createSystemNotificationDelivery(
+      () => enabled.current,
+      (latest, count) => {
+        const t = translate.current;
+        return t("notification.script.batchBody", { latest, count });
       }
-
-      const schedulerMode = next.runMode === "scheduler";
-      const runStarted = !previous.running && next.running;
-      const runStopped = previous.running && !next.running;
-      const completedTask = previous.currentTask && !currentTask ? previous.currentTask : null;
-      const schedulerCompleted = Boolean(
-        schedulerMode &&
-        next.running &&
-        previous.currentTask &&
-        !currentTask &&
-        (status.waiting_tasks?.length ?? 0) === 0
-      );
-      const failed = previous.running && !next.running && isFailureExitCode(next.exitCode);
-      const stoppedTask = schedulerMode
-        ? t("nav.scheduler")
-        : (previous.currentTask ?? previous.lastTask);
-
-      if (failed && stoppedTask) {
-        const task = schedulerMode ? stoppedTask : t(eventNameKey(stoppedTask));
-        notify(
-          t("notification.script.failedTitle"),
-          t("notification.script.failedBody", { task, exitCode: next.exitCode }),
-          `script:${configId}:failed:${stoppedTask}:${next.exitCode}`
-        );
-      } else if (schedulerCompleted || (!schedulerMode && runStopped && completedTask)) {
-        const task = schedulerMode ? t("nav.scheduler") : t(eventNameKey(completedTask as string));
-        notify(
-          t("notification.script.completedTitle"),
-          t("notification.script.completedBody", { task }),
-          `script:${configId}:completed:${schedulerMode ? "scheduler" : completedTask}`
-        );
-      }
-
-      const startedTask = schedulerMode
-        ? runStarted
+    );
+    const unsubscribe = subscribeScriptStatus((delivery) => {
+      const t = translate.current;
+      if (delivery.kind === "reset") dispatcher.clear();
+      for (const event of tracker.accept(delivery)) {
+        const task = event.scheduler
           ? t("nav.scheduler")
-          : null
-        : currentTask && currentTask !== previous.currentTask
-          ? t(eventNameKey(currentTask))
-          : null;
-      if (startedTask) {
-        notify(
-          t("notification.script.startedTitle"),
-          t("notification.script.startedBody", { task: startedTask }),
-          `script:${configId}:started:${schedulerMode ? "scheduler" : currentTask}`
-        );
+          : event.task
+            ? t(eventNameKey(event.task))
+            : (useWebSocketStore.getState().configStore[event.configId]?.name ?? event.configId);
+        const title =
+          event.kind === "failed"
+            ? t("notification.script.failedTitle")
+            : event.kind === "completed"
+              ? t("notification.script.completedTitle")
+              : t("notification.script.startedTitle");
+        const body =
+          event.kind === "failed"
+            ? t("notification.script.failedBody", { task, exitCode: event.exitCode })
+            : event.kind === "completed"
+              ? t("notification.script.completedBody", { task })
+              : t("notification.script.startedBody", { task });
+        void dispatcher.enqueue({
+          key: event.key,
+          group: `script:${event.kind}`,
+          runKey: event.key.slice(0, event.key.lastIndexOf(":")),
+          terminal: event.kind !== "started",
+          failure: event.kind === "failed",
+          payload: { title, body, tag: event.tag },
+        });
       }
-    }
-
-    previousRef.current = nextSnapshots;
-    initializedRef.current = true;
-  }, [notify, statusStore, t]);
+    });
+    return () => {
+      unsubscribe();
+      dispatcher.clear();
+    };
+  }, []);
 
   return null;
 };

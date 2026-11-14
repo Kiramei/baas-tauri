@@ -275,7 +275,7 @@ export class Workspace {
     });
   }
 
-  async installLocal(channel: "stable" | "dev" = "dev"): Promise<void> {
+  async installLocal(channel?: "stable" | "dev"): Promise<void> {
     await this.operation("正在安装运行环境", async (signal) => {
       if (this.state.readOnly) throw new Error("当前为只读模式，不能安装运行环境");
       if (this.state.demo) throw new Error("演示环境不安装真实后端");
@@ -284,15 +284,16 @@ export class Workspace {
           {
             kind: "text",
             title: "安装目录",
-            initial: join(this.directory, "runtime"),
+            initial: await this.runtime.getConfigRoot(),
             detail: "自动安装 Python、后端与运行依赖",
           },
           signal
         )
       ).trim();
       if (!root) throw new Error("安装目录不能为空");
+      const target = channel ? `${root}\n${channel}` : root;
       if (this.state.dryRun) {
-        this.activity("安装运行环境 · 预演", `${root}\n${channel}`, "info");
+        this.activity("安装运行环境 · 预演", target, "info");
         return;
       }
       if (
@@ -300,7 +301,7 @@ export class Workspace {
           {
             kind: "confirm",
             title: "开始安装",
-            detail: `${root}\n${channel}\n自动安装 Python、后端与运行依赖`,
+            detail: `${target}\n自动安装 Python、后端与运行依赖`,
           },
           signal
         )) !== true

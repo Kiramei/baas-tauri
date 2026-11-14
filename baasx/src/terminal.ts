@@ -191,7 +191,9 @@ export function terminalSession(
   stdout: NodeJS.WriteStream,
   mouse: MouseBus
 ) {
-  const input = new PassThrough() as PassThrough & {
+  // Ink reads one key event per read(). Preserve source chunks when a slow render
+  // leaves text and a following Enter buffered together.
+  const input = new PassThrough({ objectMode: true }) as PassThrough & {
     isTTY: boolean;
     setRawMode(mode: boolean): void;
     ref(): void;
@@ -216,7 +218,8 @@ export function terminalSession(
     const result = decoder.feed(String(chunk));
     if (result) {
       mouse.cancelCapture();
-      input.write(result);
+      // Some PTYs deliver an isolated Enter as LF or CRLF. Preserve multiline paste.
+      input.write(result === "\n" || result === "\r\n" ? "\r" : result);
     }
     // A lone Esc remains an ordinary key; incomplete mouse reports stay bounded to 64 bytes.
     timer = setTimeout(() => {

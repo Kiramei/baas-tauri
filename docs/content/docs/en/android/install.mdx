@@ -4,7 +4,7 @@ title: Install and Prepare
 
 Download a trusted Android build from the project's [Releases](https://github.com/Kiramei/baas-tauri/releases). Match the device's real architecture, not only the game's architecture. Allow installation from the chosen browser/file manager if Android asks. The APK declares a minimum of Android 7.0/API 24; native game capture requires Android 8.0/API 26 or newer. Meeting these versions still requires checking the device's privileged-display support.
 
-Keep network access available on first launch. The startup page exposes five stages:
+Keep network access available on first launch. Confirm **Stable** to install the upstream BAAS backend, or select **Development** to use `Kiramei/baas-dev`. Later backend updates follow the channel saved in Preferences. The startup page keeps preparation, resource verification and update progress visible before Home opens:
 
 | Stage                         | What happens                                                                       |
 | ----------------------------- | ---------------------------------------------------------------------------------- |
@@ -12,8 +12,13 @@ Keep network access available on first launch. The startup page exposes five sta
 | Runtime installation          | Check embedded Python, download/install the backend and apply Android adapters     |
 | Local service                 | Start Python in the dedicated backend service process                              |
 | Connection verification       | Establish the authenticated encrypted client/backend session                       |
-| Configuration synchronization | Load profiles and tasks; OCR initialization can continue in the background         |
+| OCR runtime and models        | Start the required native OCR runtime and verify recognition models before Home opens |
+| Script resources              | Validate static configuration, RGB catalogs and image resources                    |
+| Configuration synchronization | Finish authenticated profile/task synchronization                                 |
+| Backend update check          | Follow the selected channel and update policy; prepare a restarted backend before restoring scheduler state |
 
-Expand a stage to inspect its stdout/stderr terminal. A preparing indicator is not a completed installation. Preserve the full error output before retrying. Do not force-close during download, extraction or an update.
+Expand a stage to inspect its stdout/stderr terminal. A preparing indicator is not a completed installation. Home remains blocked until the current backend confirms its required resources are ready; failures stay on this page with logs and retry controls. Preserve the full error output before retrying. Do not force-close during download, extraction or an update.
+
+If the version check fails on the network, or startup is waiting for a long-running script, **Continue with verified local resources** is available only while local resources are verified and no backend files have been changed. This is an explicit choice. Once applying an update or restarting has failed, retry preparation; that shortcut cannot bypass recovery. OCR/resource preparation can take up to ten minutes, and post-update readiness has a separate fifteen-minute deadline. APK checks at startup and on the periodic timer are quiet; installing an APK still needs system confirmation.
 
 Ordinary runtime/profile data lives in app-private storage; granting broad shared-storage access is not the general fix for startup. Uninstalling/clearing app data can remove that runtime and profiles, so export needed profiles first.

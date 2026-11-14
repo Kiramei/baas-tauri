@@ -1,0 +1,88 @@
+name: mirrorchyan_release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published BAAS Tauri client release tag
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+    secrets:
+      MirrorChyanUploadToken:
+        required: true
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: mirrorchyan-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ github.repository_owner == 'Kiramei' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      client: ${{ steps.release.outputs.client }}
+      tag: ${{ steps.release.outputs.tag }}
+      channel: ${{ steps.release.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/resolve-mirrorchyan-release
+        id: release
+        with:
+          tag: ${{ inputs.tag }}
+
+  mirrorchyan:
+    needs: [release]
+    if: ${{ github.repository_owner == 'Kiramei' && needs.release.outputs.client == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: win
+            arch: x64
+            filename: BAAS.Tauri_*_x64-setup.exe
+          - os: win
+            arch: arm64
+            filename: BAAS.Tauri_*_arm64-setup.exe
+          - os: macos
+            arch: x64
+            filename: BAAS.Tauri_*_x64.dmg
+          - os: macos
+            arch: arm64
+            filename: BAAS.Tauri_*_aarch64.dmg
+          - os: linux
+            arch: x64
+            filename: BAAS.Tauri_*_amd64.deb
+          - os: linux
+            arch: arm64
+            filename: BAAS.Tauri_*_arm64.deb
+          - os: android
+            arch: arm64
+            filename: BAAS.Tauri_*_android_arm64-v8a.apk
+    steps:
+      - uses: MirrorChyan/uploading-action@v1
+        with:
+          filetype: latest-release
+          filename: ${{ matrix.filename }}
+          mirrorchyan_rid: baas-tauri
+          tag: ${{ needs.release.outputs.tag }}
+          channel: ${{ needs.release.outputs.channel }}
+          os: ${{ matrix.os }}
+          arch: ${{ matrix.arch }}
+          owner: Kiramei
+          repo: baas-tauri
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          upload_token: ${{ secrets.MirrorChyanUploadToken }}

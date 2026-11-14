@@ -7,6 +7,9 @@ import {
   SettingsRow,
   SettingsSelect,
 } from "@/components/settings/SettingsControls";
+import { MirrorCdkField } from "@/components/settings/MirrorCdkField";
+import { ReloadSettingsRow } from "@/components/settings/ReloadSettingsRow";
+import { useMirrorCdkSource } from "@/shared/useMirrorCdkSource";
 import { VersionOverview } from "@/components/settings/VersionOverview";
 import { CommitHistorySettings } from "@/components/settings/CommitHistory";
 import { ShaDiagnostics, type ShaDiagnosticResult } from "@/components/settings/ShaDiagnostics";
@@ -23,18 +26,15 @@ import { FormInput } from "@/components/ui/FormInput.tsx";
 import CButton from "@/components/ui/CButton.tsx";
 import { IconTooltip } from "@/components/ui/Tooltip";
 import { toast } from "sonner";
-import { ImagePlus, Loader2, Palette, RotateCcw, Trash2, UserSearch } from "lucide-react";
+import { ImagePlus, Palette, RotateCcw, Trash2 } from "lucide-react";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { supportsSharedMemory } from "@/transport/factory";
-import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
-import { resolveClientVersion } from "@/shared/ClientVersion";
+import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { loadLocale } from "@/shared/I18nTranslator.ts";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
-import { i18nKey, mirrorcMessageKey, shaMethodKey, updateMethodKey } from "@/shared/I18nKeys";
+import { i18nKey, shaMethodKey, updateMethodKey } from "@/shared/I18nKeys";
 import type { TranslationKey } from "@/types/i18n";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
-import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
-import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgressModal";
 import { DEFAULT_THEME_COLOR, HEX_COLOR_RE } from "@/components/GlobalAppearanceEffects";
 import { SystemLogSettings } from "@/components/SystemLogSettings";
 import { ShortcutSettings } from "@/components/settings/ShortcutSettings";
@@ -117,7 +117,6 @@ const reposInit: RepoConfig[] = [
   },
 ];
 
-let hybrid = true;
 const SHA_TEST_TIMEOUT_MS = 10_000;
 const SHA_TEST_TIMEOUT_SECONDS = SHA_TEST_TIMEOUT_MS / 1000;
 const MAX_BACKGROUND_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -197,12 +196,9 @@ const SettingsPage: React.FC = () => {
   const triggerStream = useWebSocketStore((state) => state.triggerStream);
   const updateConfig = useWebSocketStore((state) => state.updateStore);
   const versionStore = useWebSocketStore((state) => state.versionStore);
-  const checkTauriUpdater = useWebSocketStore((state) => state.checkTauriUpdater);
   const modify = useWebSocketStore((state) => state.modify);
   const transportMode = useWebSocketStore((state) => state.transportMode);
   const setTransportMode = useWebSocketStore((state) => state.setTransportMode);
-  const tauriUpdate = useTauriSelfUpdate();
-  const [reposInitState, setReposInitState] = useState(reposInit);
   const [themeColorInput, setThemeColorInput] = useState(
     uiSettings.themeColor || DEFAULT_THEME_COLOR
   );
@@ -353,38 +349,21 @@ const SettingsPage: React.FC = () => {
   const [verRemote, setVerRemote] = useState("");
 
   const [apiLoading, setApiLoading] = useState(false);
-  const [mcLoading, setMcLoading] = useState(false);
   const [versionChecking, setVersionChecking] = useState(false);
 
-  const [updateMethod, setUpdateMethod] = useState<string>(updateConfig["updateMethod"]);
   const [updateChannel, setUpdateChannel] = useState<string>(updateConfig["channel"] ?? "stable");
-  const [dueDate, setDueDate] = useState("");
-  const tauriVersion = versionStore["tauri"] ?? {};
-  const tauriCurrentVersion = resolveClientVersion(tauriVersion.currentVersion);
-  const tauriRemoteVersion = tauriVersion.error
-    ? t("version.checkError")
-    : resolveClientVersion(tauriVersion.version, tauriCurrentVersion);
-  const tauriStatus = tauriVersion.checking
-    ? t("update.tauriChecking")
-    : tauriVersion.error
-      ? t("update.tauriFailed")
-      : tauriVersion.updateAvailable
-        ? t("update.tauriAvailable")
-        : t("update.tauriUpToDate");
-
-  /** Handles the handle tauri version action interaction. */
-  const handleTauriVersionAction = async () => {
-    if (!__WITH_TAURI__) return;
-    if (tauriVersion.updateAvailable) {
-      await tauriUpdate.runUpdate();
-      return;
-    }
-    await checkTauriUpdater(true, true);
-  };
-
-  const [cdk, setCdk] = useState(updateConfig["mirrorcCdk"]);
+  const mirror = useMirrorCdkSource(updateConfig, updateChannel, (method) =>
+    modify("global::setup_toml", { updateMethod: method })
+  );
+  const updateMethod = mirror.method;
+  const reposInitState = mirror.active
+    ? [...reposInit, { label: "updateMethod.mirrorc", method: "mirrorc" }]
+    : reposInit;
+  const shaMethods = shaMethodsInit.filter(
+    (method) => updateChannel === "stable" || method.value !== "mirrorc"
+  );
   const [shaResults, setShaResults] = useState<ShaDiagnosticResult[]>(
-    shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "pending" }))
+    shaMethods.map((m) => ({ method: shaMethodKey(m.value), status: "pending" }))
   );
   const [showShaResults, setShowShaResults] = useState(false);
   const shaTestRunRef = useRef<number | null>(null);
@@ -458,73 +437,7 @@ const SettingsPage: React.FC = () => {
     );
   };
 
-  /** Handles the handle test cdk interaction. */
-  const handleTestCdk = (_: any, showMessage: boolean = true) => {
-    if (!cdk) {
-      if (showMessage) {
-        toast.error(t("mirrorc.cdk.noInput"));
-      }
-    }
-    setMcLoading(true);
-    trigger(
-      {
-        timestamp: getTimestampMs() + Math.random(),
-        command: "valid_cdk",
-        payload: {
-          cdk: cdk,
-          channel: updateChannel,
-        },
-      },
-      (e) => {
-        if (e.data.success) {
-          const expires_at_iso = e.data.expires_at_iso;
-          console.log(expires_at_iso);
-          const message = expires_at_iso
-            ? (t(mirrorcMessageKey(e.data.message), {
-                expire_date: formatIsoToReadable(expires_at_iso),
-              }) as string)
-            : t(mirrorcMessageKey(e.data.message));
-          if (showMessage) toast.success(t("mirrorc.cdk.testOk"), { description: message });
-          setDueDate(expires_at_iso);
-          modify("global::setup_toml", { mirrorcCdk: cdk }, false);
-        } else {
-          if (cdk !== "" && showMessage) {
-            toast.error(t(mirrorcMessageKey(e.data.message)), {
-              description: t(mirrorcMessageKey(e.data.mirrorc_message)),
-            });
-          }
-          setCdk("");
-          setDueDate("");
-          modify("global::setup_toml", { mirrorcCdk: "" }, false);
-        }
-        setMcLoading(false);
-      }
-    );
-  };
-
   useEffect(() => {
-    if (hybrid) {
-      hybrid = false;
-      if (cdk) {
-        handleTestCdk(undefined);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (updateConfig["mirrorcCdk"]) {
-      setReposInitState([
-        ...reposInit,
-        {
-          label: "updateMethod.mirrorc",
-          method: "mirrorc",
-        },
-      ]);
-      setUpdateMethod("mirrorc");
-    } else {
-      setUpdateMethod(updateConfig["updateMethod"]);
-      setReposInitState(reposInit.filter((ele) => ele.method !== "mirrorc"));
-    }
     setUpdateChannel(updateConfig["channel"] ?? "stable");
   }, [updateConfig]);
 
@@ -568,9 +481,7 @@ const SettingsPage: React.FC = () => {
       clearTimeout(shaTestTimeoutRef.current);
     }
     setApiLoading(true);
-    setShaResults(
-      shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "testing" }))
-    );
+    setShaResults(shaMethods.map((m) => ({ method: shaMethodKey(m.value), status: "testing" })));
     shaTestTimeoutRef.current = setTimeout(() => {
       if (shaTestRunRef.current !== timestamp) return;
       shaTestRunRef.current = null;
@@ -609,7 +520,7 @@ const SettingsPage: React.FC = () => {
       };
       try {
         await Promise.allSettled(
-          shaMethodsInit.map(async (method) => {
+          shaMethods.map(async (method) => {
             try {
               const result = await invoke<TauriShaMethodReport>("updater_test_sha_method", {
                 request: {
@@ -692,26 +603,16 @@ const SettingsPage: React.FC = () => {
     );
   };
 
-  /** Handles the handle update method interaction. */
-  const handleUpdateMethod = (value: string) => {
-    if (value === "mirrorc") {
-      modify("global::setup_toml", { updateMethod: value });
-      setUpdateMethod(value);
-      return;
-    } else if (value !== "mirrorc" && updateConfig["mirrorcCdk"]) {
-      setCdk("");
-      setDueDate("");
-    }
-    modify("global::setup_toml", { mirrorcCdk: "" }, false);
-    modify("global::setup_toml", { updateMethod: value });
-    setUpdateMethod(value);
-  };
-
   /** Handles the handle update channel interaction. */
   const handleUpdateChannel = (value: string) => {
     const channel = value === "dev" ? "dev" : "stable";
     setUpdateChannel(channel);
-    modify("global::setup_toml", { channel });
+    modify("global::setup_toml", {
+      channel,
+      ...(channel === "dev" && updateConfig["shaMethod"] === "mirrorc"
+        ? { shaMethod: "github" }
+        : {}),
+    });
   };
 
   /** Persists and activates the selected desktop backend transport. */
@@ -773,6 +674,7 @@ const SettingsPage: React.FC = () => {
                         setUiSettings((state) => ({ ...state, lowPerformanceMode: value }))
                       }
                     />
+                    <ReloadSettingsRow />
                   </SettingsGroup>
                   <PluginSettingsEntry />
                   {__WITH_WEBUI__ && <KeyResetSettings />}
@@ -994,6 +896,13 @@ const SettingsPage: React.FC = () => {
                       }
                     />
                     <SettingsToggle
+                      label={t("settings.ui.enableBACursors")}
+                      checked={uiSettings.enableBACursors ?? true}
+                      onChange={(value) =>
+                        setUiSettings((state) => ({ ...state, enableBACursors: value }))
+                      }
+                    />
+                    <SettingsToggle
                       label={t("settings.ui.enableBAComet")}
                       checked={uiSettings.enableBAComet}
                       onChange={(value) =>
@@ -1058,18 +967,6 @@ const SettingsPage: React.FC = () => {
                       checkLabel: t(i18nKey(updateStatus)),
                       onCheck: fetchVersion,
                     }}
-                    client={
-                      __WITH_TAURI__
-                        ? {
-                            current: tauriCurrentVersion,
-                            latest: tauriRemoteVersion,
-                            status: tauriStatus,
-                            busy: Boolean(tauriVersion.checking || tauriUpdate.updating),
-                            updateAvailable: Boolean(tauriVersion.updateAvailable),
-                            onAction: handleTauriVersionAction,
-                          }
-                        : undefined
-                    }
                   />
                   <CommitHistorySettings channel={updateChannel} />
                   <SettingsGroup title={t("update.settingsTitle")}>
@@ -1084,51 +981,21 @@ const SettingsPage: React.FC = () => {
                       />
                     )}
                     <div className="settings-update-form">
-                      <div className="grid grid-cols-1 gap-1">
-                        <div className="grid sm:flex gap-2 items-center">
-                          <FormInput
-                            label={t("update.mirrorCdk")}
-                            placeholder={t("update.enterCdk")}
-                            value={cdk}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                handleTestCdk(undefined);
-                              }
-                            }}
-                            onChange={(e) => setCdk(e.target.value)}
-                            className="flex-1"
-                          />
-
-                          <CButton
-                            onClick={handleTestCdk}
-                            disabled={mcLoading}
-                            className="pl-3 self-end"
-                          >
-                            {mcLoading ? (
-                              <div className="flex justify-center items-center">
-                                <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                                {t("mirror.verifying")}
-                              </div>
-                            ) : (
-                              <div className="flex justify-center items-center">
-                                <UserSearch className="mr-1 h-4 w-4" />
-                                {t("mirror.verify")}
-                              </div>
-                            )}
-                          </CButton>
-                        </div>
-                        {dueDate !== "" ? (
-                          <div className="text-sm text-muted-foreground">
-                            {t("update.dueDate")}: {formatIsoToReadable(dueDate)}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-muted-foreground">&nbsp;</div>
-                        )}
-                      </div>
+                      {__WITH_TAURI__ && updateChannel === "stable" && (
+                        <MirrorCdkField
+                          label={t("update.mirrorCdk")}
+                          channel={updateChannel}
+                          configured={mirror.configured}
+                          disabled={mirror.disabled}
+                          onChange={mirror.changeKey}
+                          onBusy={mirror.setBusy}
+                        />
+                      )}
                       <SettingsSelect
                         label={t("update.method")}
                         value={updateMethod}
-                        onChange={handleUpdateMethod}
+                        onChange={mirror.changeMethod}
+                        disabled={mirror.disabled || (!__WITH_TAURI__ && mirror.active)}
                         options={reposInitState.map((r) => ({
                           value: r.method,
                           label: t(updateMethodKey(r.method)),
@@ -1138,6 +1005,7 @@ const SettingsPage: React.FC = () => {
                         label={t("update.channel")}
                         value={updateChannel}
                         onChange={handleUpdateChannel}
+                        disabled={mirror.disabled}
                         options={[
                           { value: "stable", label: t("updateChannel.stable") },
                           { value: "dev", label: t("updateChannel.dev") },
@@ -1147,15 +1015,22 @@ const SettingsPage: React.FC = () => {
                   </SettingsGroup>
                   <SettingsGroup title={t("update.shaConnectivityTest")}>
                     <ShaDiagnostics
-                      value={updateConfig["shaMethod"]}
+                      value={
+                        updateChannel === "dev" && updateConfig["shaMethod"] === "mirrorc"
+                          ? "github"
+                          : updateConfig["shaMethod"]
+                      }
                       onChange={(value) => modify("global::setup_toml", { shaMethod: value })}
-                      options={shaMethodsInit.map((method) => ({
+                      options={shaMethods.map((method) => ({
                         value: method.value,
                         label: t(shaMethodKey(method.value)),
                       }))}
                       loading={apiLoading}
                       onTest={handleTestSha}
-                      results={shaResults}
+                      results={shaResults.filter(
+                        (result) =>
+                          updateChannel === "stable" || result.method !== "shaMethod.mirrorc"
+                      )}
                       expanded={showShaResults}
                       onExpandedChange={setShowShaResults}
                     />
@@ -1185,15 +1060,6 @@ const SettingsPage: React.FC = () => {
           </section>
         ))}
       </div>
-      {__WITH_TAURI__ && (
-        <TauriUpdateProgressModal
-          open={tauriUpdate.progressOpen}
-          onClose={() => tauriUpdate.setProgressOpen(false)}
-          updating={tauriUpdate.updating}
-          tauriProgress={tauriUpdate.progress}
-          tauriStatus={tauriUpdate.status}
-        />
-      )}
     </div>
   );
 };

@@ -5,6 +5,7 @@ import {
   listPublishedReleases,
   releaseFeedVersion,
   selectPublishedReleases,
+  signedReleasePlatforms,
 } from "./release-feed.mjs";
 
 // Add stable update JSON filenames
@@ -46,107 +47,8 @@ async function processRelease(github, options, release, isAlpha) {
         resolveUpdateLogDefault().catch(() => "No changelog available")
       ),
       pub_date: release.published_at ?? new Date().toISOString(),
-      platforms: {
-        win64: { signature: "", url: "" }, // compatible with older formats
-        linux: { signature: "", url: "" }, // compatible with older formats
-        darwin: { signature: "", url: "" }, // compatible with older formats
-        "darwin-aarch64": { signature: "", url: "" },
-        "darwin-intel": { signature: "", url: "" },
-        "darwin-x86_64": { signature: "", url: "" },
-        "linux-x86_64": { signature: "", url: "" },
-        "linux-aarch64": { signature: "", url: "" },
-        "linux-armv7": { signature: "", url: "" },
-        "windows-x86_64": { signature: "", url: "" },
-        "windows-aarch64": { signature: "", url: "" },
-        "windows-x86": { signature: "", url: "" },
-        "windows-i686": { signature: "", url: "" },
-      },
+      platforms: await signedReleasePlatforms(release),
     };
-
-    const promises = release.assets.map(async (asset) => {
-      const { name, browser_download_url } = asset;
-
-      // Process all the platform URL and signature data
-      // win64 url
-      if (name.endsWith("x64-setup.exe")) {
-        updateData.platforms.win64.url = browser_download_url;
-        updateData.platforms["windows-x86_64"].url = browser_download_url;
-      }
-      // win64 signature
-      if (name.endsWith("x64-setup.exe.sig")) {
-        const sig = await getSignature(browser_download_url);
-        updateData.platforms.win64.signature = sig;
-        updateData.platforms["windows-x86_64"].signature = sig;
-      }
-
-      // win32 url
-      if (name.endsWith("x86-setup.exe")) {
-        updateData.platforms["windows-x86"].url = browser_download_url;
-        updateData.platforms["windows-i686"].url = browser_download_url;
-      }
-      // win32 signature
-      if (name.endsWith("x86-setup.exe.sig")) {
-        const sig = await getSignature(browser_download_url);
-        updateData.platforms["windows-x86"].signature = sig;
-        updateData.platforms["windows-i686"].signature = sig;
-      }
-
-      // win arm url
-      if (name.endsWith("arm64-setup.exe")) {
-        updateData.platforms["windows-aarch64"].url = browser_download_url;
-      }
-      // win arm signature
-      if (name.endsWith("arm64-setup.exe.sig")) {
-        updateData.platforms["windows-aarch64"].signature =
-          await getSignature(browser_download_url);
-      }
-
-      // darwin url (intel)
-      if (name.endsWith(".app.tar.gz") && !name.includes("aarch")) {
-        updateData.platforms.darwin.url = browser_download_url;
-        updateData.platforms["darwin-intel"].url = browser_download_url;
-        updateData.platforms["darwin-x86_64"].url = browser_download_url;
-      }
-      // darwin signature (intel)
-      if (name.endsWith(".app.tar.gz.sig") && !name.includes("aarch")) {
-        const sig = await getSignature(browser_download_url);
-        updateData.platforms.darwin.signature = sig;
-        updateData.platforms["darwin-intel"].signature = sig;
-        updateData.platforms["darwin-x86_64"].signature = sig;
-      }
-
-      // darwin url (aarch)
-      if (name.endsWith("aarch64.app.tar.gz")) {
-        updateData.platforms["darwin-aarch64"].url = browser_download_url;
-        // Get linux informed of updates
-        updateData.platforms.linux.url = browser_download_url;
-        updateData.platforms["linux-x86_64"].url = browser_download_url;
-        updateData.platforms["linux-aarch64"].url = browser_download_url;
-        updateData.platforms["linux-armv7"].url = browser_download_url;
-      }
-      // darwin signature (aarch)
-      if (name.endsWith("aarch64.app.tar.gz.sig")) {
-        const sig = await getSignature(browser_download_url);
-        updateData.platforms["darwin-aarch64"].signature = sig;
-        // Get linux informed of updates
-        updateData.platforms.linux.signature = sig;
-        updateData.platforms["linux-x86_64"].signature = sig;
-        updateData.platforms["linux-aarch64"].signature = sig;
-        updateData.platforms["linux-armv7"].signature = sig;
-      }
-    });
-
-    await Promise.allSettled(promises);
-    console.log(updateData);
-
-    // maybe should test the signature as well
-    // delete the null field
-    Object.entries(updateData.platforms).forEach(([key, value]) => {
-      if (!value.url) {
-        console.log(`[Error]: failed to parse release for "${key}"`);
-        delete updateData.platforms[key];
-      }
-    });
 
     // Generate a proxy update file for accelerated GitHub resources
     const updateDataNew = JSON.parse(JSON.stringify(updateData));
@@ -270,16 +172,6 @@ async function processRelease(github, options, release, isAlpha) {
       throw error;
     }
   }
-}
-
-// get the signature file content
-async function getSignature(url) {
-  const response = await fetch(url, {
-    method: "GET",
-    headers: { "Content-Type": "application/octet-stream" },
-  });
-
-  return response.text();
 }
 
 resolveUpdater().catch((error) => {

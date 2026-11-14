@@ -27,6 +27,8 @@ node docs/scripts/check-static-links.mjs
 
 Browser checks require Playwright. Set `PLAYWRIGHT_MODULE` when it is installed outside the repository. `.github/workflows/docs-validation.yml` contains the Linux static-export checks and their browser setup. Run affected source-bound checks after rebuilding; do not substitute edited hashes for a browser run.
 
+The documentation workflow can be run manually with `full`, `site`, or `readme` mode. The site mode builds the export and runs the browser and documentation-contract checks; the readme mode checks Markdown diffs and README links without a site build. Pull requests invoke these checks only for documentation changes. A source-only change therefore does not automatically recheck source-bound documentation contracts: run the site mode when a source change may affect examples, screenshots, or documented behavior. GitHub Pages deploys after changes to site inputs on `main`, or by manual dispatch.
+
 After changing the BAASX tutorials, run `node docs/scripts/check-baasx.mjs` against the static export. It checks all four terminal scenarios in both languages, themes, and viewport sizes, including typed commands, confirmation, reload, and keyboard focus. Its screenshots and report stay under `.cache/baasx-docs/`. The browser terminal is an offline teaching model; keep its supported operations aligned with `baasx/src` and label simplified behavior explicitly.
 
 ## Content and Media

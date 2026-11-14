@@ -83,8 +83,12 @@ flow:
 5. Compile and sync dependencies with `uv pip`.
 6. Launch the backend when both workflow options and config allow it.
 
-MirrorC is used when `general.mirrorc_cdk` is non-empty. Otherwise the updater
-uses Git. `general.git_backend` selects the Git implementation: `auto` prefers
+A configured MirrorChyan CDK enables full and incremental updates for the stable
+main repository. The development backend and platform-specific OCR prebuilds
+use their configured Git sources. The updater verifies the package SHA-256
+before applying files and preserves local settings and profiles.
+
+`general.git_backend` selects the Git implementation: `auto` prefers
 system `git` and falls back to `git2`, `git_cli` uses only system `git`, and
 `git2` uses Rust `git2`/libgit2 only.
 
@@ -116,13 +120,20 @@ Managed UV is installed under:
 $BAAS_ROOT_PATH/<toolkit_path>/uv
 ```
 
-UV cache is kept under the BAAS root and retained after dependency sync so
-later updates can reuse downloaded and built wheels. Cache cleanup is an
-explicit maintenance action (`uv cache prune` for unused entries, or
-`uv cache clean` to clear everything); accumulated cache uses additional disk
-space. Pass `--cache-dir "$BAAS_ROOT_PATH/<toolkit_path>/uv/cache"` when running
-either command manually so it operates on the updater's cache. When
-`python.runtime_path` is not `default`, managed UV setup and dependency sync are
+After a successful dependency sync, the updater runs `uv cache clean` only on
+`$BAAS_ROOT_PATH/<toolkit_path>/uv/cache`. Requirements cache hits also clean
+older retained artifacts. Failed or cancelled dependency sync does not start
+cleanup, retaining artifacts for diagnosis and retry. The installed `.venv`,
+managed CPython and user configuration remain.
+Managed sync uses hard links (with UV's copy fallback), so removing cache names
+does not remove installed files. Legacy environments still using cache symlinks,
+external cache paths and overlapping Python directories are retained with a
+diagnostic. Cleanup failures are warnings and can be retried on the next start.
+Hard-linked files share disk blocks, so the physical space reclaimed can be less
+than the cache's apparent size. See UV's [cache cleanup](https://docs.astral.sh/uv/concepts/cache/#clearing-the-cache)
+and [link modes](https://docs.astral.sh/uv/reference/settings/#link-mode).
+Android uses embedded Python and has no UV cache. When `python.runtime_path` is
+not `default`, managed UV setup and dependency sync are
 skipped, and launch commands use the configured interpreter directly.
 
 ## Tauri Adapter

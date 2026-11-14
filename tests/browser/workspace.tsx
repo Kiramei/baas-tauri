@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Toaster } from "../../src/components/ui/Sonner";
+import ConfigArchiveDropOverlay from "../../src/components/ConfigArchiveDropOverlay";
 import { Main as DesktopMain } from "../../src/App";
 import { Main as AndroidMain, useAndroidViewport } from "../../src/android/App";
 import { AppProvider } from "../../src/context/AppContext";
@@ -14,6 +15,7 @@ import { NavigationHistoryProvider } from "../../src/context/NavigationHistoryPr
 import { TauriSelfUpdateProvider } from "../../src/context/TauriSelfUpdateProvider";
 import { TauriShortcutProvider } from "../../src/context/TauriShortcutProvider";
 import GlobalAppearanceEffects from "../../src/components/GlobalAppearanceEffects";
+import GlobalContextMenu from "../../src/components/GlobalContextMenu";
 import TitlebarMenus from "../../src/components/layout/TitlebarMenus";
 import LanguageSelect from "../../src/components/LanguageSelect";
 import i18n, { initI18n, loadLocale } from "../../src/shared/I18nTranslator";
@@ -21,7 +23,10 @@ import { SERVER_VALUES } from "../../src/shared/serverOptions";
 import { recordFrontendSystemLog } from "../../src/shared/SystemLogService";
 import { useWebSocketStore } from "../../src/store/WebsocketStore";
 import type { EventConfig } from "../../src/types/event";
-import type { PageKey } from "../../src/types/app";
+import type { PageKey, StatusItem } from "../../src/types/app";
+import { mergeExecutionStatus } from "../../src/shared/ExecutionOutcome";
+import type { PluginDescriptor } from "../../src/shared/Plugins";
+import { unzipSync } from "fflate";
 import "../../src/styles/index.css";
 
 if (!import.meta.env.DEV || (!__WITH_WEBUI__ && !__WITH_ANDROID__) || __WITH_TAURI__)
@@ -30,6 +35,32 @@ if (!import.meta.env.DEV || (!__WITH_WEBUI__ && !__WITH_ANDROID__) || __WITH_TAU
 const AppMain = __WITH_ANDROID__ ? AndroidMain : DesktopMain;
 
 const query = new URLSearchParams(location.search);
+const profileFeatures = query.get("profileFeatures") === "1";
+// Synthetic overflow and archive data for the real profile and plugin workflows.
+const fixturePlugins: PluginDescriptor[] = Array.from({ length: 24 }, (_, index) => ({
+  schema_version: 1,
+  api_version: 1,
+  id: `fixture.plugin-${index + 1}`,
+  version: "1.0.0",
+  name: `插件 ${index + 1}`,
+  description: "独立滚动验证，全部使用本地虚构数据。",
+  author: "Fixture",
+  permissions: ["compute"],
+  source: "builtin",
+  enabled: false,
+  trusted: true,
+  state: "available",
+  actions: [],
+  settings_schema: {
+    type: "object",
+    properties: Object.fromEntries(
+      Array.from({ length: 20 }, (_, field) => [
+        `field${field}`,
+        { type: "string", title: `设置项 ${field + 1}`, default: "示例值" },
+      ])
+    ),
+  },
+}));
 const schedulerPreview = query.get("scheduler") === "1";
 const configurationPreview = query.get("configuration") === "1";
 const logSamples = [
@@ -98,6 +129,14 @@ window.fetch = (input, init) => {
     return Promise.reject(new Error(`Fixture blocked API request: ${url.origin}${url.pathname}`));
   return nativeFetch(input, init);
 };
+let savedCursorPreference: boolean | undefined;
+if (query.get("persistCursors") === "1") {
+  try {
+    savedCursorPreference = JSON.parse(localStorage.getItem("uiSettings") || "{}").enableBACursors;
+  } catch {
+    /* A fresh fixture uses the product default. */
+  }
+}
 localStorage.setItem(
   "uiSettings",
   JSON.stringify({
@@ -105,6 +144,9 @@ localStorage.setItem(
     theme: query.get("theme") || "light",
     idleAutoUpdate: false,
     lowPerformanceMode: false,
+    ...(typeof savedCursorPreference === "boolean"
+      ? { enableBACursors: savedCursorPreference }
+      : {}),
     settingsSection: query.get("section") || "appearance",
   })
 );
@@ -385,11 +427,64 @@ const fixtureTasks = schedulerPreview
   ? schedulerTasks
   : ["cafe_reward", "collect_daily_power", "create", "collect_reward"].map((name) => task(name));
 const commands: string[] = [];
+const importedArchives: {
+  root: string;
+  filename: unknown;
+  name: string;
+  serial: string;
+  files: string[];
+}[] = [];
+if (profileFeatures)
+  window.addEventListener("fixture:import-results", (event) => {
+    const reply = (event as CustomEvent).detail;
+    if (typeof reply === "function")
+      reply({
+        imports: importedArchives,
+        profiles: Object.fromEntries(
+          Object.entries(useWebSocketStore.getState().configStore).map(([id, config]) => [
+            id,
+            (config as { name?: string }).name,
+          ])
+        ),
+      });
+  });
 const blocked = async () => {
   throw new Error("Fixture has no backend connection");
 };
 const trigger: ReturnType<typeof useWebSocketStore.getState>["trigger"] = (payload, callback) => {
   commands.push(payload.command);
+  if (profileFeatures && payload.command === "get_plugin_catalog") {
+    callback?.({
+      status: "ok",
+      data: {
+        api_version: 1,
+        plugins: fixturePlugins,
+        capabilities: [],
+        errors:
+          query.get("catalogErrors") === "1"
+            ? Array.from({ length: 30 }, (_, index) => ({
+                code: "fixture_error",
+                message: `模拟插件错误 ${index + 1}`,
+              }))
+            : [],
+      },
+    });
+    return;
+  }
+  if (profileFeatures && payload.command === "get_plugin_settings") {
+    callback?.({
+      status: "ok",
+      data: {
+        plugin_id: payload.payload?.plugin_id,
+        config_id: payload.config_id,
+        revision: 1,
+        values: Object.fromEntries(
+          Array.from({ length: 20 }, (_, field) => [`field${field}`, "示例值"])
+        ),
+      },
+    });
+    return;
+  }
   if (payload.command === "test_all_sha_stream") {
     // Render the real streamed-result UI without contacting any update host.
     const methods = [
@@ -427,6 +522,10 @@ const trigger: ReturnType<typeof useWebSocketStore.getState>["trigger"] = (paylo
     return;
   }
   const pid = payload.config_id;
+  if (query.get("homePolicy") === "1" && payload.command === "start_scheduler") {
+    callback?.({ status: "error", message: "Fixture OCR resource unavailable" });
+    return;
+  }
   if (pid && ["start_scheduler", "stop_scheduler"].includes(payload.command)) {
     useWebSocketStore.setState((state) => ({
       statusStore: {
@@ -458,8 +557,10 @@ useWebSocketStore.setState({
   _server_verified: true,
   _initiating: false,
   _heartbeat_time: Date.now(),
-  connections: {},
+  connections: profileFeatures ? { trigger: { readyState: 1 } as WebSocket } : {},
+  ...(profileFeatures ? { _session: { sessionId: "isolated-profile-features" } as never } : {}),
   configStore: query.get("profiles") === "0" ? {} : profiles,
+  _receivedSnapshots: { config_list: true },
   staticStore: {
     ...useWebSocketStore.getState().staticStore,
     ...(configurationPreview ? configurationStatic : { student_names: [] }),
@@ -521,13 +622,63 @@ useWebSocketStore.setState({
   startTauriUpdaterPolling: () => {},
   trigger,
   triggerStream: trigger,
-  triggerBinary: (payload, _binary, callback) => trigger(payload, callback),
+  triggerBinary: (payload, binary, callback) => {
+    if (!profileFeatures || payload.command !== "import_config") return trigger(payload, callback);
+    const files = unzipSync(binary instanceof Uint8Array ? binary : new Uint8Array(binary));
+    const configPath = Object.keys(files)
+      .filter((path) => path === "config.json" || path.endsWith("/config.json"))
+      .sort((left, right) => left.split("/").length - right.split("/").length)[0];
+    if (!configPath) throw new Error("Missing imported config.json");
+    const config = JSON.parse(new TextDecoder().decode(files[configPath]));
+    const serial = `fixture-import-${commands.filter((command) => command === "import_config").length + 1}`;
+    commands.push("import_config");
+    importedArchives.push({
+      root: configPath.split("/")[0],
+      filename: payload.payload.filename,
+      name: config.name,
+      serial,
+      files: Object.keys(files),
+    });
+    useWebSocketStore.setState((state) => ({
+      configStore: {
+        ...Object.fromEntries(
+          Object.entries(state.configStore).filter(
+            ([, existing]) => (existing as { name?: string }).name !== config.name
+          )
+        ),
+        [serial]: { ...profiles.alpha, ...config },
+      },
+      eventStore: { ...state.eventStore, [serial]: [] },
+    }));
+    callback?.({ status: "ok", data: { serial } });
+    if (query.get("importSessionChange") === "1")
+      useWebSocketStore.setState({ _session: { sessionId: "replaced-fixture-session" } as never });
+  },
   modify: (path, patch) => {
     const [pid, scope] = path.split("::");
     for (const [key, value] of Object.entries(patch))
       useWebSocketStore.getState().patch(`${pid}::${scope}/${key}`, value);
   },
 });
+
+// A browser-only lifecycle input bound to this page's actual store instance.
+// Importing the store again can create another instance when Vite adds HMR URLs.
+if (query.get("runStatus") === "1") {
+  window.addEventListener("fixture:profile-status", (event) => {
+    const { configId, patch } = (
+      event as CustomEvent<{
+        configId: string;
+        patch: Partial<StatusItem>;
+      }>
+    ).detail;
+    useWebSocketStore.setState((state) => ({
+      statusStore: {
+        ...state.statusStore,
+        [configId]: mergeExecutionStatus(state.statusStore[configId], patch),
+      },
+    }));
+  });
+}
 
 /** Navigate through the real Sidebar button; Main retains its actual cache and no-profile guard. */
 function navigate(page: PageKey) {
@@ -562,13 +713,20 @@ function Fixture() {
     const page =
       query.get("page") ??
       (configurationPreview ? "configuration" : schedulerPreview ? "scheduler" : null);
-    if (page === "settings" || page === "scheduler" || page === "configuration") navigate(page);
+    if (
+      page === "settings" ||
+      page === "scheduler" ||
+      page === "configuration" ||
+      page === "plugins"
+    )
+      navigate(page);
   }, [ready]);
   return (
     <AppProvider setReady={setReady}>
       <TauriSelfUpdateProvider>
         <TauriShortcutProvider>
           <GlobalAppearanceEffects />
+          {query.get("homePolicy") === "1" && <GlobalContextMenu />}
           <div
             className="app-window-frame flex h-full min-h-0 flex-col overflow-hidden text-foreground"
             data-fixture-isolated="true"
@@ -682,6 +840,7 @@ function Fixture() {
             </div>
           </div>
           <Toaster />
+          {profileFeatures && <ConfigArchiveDropOverlay />}
         </TauriShortcutProvider>
       </TauriSelfUpdateProvider>
     </AppProvider>

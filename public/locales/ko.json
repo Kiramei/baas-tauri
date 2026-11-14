@@ -3,6 +3,8 @@
     "back": "뒤로",
     "close": "닫기",
     "collapseSidebar": "사이드바 접기",
+    "devServerHint": "이번 개발 세션에서는 BAAS Tauri 데스크톱 창을 사용하세요. 브라우저 주소는 Tauri WebView에 Vite 리소스를 제공합니다.",
+    "devServerTitle": "BAAS Tauri 개발 서버가 실행 중입니다",
     "expandSidebar": "사이드바 펼치기",
     "forward": "앞으로",
     "maximize": "최대화",
@@ -19,10 +21,12 @@
     "mobileConfiguration": "구성",
     "mobilePlugins": "확장",
     "mobileScheduler": "스케줄러",
-    "mobileSettings": "설정",
+    "mobileSettings": "환경설정",
     "plugins": "플러그인",
     "scheduler": "스케줄러",
-    "settings": "설정"
+    "scrollLeft": "왼쪽으로 스크롤",
+    "scrollRight": "오른쪽으로 스크롤",
+    "settings": "환경설정"
   },
   "common": {
     "add": "추가",
@@ -34,6 +38,7 @@
     "delete": "삭제",
     "edit": "편집",
     "execute": "실행",
+    "loading": "불러오는 중…",
     "save": "저장",
     "start": "시작",
     "stop": "정지",
@@ -56,6 +61,7 @@
   },
   "log": {
     "$self": "로그",
+    "copied": "로그를 클립보드에 복사했습니다",
     "empty": {
       "description": "작업을 시작하면 진행 상황이 여기에 표시됩니다.",
       "title": "아직 실행 기록이 없습니다"
@@ -71,10 +77,20 @@
     "noneQueued": "대기열에 작업이 없습니다",
     "noneRunning": "현재 실행 중인 작업이 없습니다",
     "overview": "작업 개요",
-    "running": "실행 중인 작업"
+    "running": "실행 중인 작업",
+    "status": {
+      "failed": "실패",
+      "idle": "대기",
+      "pending": "진행 대기",
+      "running": "실행 중",
+      "skipped": "건너뜀",
+      "stopped": "중지됨",
+      "success": "성공"
+    }
   },
   "notification": {
     "script": {
+      "batchBody": "새 실행 알림 {{count}}개. {{latest}}",
       "completedBody": "{{task}} 작업이 완료되었습니다.",
       "completedTitle": "BAAS 작업 완료됨",
       "failedBody": "{{task}} 작업이 비정상 종료되었습니다. 종료 코드: {{exitCode}}.",
@@ -88,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "설정 카테고리",
+    "categories": "환경설정 카테고리",
     "descriptions": {
       "assets": "홈 화면에 게임 자원을 표시합니다.",
       "idleAutoUpdate": "모든 프로필이 유휴 상태이면 스크립트를 자동으로 업데이트합니다.",
@@ -106,8 +122,8 @@
       "display": "화면 및 효과",
       "preferences": "환경설정"
     },
-    "noResults": "일치하는 설정이 없습니다",
-    "search": "설정 검색",
+    "noResults": "일치하는 환경설정이 없습니다",
+    "search": "환경설정 검색",
     "sections": {
       "appearance": "모양",
       "general": "일반",
@@ -177,11 +193,13 @@
       "backgroundImageSelected": "배경 이미지가 설정되었습니다",
       "backgroundImageTooLarge": "배경 이미지는 5MB 이하여야 합니다.",
       "enableBAComet": "BAComet 켜기",
+      "enableBACursors": "BACursors 사용",
       "enableSafeStream": "원격 영상 암호화",
       "enableSystemNotifications": "시스템 알림 활성화",
       "idleAutoUpdate": "유휴 상태에서 스크립트 자동 업데이트",
       "lowPerformanceMode": "저사양 모드",
       "player": "영상 디코더",
+      "reloadInterface": "화면 다시 불러오기",
       "storageFailed": "이 브라우저에 환경설정을 저장할 수 없습니다. 사이트 저장 공간을 확보하거나 더 작은 배경 이미지를 선택하세요.",
       "themeColor": "테마 색상",
       "themeColorInvalid": "#RRGGBB 형식의 테마 색상을 입력하세요.",
@@ -190,11 +208,12 @@
     "updateSuccess": "설정이 성공적으로 업데이트되었습니다"
   },
   "update": {
+    "androidInstallerOpened": "Android 설치 화면에서 업데이트를 확인하세요.",
+    "androidPackageUnavailable": "이 버전에는 이 기기와 호환되는 APK가 없습니다.",
     "backendAction": "BAAS 업데이트",
     "backendStarted": "BAAS 업데이트를 시작했습니다",
     "backendStartFailed": "BAAS 업데이트를 시작하지 못했습니다",
     "channel": "업데이트 채널",
-    "dueDate": "만료일",
     "enterCdk": "CDK 입력",
     "method": "업데이트 소스",
     "mirrorCdk": "MirrorC CDK (선택 사항)",
@@ -204,6 +223,7 @@
     "tauriAction": "클라이언트",
     "tauriAvailable": "클라이언트 업데이트 있음",
     "tauriChecking": "클라이언트 업데이트 확인 중...",
+    "tauriDisabled": "setup.toml에서 클라이언트 업데이트가 비활성화되어 있습니다.",
     "tauriDownloading": "{{version}} 다운로드 중...",
     "tauriFailed": "클라이언트 업데이트 실패",
     "tauriInstalling": "설치 후 재시작 중...",
@@ -224,6 +244,7 @@
     "copy": "프로필 복사",
     "copyFailed": "프로필 복사 실패",
     "create": "프로필 생성",
+    "createElsewhere": "{{tasks}} 또는 {{configuration}}에서 프로필을 만드세요.",
     "deleteConfirmMessage": "프로필 '{{name}}'을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다!",
     "deleteConfirmTitle": "삭제 확인",
     "dropAuthRequired": "프로필 압축 파일을 가져오기 전에 연결하고 인증하세요.",
@@ -238,10 +259,19 @@
     "exportFailed": "프로필 내보내기 실패",
     "import": "프로필 압축 파일 가져오기",
     "importArchive": "프로필 압축 파일 선택",
+    "importEntry": "설정 가져오기",
     "importFailed": "프로필 가져오기 실패",
+    "importFolder": "폴더에서 설정 일괄 가져오기",
+    "importFolderEmpty": "config.json이 포함된 설정 하위 폴더를 찾을 수 없습니다.",
+    "importFolderProgress": "설정 가져오는 중: {{completed}} / {{total}}",
+    "importFolderResult": "설정 {{imported}}개 가져오기 완료, {{failed}}개 실패.",
+    "importFolderUnsupported": "이 브라우저는 폴더 선택을 지원하지 않습니다. ZIP 파일로 가져오세요.",
+    "importRefreshFailed": "설정은 가져왔지만 목록을 새로 고치지 못했습니다. 다시 연결하여 확인하세요.",
     "list": "프로필",
     "name": "프로필 이름",
-    "nameExists": "이름이 이미 있습니다"
+    "nameExists": "이름이 이미 있습니다",
+    "runFailed": "실행 실패",
+    "running": "실행 중"
   },
   "description": {
     "arena": "상대 및 도전 횟수",
@@ -283,20 +313,31 @@
     "advancedHint": "언어, 모양, 업데이트 채널 및 연결 방식.",
     "autoEnter": "설치 후 자동으로 열기",
     "autoEnterHint": "끄면 설치 로그가 유지되며, “홈 열기”를 클릭하면 계속 진행합니다.",
+    "autoLoginFailed": "자동 로그인에 실패했습니다. 기존 백엔드 키가 다를 수 있습니다.",
+    "backendNotReady": "백엔드 인증 서비스가 아직 준비되지 않았습니다.",
+    "backToSetup": "설치 설정으로 돌아가기",
     "completed": "설치 완료",
     "directoryHint": "실행 환경과 스크립트 파일이 이 폴더에 설치됩니다.",
+    "duration": "소요 시간",
     "enter": "홈 열기",
     "entering": "여는 중…",
+    "errorHint": "설정으로 돌아가 설치 경로를 변경하거나 다시 시도하세요. 문제를 신고하기 전에 로그를 복사하세요.",
+    "errorTitle": "설치 오류",
     "exit": "설치 취소",
+    "finished": "종료 시간",
     "logs": "설치 로그",
     "noOutput": "아직 터미널 출력이 없습니다.",
+    "noStructuredLogs": "기록된 구조화 로그가 없습니다.",
     "portableHint": "포터블 모드는 앱이 있는 폴더를 사용합니다.",
     "preparing": "터미널 준비 중…",
     "setting": "설치 설정",
     "start": "설치 시작",
+    "started": "시작 시간",
+    "stepProgress": "단계 {{index}}/{{total}}",
     "title": {
       "wizard": "설치 마법사"
-    }
+    },
+    "workflowFailed": "설치 또는 업데이트가 완료되지 않았습니다."
   },
   "auth": {
     "authenticationFailed": "인증할 수 없습니다. Key와 서버 연결을 확인하세요.",
@@ -611,6 +652,8 @@
     "switch": {
       "start": "시작/정지"
     },
+    "triggerFailed": "단축키 실행 실패",
+    "triggerNotReady": "BAAS 제어 연결이 아직 준비되지 않았습니다.",
     "usage": "조합 예시"
   },
   "property": {
@@ -699,7 +742,11 @@
   },
   "mirrorc": {
     "cdk": {
-      "noInput": "MirrorC CDK를 입력하세요!",
+      "blocked": "차단된 CDK입니다.",
+      "configured": "이 기기에 저장된 CDK",
+      "mismatch": "이 CDK는 선택한 리소스를 지원하지 않습니다.",
+      "quota": "일일 다운로드 한도에 도달했습니다.",
+      "requestFailed": "로컬 CDK를 확인하거나 저장할 수 없습니다. 다시 시도하세요.",
       "testOk": "CDK 유효"
     },
     "message": {
@@ -710,8 +757,6 @@
   },
   "contextMenu": {
     "copy": "복사",
-    "inspect": "검사",
-    "inspectWebuiHint": "F12로 개발자 도구를 여세요.",
     "paste": "붙여넣기",
     "pasteFailed": "클립보드를 사용할 수 없습니다.",
     "reload": "새로고침"
@@ -742,9 +787,12 @@
       "inspectFailed": "설치된 게임을 불러올 수 없습니다",
       "live": "실시간",
       "liveDisplay": "{{game}} 실시간 화면",
+      "previewAlt": "가상 화면의 게임 영상",
+      "previewConnecting": "게임 화면에 연결 중…",
+      "previewHidden": "게임 미리보기가 더 이상 표시되지 않습니다.",
       "restartFailed": "게임을 다시 시작할 수 없습니다",
-      "showControls": "게임 제어 표시",
       "startBackground": "백그라운드에서 게임 시작",
+      "takeoverBusy": "게임을 이미 수동으로 제어 중이거나 백엔드를 업데이트 중입니다.",
       "takeoverFailed": "전체 화면 게임 모드를 시작할 수 없습니다"
     },
     "start": {
@@ -777,16 +825,19 @@
     }
   },
   "androidSetup": {
+    "authStatus": "인증: {{status}}",
     "awaitingConfirmation": "확인 대기",
+    "backendStatus": "Python 백엔드: {{status}}",
     "channelDev": "Development",
     "channelStable": "Stable",
     "channelTitle": "Choose the update channel",
-    "channelUnavailable": "현재 Android에서는 안정 버전을 사용할 수 없습니다.",
     "clientAuth": "Authenticate session",
     "clientConnect": "Connect to local service",
     "clientSync": "Sync configuration",
     "clientTitle": "App connection",
+    "configStatus": "설정 동기화: {{status}}",
     "confirmInstall": "확인 후 설치",
+    "continueLocal": "검증된 로컬 리소스로 계속",
     "copied": "Copied",
     "copyLogs": "Copy logs",
     "errorTitle": "Installation stopped",
@@ -794,6 +845,7 @@
     "noLogs": "Waiting for backend output…",
     "progress": "Installation progress",
     "retry": "Retry installation",
+    "startup": "Android 시작 상태",
     "stateDone": "Done",
     "stateFailed": "Failed",
     "statePending": "Waiting",
@@ -802,9 +854,17 @@
     "stepChannel": "Choose update channel",
     "stepDownload": "Download backend",
     "stepExtract": "Install backend files",
+    "stepOcr": "OCR 런타임 및 모델 준비",
+    "stepResources": "스크립트 리소스 준비",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
+    "stepUpdate": "백엔드 업데이트 확인",
     "title": "Set up BAAS",
+    "updateApplying": "백엔드 파일 업데이트 중…",
+    "updateChecking": "선택한 백엔드 채널을 확인하는 중…",
+    "updateRestarting": "백엔드를 다시 시작하고 리소스를 준비하는 중…",
+    "updateRestoring": "이전 스크립트 상태를 복원하는 중…",
+    "updateWaitingIdle": "스크립트 및 수동 제어가 중지되기를 기다리는 중…",
     "waiting": "Working…"
   },
   "applicationShortcutHelp": {
@@ -813,8 +873,8 @@
     "fullscreen": "전체 화면을 켜거나 끕니다.",
     "redo": "취소한 설정 변경을 다시 실행합니다.",
     "resetZoom": "화면 배율을 100%로 되돌립니다.",
-    "settings": "앱 설정을 엽니다.",
-    "sidebar": "프로필 사이드바를 접거나 펼칩니다. 설정에서는 항상 열립니다.",
+    "settings": "환경설정을 엽니다.",
+    "sidebar": "프로필 사이드바를 접거나 펼칩니다. 환경설정에서는 항상 열립니다.",
     "undo": "최근 설정 변경을 취소합니다. 검색창에서는 텍스트를 되돌립니다.",
     "zoomIn": "화면을 확대합니다.",
     "zoomOut": "화면을 축소합니다."
@@ -835,6 +895,21 @@
     "unavailable": "GitHub에 연결할 수 없어 사용 가능한 노트를 표시합니다.",
     "version": "버전"
   },
+  "colorPicker": {
+    "alpha": "알파 투명도 백분율",
+    "blue": "파란색 성분 (0–255)",
+    "brightness": "밝기 백분율 (0–100)",
+    "currentColor": "현재 색상: {{color}}",
+    "eyeDropper": "화면에서 색상 선택",
+    "format": "색상 형식",
+    "green": "초록색 성분 (0–255)",
+    "hex": "16진수 색상 값",
+    "hue": "색조 각도 (0–360)",
+    "lightness": "명도 백분율 (0–100)",
+    "noSelection": "선택한 색상이 없습니다",
+    "red": "빨간색 성분 (0–255)",
+    "saturation": "채도 백분율 (0–100)"
+  },
   "commitHistory": {
     "author": "작성자",
     "current": "현재 설치됨",
@@ -842,6 +917,7 @@
     "empty": "사용 가능한 커밋 기록이 없습니다.",
     "emptyMessage": "(메시지 없음)",
     "failed": "기록을 불러올 수 없습니다. 다시 연결하거나 백엔드를 업데이트한 후 재시도하세요.",
+    "hash": "커밋 ID",
     "issue": {
       "offline": "기록 데이터 소스에 연결할 수 없습니다.",
       "rateLimited": "GitHub API 요청 한도에 도달했습니다. 나중에 다시 시도하세요.",
@@ -1004,6 +1080,19 @@
     "uiautomator2Control": "기기의 uiautomator2 서비스로 조작합니다.",
     "uiautomator2Screenshot": "기기의 uiautomator2 서비스로 캡처합니다."
   },
+  "connection": {
+    "authenticated": "세션 인증 완료",
+    "authenticating": "세션 인증 중…",
+    "connecting": "백엔드에 연결 중…",
+    "initializing": "BAAS 키를 초기화하는 중…",
+    "interrupted": "백엔드 연결이 끊어졌습니다",
+    "opening": "보안 제어 채널을 여는 중…",
+    "reconnecting": "백엔드에 다시 연결하는 중…",
+    "resuming": "암호화된 세션을 복원 중…",
+    "serverVerified": "서버를 확인했습니다. 인증 대기 중…",
+    "synchronizing": "연결 상태를 동기화하는 중…",
+    "waitingPassword": "계속하려면 인증이 필요합니다."
+  },
   "edit": {
     "actionFailed": "편집 작업에 실패했습니다. 클립보드 권한을 확인하고 다시 시도해 주세요.",
     "cut": "잘라내기",
@@ -1090,7 +1179,8 @@
     "bar": "앱 메뉴",
     "edit": "편집",
     "file": "파일",
-    "view": "보기"
+    "view": "보기",
+    "window": "창"
   },
   "placeholder": {
     "config": {
@@ -1387,7 +1477,7 @@
     "websocket": "WebSocket (호환)"
   },
   "ui": {
-    "zoom": "UI 확대/축소 설정"
+    "zoom": "인터페이스 배율"
   },
   "updateChannel": {
     "dev": "개발 버전",

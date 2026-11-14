@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { Loader2 } from "lucide-react";
 
 const FRAME_ENDPOINT = "http://127.0.0.1:8190/android/virtual-display/frame";
@@ -6,6 +7,7 @@ const FRAME_INTERVAL_MS = 350;
 
 /** Displays JPEG snapshots produced by the app-owned Android virtual display. */
 export const AndroidVirtualDisplayPreview = () => {
+  const { t } = useAppTranslation();
   const [frameUrl, setFrameUrl] = useState(() => `${FRAME_ENDPOINT}?t=${Date.now()}`);
   const [waiting, setWaiting] = useState(true);
   const timerRef = useRef<number | null>(null);
@@ -27,7 +29,7 @@ export const AndroidVirtualDisplayPreview = () => {
     <div className="relative h-full w-full overflow-hidden bg-black">
       <img
         src={frameUrl}
-        alt="虚拟屏游戏画面"
+        alt={t("android.game.previewAlt")}
         className="h-full w-full object-contain"
         draggable={false}
         onLoad={() => {
@@ -39,7 +41,7 @@ export const AndroidVirtualDisplayPreview = () => {
       {waiting && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/30 text-white">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="text-xs">正在连接游戏画面…</span>
+          <span className="text-xs">{t("android.game.previewConnecting")}</span>
         </div>
       )}
     </div>

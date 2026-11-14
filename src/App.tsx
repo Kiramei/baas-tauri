@@ -7,6 +7,7 @@ import { motion, MotionConfig } from "framer-motion";
 import { Toaster } from "@/components/ui/Sonner";
 import { PageKey } from "@/types/app";
 import i18n from "@/shared/I18nTranslator.ts";
+import { toast } from "sonner";
 import BAComet from "@/components/ui/BAComet.tsx";
 import { UISettingsProvider, useUISetting } from "@/context/UISettingsProvider.tsx";
 import ReconnectingOverlay from "@/components/ReconnectingOverlay.tsx";
@@ -192,9 +193,10 @@ export const Main: React.FC = () => {
             <motion.div
               key={instKey}
               className={
-                __WITH_ANDROID__
+                (__WITH_ANDROID__
                   ? "absolute inset-0 overflow-y-auto scroll-embedded pr-2"
-                  : "app-page-scroll absolute inset-0 overflow-y-auto scroll-embedded px-5 pb-3 pt-5 lg:px-8 lg:pb-6 lg:pt-6"
+                  : "app-page-scroll absolute inset-0 overflow-y-auto scroll-embedded px-5 pb-3 pt-5 lg:px-8 lg:pb-6 lg:pt-6") +
+                (page === "plugins" ? " xl:flex xl:flex-col xl:overflow-hidden" : "")
               }
               data-page={page}
               variants={lowPerformanceMode ? lowPerformanceVariants : variants}
@@ -241,6 +243,14 @@ const WrappedApp: React.FC = () => {
   const [hideLoading, setHideLoading] = useState(false);
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const enableBAComet = useUISetting((settings) => settings.enableBAComet);
+  const enableBACursors = useUISetting((settings) => settings.enableBACursors ?? true);
+  useLayoutEffect(() => {
+    if (hasReadyOnce) return;
+    // Honor saved cursors while setup/authentication still owns the window.
+    const root = document.documentElement;
+    root.setAttribute("data-ba-cursors", enableBACursors ? "enabled" : "disabled");
+    return () => root.removeAttribute("data-ba-cursors");
+  }, [enableBACursors, hasReadyOnce]);
 
   useEffect(() => {
     if (ready) {
@@ -305,6 +315,28 @@ const WrappedApp: React.FC = () => {
 
 /** Renders the app component. */
 const App: React.FC = () => {
+  useEffect(() => {
+    if (!__WITH_TAURI__ || __WITH_ANDROID__) return;
+    let cancelled = false;
+    const frame = requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (cancelled) return;
+      void import("@/shared/TauriInvoke")
+        .then(({ invoke }) => invoke<{ error?: string | null }>("tauri_client_update_ready"))
+        .then((result) => {
+          if (result?.error) {
+            toast.error(i18n.t("update.tauriFailed"), {
+              description: result.error,
+              duration: Infinity,
+            });
+          }
+        })
+        .catch((error: unknown) => console.warn("[client-update] startup acknowledgement failed", error));
+    }));
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, []);
   useEffect(() => {
     document.documentElement.lang = i18n.language;
     /** Handles the on lang change interaction. */

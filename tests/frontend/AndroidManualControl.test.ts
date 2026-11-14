@@ -82,6 +82,21 @@ describe("Android manual game control", () => {
     f.reply({ status: "ok", data: {} });
     await pending;
   });
+  test("foreground system launch requires every scheduler to be idle", async () => {
+    const f = fixture();
+    await expect(verifyAndroidManualControlOwnership(() => f.state)).rejects.toThrow(
+      "Stop running"
+    );
+    expect(f.calls).toHaveLength(0);
+    f.state.statusStore = {};
+    const raced = verifyAndroidManualControlOwnership(() => f.state);
+    f.reply({ status: "ok", data: { own: { running: true } } });
+    await expect(raced).rejects.toThrow("Stop running");
+    const idle = verifyAndroidManualControlOwnership(() => f.state);
+    f.reply({ status: "ok", data: {} });
+    await idle;
+    expect(f.calls.map((call) => call.command)).toEqual(["status", "status"]);
+  });
   test("another running profile fails closed without stopping it", async () => {
     const f = fixture();
     f.state.statusStore.other = { running: true };
@@ -134,10 +149,11 @@ describe("Android manual game control", () => {
     androidManualControl.setActive(false);
     expect(androidManualControl.isActive()).toBe(false);
     const updater = readFileSync(
-      new URL("../../src/components/IdleBackendUpdater.tsx", import.meta.url),
+      new URL("../../src/android/StartupBackendUpdate.ts", import.meta.url),
       "utf8"
     );
-    expect(updater).toContain("if (__WITH_ANDROID__ && androidManualControl.isActive()) return;");
+    expect(updater).toContain("manualActive: () => androidManualControl.isActive()");
+    expect(updater).toContain("beginUpdate: () => androidManualControl.beginBackendUpdate()");
     const home = readFileSync(new URL("../../src/pages/HomePage.tsx", import.meta.url), "utf8");
     expect(home).toContain("if (androidManualControl.isActive()) return;");
     const panel = readFileSync(

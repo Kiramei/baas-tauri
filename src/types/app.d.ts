@@ -35,6 +35,7 @@ export interface UISettings {
   scrollToEnd: boolean;
   assetsDisplay: boolean;
   enableBAComet: boolean;
+  enableBACursors: boolean;
   lowPerformanceMode: boolean;
   enableSystemNotifications: boolean;
   minimizeToTray?: boolean;

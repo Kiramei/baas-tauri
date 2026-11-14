@@ -31,7 +31,17 @@ import {
 import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
 import { remainingSyncOperations, type SyncPatchOperation } from "@/shared/SyncPatchOrdering";
 import { isUserProfileId } from "@/shared/ProfileTabs";
+import { publicUpdateSettings } from "@/shared/MirrorCdk";
 import { resolveClientVersion } from "@/shared/ClientVersion";
+import { compareReleaseVersions } from "@/shared/ReleaseVersion.mjs";
+import { mergeExecutionStatus } from "@/shared/ExecutionOutcome";
+import {
+  beginScriptStatusSource,
+  isReplayedStatus,
+  publishScriptStatus,
+  publishRejectedStopOutcome,
+  statusTimestamp,
+} from "@/shared/ScriptStatusEvents";
 
 import { resolveBackendAddress } from "@/shared/BackendAddress";
 
@@ -57,7 +67,6 @@ export const resolveHttpBase = () => {
 
 const { appendGlobalLog, appendGlobalLogs } = useGlobalLogStore.getState();
 const UPDATE_CHECK_INTERVAL_MS = 60 * 1000;
-const ANDROID_STARTUP_UPDATE_DELAY_MS = 30 * 1000;
 let backendUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let backendUpdaterPollDelayTimer: ReturnType<typeof setTimeout> | null = null;
 let backendUpdaterChecking = false;
@@ -79,6 +88,7 @@ const invalidateTransportGeneration = () => {
   flushPendingLogBatches();
   pendingLogBatches.clear();
   transportGeneration += 1;
+  beginScriptStatusSource();
   connectionOpenPromises.clear();
   pendingSyncPatches.clear();
 };
@@ -262,14 +272,15 @@ const startBackendUpdaterPolling = (initialDelayMs = 0) => {
   beginPolling();
 };
 
-const checkAndroidClientUpdate = async (currentVersion?: string) => {
-  const { invoke } = await import("@/shared/TauriInvoke");
-  return await invoke<any>("tauri_client_check_update", {
-    request: {
-      currentVersion,
-    },
-  });
-};
+interface ClientUpdateReport {
+  currentVersion: string;
+  version: string | null;
+  updateAvailable: boolean;
+  androidPackageAvailable?: boolean;
+  body: string;
+  date: string;
+  lastChecked: number;
+}
 
 const resetConnectionStores = (): Partial<WebSocketState> => ({
   _receivedSnapshots: {},
@@ -643,152 +654,79 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     checkTauriUpdater: async (notify = false, visible = false) => {
       if (!__WITH_TAURI__ || tauriUpdaterChecking) return;
+      tauriUpdaterChecking = true;
       set((state) => ({
-        ...state,
         versionStore: {
           ...state.versionStore,
-          tauri: {
-            ...(state.versionStore.tauri ?? {}),
-            currentVersion: state.versionStore.tauri?.currentVersion ?? __APP_VERSION__,
-            version: state.versionStore.tauri?.version ?? __APP_VERSION__,
-            checking: true,
-            error: null,
-          },
+          tauri: { ...state.versionStore.tauri, checking: true, error: null },
         },
       }));
-      if (__WITH_ANDROID__) {
-        tauriUpdaterChecking = true;
-        try {
-          const { getVersion } = await import("@tauri-apps/api/app");
-          const currentVersion = resolveClientVersion(await getVersion().catch(() => __APP_VERSION__));
-          const nextTauriVersion = await checkAndroidClientUpdate(currentVersion);
-          set((state) => ({
-            ...state,
-            versionStore: {
-              ...state.versionStore,
-              tauri: {
-                ...nextTauriVersion,
-                currentVersion: nextTauriVersion.currentVersion ?? currentVersion,
-              },
-            },
-          }));
-          if (nextTauriVersion.updateAvailable) {
-            if (notify && tauriUpdaterNotifiedVersion !== nextTauriVersion.version) {
-              toast.info(t("update.tauriAvailable"), {
-                description: nextTauriVersion.version,
-              });
-              tauriUpdaterNotifiedVersion = nextTauriVersion.version;
-            }
-          } else {
-            tauriUpdaterNotifiedVersion = null;
-            if (visible) toast.success(t("update.tauriUpToDate"));
-          }
-        } catch (error) {
-          set((state) => ({
-            ...state,
-            versionStore: {
-              ...state.versionStore,
-              tauri: {
-                ...(state.versionStore.tauri ?? {}),
-                checking: false,
-                updateAvailable: false,
-                lastChecked: Date.now(),
-                error: error instanceof Error ? error.message : String(error),
-              },
-            },
-          }));
-          if (visible) {
-            toast.error(t("update.tauriFailed"), {
-              description: error instanceof Error ? error.message : String(error),
-            });
-          }
-        } finally {
-          tauriUpdaterChecking = false;
-        }
-        return;
-      }
-      if (await isTauriNoUpdateEnabled()) {
-        tauriUpdaterNotifiedVersion = null;
-        set((state) => ({
-          ...state,
-          versionStore: {
-            ...state.versionStore,
-            tauri: {
-              ...(state.versionStore.tauri ?? {}),
-              checking: false,
-              updateAvailable: false,
-              lastChecked: Date.now(),
-              error: null,
-            },
-          },
-        }));
-        return;
-      }
-      tauriUpdaterChecking = true;
-
       try {
+        if (await isTauriNoUpdateEnabled()) {
+          tauriUpdaterNotifiedVersion = null;
+          set((state) => ({
+            versionStore: {
+              ...state.versionStore,
+              tauri: {
+                currentVersion: state.versionStore.tauri?.currentVersion ?? __APP_VERSION__,
+                checking: false,
+                disabled: true,
+                updateAvailable: false,
+              },
+            },
+          }));
+          if (visible) toast.info(t("update.tauriDisabled"));
+          return;
+        }
         const [{ invoke }, { getVersion }] = await Promise.all([
           import("@/shared/TauriInvoke"),
           import("@tauri-apps/api/app"),
         ]);
-        const currentVersion = resolveClientVersion(await getVersion().catch(() => __APP_VERSION__));
-        const update = await invoke<any>("tauri_client_check_update", {
+        const currentVersion = resolveClientVersion(
+          await getVersion().catch(() => __APP_VERSION__)
+        );
+        const update = await invoke<ClientUpdateReport>("tauri_client_check_update", {
           request: { currentVersion },
         });
-        const nextTauriVersion = update.updateAvailable
-          ? {
-              updateAvailable: true,
-              checking: false,
-              currentVersion,
-              version: update.version,
-              body: update.body ?? "",
-              date: update.date ?? "",
-              lastChecked: Date.now(),
-              error: null,
-            }
-          : {
-              updateAvailable: false,
-              checking: false,
-              currentVersion,
-              version: null,
-              body: "",
-              date: "",
-              lastChecked: Date.now(),
-              error: null,
-            };
-
+        const missingPackage =
+          update.androidPackageAvailable === false &&
+          update.version !== null &&
+          compareReleaseVersions(update.version, currentVersion) > 0;
         set((state) => ({
-          ...state,
           versionStore: {
             ...state.versionStore,
-            tauri: nextTauriVersion,
+            tauri: { ...update, checking: false, currentVersion, missingPackage, error: null },
           },
         }));
 
-        if (update) {
-          if (notify && tauriUpdaterNotifiedVersion !== update.version) {
-            toast.info(t("update.tauriAvailable"), {
-              description: update.version,
-            });
+        if (update.updateAvailable && update.version) {
+          if (notify && (visible || tauriUpdaterNotifiedVersion !== update.version)) {
+            toast.info(t("update.tauriAvailable"), { description: update.version });
             tauriUpdaterNotifiedVersion = update.version;
           }
         } else {
           tauriUpdaterNotifiedVersion = null;
+          if (visible) {
+            if (missingPackage) toast.info(t("update.androidPackageUnavailable"));
+            else toast.success(t("update.tauriUpToDate"));
+          }
         }
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         set((state) => ({
-          ...state,
           versionStore: {
             ...state.versionStore,
             tauri: {
-              ...(state.versionStore.tauri ?? {}),
+              ...state.versionStore.tauri,
               checking: false,
+              disabled: false,
               updateAvailable: false,
               lastChecked: Date.now(),
-              error: error instanceof Error ? error.message : String(error),
+              error: message,
             },
           },
         }));
+        if (visible) toast.error(t("update.tauriFailed"), { description: message });
       } finally {
         tauriUpdaterChecking = false;
       }
@@ -797,13 +735,9 @@ export const useWebSocketStore = create<WebSocketState>()(
     startTauriUpdaterPolling: () => {
       if (!__WITH_TAURI__ || tauriUpdaterPollTimer) return;
       const check = () => {
-        void get().checkTauriUpdater(true, false);
+        void get().checkTauriUpdater(!__WITH_ANDROID__, false);
       };
       tauriUpdaterPollTimer = setInterval(check, UPDATE_CHECK_INTERVAL_MS);
-      if (__WITH_ANDROID__) {
-        setTimeout(check, ANDROID_STARTUP_UPDATE_DELAY_MS);
-        return;
-      }
       check();
     },
 
@@ -1089,6 +1023,8 @@ export const useWebSocketStore = create<WebSocketState>()(
         const connectionGeneration = transportGeneration;
         const session = get()._session;
         const transportMode = get().transportMode;
+        let statusSource = 0;
+        const statusSnapshotWatermarks = new Map<string, number>();
         if (transportMode === "websocket" && !session) {
           throw new Error("No authenticated session is available");
         }
@@ -1127,7 +1063,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           },
           setup_toml: (message: WsMessageItem) => {
             set(() => ({
-              updateStore: message.data,
+              updateStore: publicUpdateSettings(message.data ?? {}),
             }));
           },
         };
@@ -1254,27 +1190,55 @@ export const useWebSocketStore = create<WebSocketState>()(
               const firstKey = Object.keys(data)[0];
               if (!firstKey) {
                 set({ statusStore: {} });
+                if (name === "provider") {
+                  statusSnapshotWatermarks.clear();
+                  publishScriptStatus({ source: statusSource, kind: "snapshot", statuses: {} });
+                }
               } else if (isPlainObject(data[firstKey]) && "config_id" in data[firstKey]) {
                 set((state) => {
                   const statusStore = { ...state.statusStore };
                   Object.keys(data).forEach((key) => {
-                    statusStore[key] = {
-                      ...(statusStore[key] ?? {}),
-                      ...(data[key] as StatusItem),
-                    };
+                    statusStore[key] = mergeExecutionStatus(
+                      statusStore[key],
+                      data[key] as StatusItem
+                    );
                   });
                   return { statusStore };
                 });
+                if (name === "provider") {
+                  const statuses = Object.fromEntries(
+                    Object.keys(data).map((key) => {
+                      const timestamp = statusTimestamp(data[key] as StatusItem);
+                      if (timestamp !== null) statusSnapshotWatermarks.set(key, timestamp);
+                      return [key, get().statusStore[key]];
+                    })
+                  );
+                  publishScriptStatus({ source: statusSource, kind: "snapshot", statuses });
+                }
               } else if (typeof data.config_id === "string" && isPlainObject(data.status)) {
+                if (
+                  isReplayedStatus(
+                    data.status as StatusItem,
+                    get().statusStore[data.config_id],
+                    statusSnapshotWatermarks.get(data.config_id)
+                  )
+                )
+                  return;
                 set((state) => ({
                   statusStore: {
                     ...state.statusStore,
-                    [data.config_id]: {
-                      ...(state.statusStore[data.config_id] ?? {}),
-                      ...(data as WrappedStatusItem).status,
-                    },
+                    [data.config_id]: mergeExecutionStatus(
+                      state.statusStore[data.config_id],
+                      (data as WrappedStatusItem).status
+                    ),
                   },
                 }));
+                if (name === "provider")
+                  publishScriptStatus({
+                    source: statusSource,
+                    kind: "update",
+                    statuses: { [data.config_id]: get().statusStore[data.config_id] },
+                  });
               }
             }
           },
@@ -1302,7 +1266,7 @@ export const useWebSocketStore = create<WebSocketState>()(
               callback({ command, data, status, error });
               delete get().pendingCallbacks[timestamp!];
             } else {
-              console.warn("CallBack Not Found:", message);
+              console.warn("Missing callback for backend command", command, timestamp);
             }
           },
 
@@ -1328,6 +1292,17 @@ export const useWebSocketStore = create<WebSocketState>()(
               }
               if (membershipChange && op.op === "remove") {
                 get().send("sync", { type: "list" });
+              } else if (
+                resource === "setup_toml" &&
+                ["/mirrorcCdk", "/mirrorc_cdk"].includes(op.path)
+              ) {
+                get().patch(`${resourceId}::setup_toml/mirrorcCdkConfigured`, Boolean(op.value));
+              } else if (
+                resource === "setup_toml" &&
+                (op.path === "/" || op.path === "") &&
+                isPlainObject(op.value)
+              ) {
+                set({ updateStore: publicUpdateSettings(op.value) });
               } else {
                 const path = `${resourceId}::${resource}${op.path}`;
                 get().patch(path, op.value);
@@ -1429,6 +1404,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           // A restarted backend may publish no sessions. Register the in-flight
           // open before notifying subscribers, and never clear a newer generation.
           if (name === "provider" && connectionGeneration === transportGeneration) {
+            statusSource = beginScriptStatusSource();
             set({ statusStore: {} });
           }
           await ws.connect((message: any) => {
@@ -1533,7 +1509,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       if (transportSwitching) return;
       if (
         get()._initiating ||
-        get()._all_data_initialized ||
+        (!__WITH_ANDROID__ && get()._all_data_initialized) ||
         (__WITH_ANDROID__ && get()._android_ui_ready)
       ) {
         return;
@@ -1546,17 +1522,30 @@ export const useWebSocketStore = create<WebSocketState>()(
         get()._auth_phase === "authenticated";
       const waitForInitialization = async <T>(
         selector: (state: WebSocketState) => T,
-        predicate: (value: T) => boolean
+        predicate: (value: T) => boolean,
+        resource = "backend data"
       ) => {
-        await waitFor(
-          get,
-          api.subscribe,
-          (state: WebSocketState) => ({ current: isCurrent(), value: selector(state) }),
-          ({ current, value }: { current: boolean; value: T }) => !current || predicate(value)
-        );
+        try {
+          await waitFor(
+            get,
+            api.subscribe,
+            (state: WebSocketState) => ({ current: isCurrent(), value: selector(state) }),
+            ({ current, value }: { current: boolean; value: T }) => !current || predicate(value),
+            __WITH_ANDROID__ ? 90_000 : Infinity
+          );
+        } catch (error) {
+          if (!__WITH_ANDROID__) throw error;
+          throw new Error(
+            `Timed out while loading Android ${resource}; retry setup and inspect the startup log`
+          );
+        }
       };
 
-      set((state) => ({ ...state, _initiating: true }));
+      set((state) => ({
+        ...state,
+        _initiating: true,
+        ...(__WITH_ANDROID__ ? { _auth_error: null } : {}),
+      }));
       const initializationStarted = performance.now();
       console.info(`[transport] initializing data over ${get().transportMode}`);
 
@@ -1577,19 +1566,22 @@ export const useWebSocketStore = create<WebSocketState>()(
         get().send("sync", { type: "list" });
         await waitForInitialization(
           (state: WebSocketState) => Object.keys(state.staticStore).length,
-          (length) => length > 0
+          (length) => length > 0,
+          "static configuration"
         );
         if (!isCurrent()) return;
 
         await waitForInitialization(
           (state: WebSocketState) => Object.keys(state.updateStore).length,
-          (length) => length > 0
+          (length) => length > 0,
+          "update configuration"
         );
         if (!isCurrent()) return;
 
         await waitForInitialization(
           (state: WebSocketState) => state._receivedSnapshots.config_list === true,
-          (received) => received
+          (received) => received,
+          "profile list"
         );
         if (!isCurrent()) return;
 
@@ -1608,7 +1600,8 @@ export const useWebSocketStore = create<WebSocketState>()(
                 state._receivedSnapshots[`config:${id}`] === true &&
                 state._receivedSnapshots[`event:${id}`] === true
             ),
-          (ready) => ready
+          (ready) => ready,
+          "profile documents"
         );
         if (!isCurrent()) return;
         const skipBackendUpdater = await isTauriNoUpdateEnabled();
@@ -1621,7 +1614,7 @@ export const useWebSocketStore = create<WebSocketState>()(
               local: "android-bundled",
               remote: "android-bundled",
               updateAvailable: false,
-              channel: "dev",
+              channel: state.updateStore?.channel ?? "stable",
               method: "disabled",
               lastChecked: Date.now(),
             },
@@ -1632,12 +1625,13 @@ export const useWebSocketStore = create<WebSocketState>()(
             versionStore: {
               ...state.versionStore,
               updateAvailable: false,
-              channel: state.updateStore?.channel ?? "dev",
-              method: "deferred",
-              checking: true,
+              channel: state.updateStore?.channel ?? "stable",
+              method: "startup",
+              checking: false,
             },
           }));
-          startBackendUpdaterPolling(ANDROID_STARTUP_UPDATE_DELAY_MS);
+          // The startup coordinator owns the Android check/apply/restart
+          // sequence before the home page can become visible.
         } else if (skipBackendUpdater) {
           let local: string | null = null;
           try {
@@ -1691,6 +1685,12 @@ export const useWebSocketStore = create<WebSocketState>()(
         console.info(
           `[transport] data ready mode=${get().transportMode} duration_ms=${(performance.now() - initializationStarted).toFixed(1)}`
         );
+      } catch (error) {
+        if (!__WITH_ANDROID__) throw error;
+        if (!isCurrent()) return;
+        const detail = error instanceof Error ? error.message : String(error);
+        appendGlobalLog({ level: "error", message: detail } as any);
+        set({ _auth_error: detail });
       } finally {
         if (initializationGeneration === transportGeneration) set({ _initiating: false });
       }
@@ -1829,9 +1829,41 @@ export const useWebSocketStore = create<WebSocketState>()(
     trigger: (payload, callback) => {
       const timestamp = commandTimestamp(payload.timestamp, get());
       const stopConfigId = payload.command === "stop_scheduler" ? payload.config_id : undefined;
+      const stoppedEntries = new Set<string>();
+      if (stopConfigId || payload.command === "stop_all_tasks") {
+        set((state) => {
+          const statusStore = { ...state.statusStore };
+          for (const [id, previous] of Object.entries(statusStore)) {
+            if (!previous.running || (stopConfigId && id !== stopConfigId)) continue;
+            stoppedEntries.add(id);
+            statusStore[id] = { ...previous, _stopRequested: true, _stopRequestToken: timestamp };
+          }
+          return { statusStore };
+        });
+      }
+      const restoreUnsentStops = () => {
+        const corrections: Record<string, StatusItem> = {};
+        set((state) => {
+          const statusStore = { ...state.statusStore };
+          for (const id of stoppedEntries) {
+            if (statusStore[id]?._stopRequestToken === timestamp) {
+              statusStore[id] = {
+                ...statusStore[id],
+                _stopRequested: false,
+                _stopRequestToken: null,
+              };
+              corrections[id] = statusStore[id];
+            }
+          }
+          return { statusStore };
+        });
+        for (const [id, status] of Object.entries(corrections))
+          publishRejectedStopOutcome(id, status);
+      };
       if (stopConfigId) {
         const statusAtRequest = get().statusStore[stopConfigId];
         get().pendingCallbacks[timestamp] = (response) => {
+          if (response?.status === "error") restoreUnsentStops();
           if (
             statusAtRequest &&
             response?.command === "stop_scheduler" &&
@@ -1853,16 +1885,22 @@ export const useWebSocketStore = create<WebSocketState>()(
       } else {
         // Even fire-and-forget commands receive an ACK. Reserve its ID until
         // then so that it cannot accidentally resolve another command's wait.
-        get().pendingCallbacks[timestamp] = callback ?? (() => {});
+        get().pendingCallbacks[timestamp] = (response) => {
+          if (response?.status === "error") restoreUnsentStops();
+          callback?.(response);
+        };
       }
       const normalizedPayload = {
         ...payload,
         timestamp,
       };
-      get().send("trigger", {
-        type: "command",
-        ...normalizedPayload,
-      });
+      try {
+        get().send("trigger", { type: "command", ...normalizedPayload });
+      } catch (error) {
+        restoreUnsentStops();
+        delete get().pendingCallbacks[timestamp];
+        throw error;
+      }
       return timestamp;
     },
 

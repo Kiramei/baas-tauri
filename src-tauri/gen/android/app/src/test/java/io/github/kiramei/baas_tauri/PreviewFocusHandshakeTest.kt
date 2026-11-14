@@ -37,15 +37,57 @@ class PreviewFocusHandshakeTest {
   }
 
   @Test fun android12UsesOnlyTheOwnedHighLayerShellShield() {
-    assertTrue(PrivilegedExecution.FOCUS_SHIELD_WINDOW_TYPE == 2010)
-    assertTrue(PrivilegedExecution.ownsFocusInputWindow(window(uid = 2000, type = "2010"), 2, 2000))
-    assertTrue(PrivilegedExecution.ownsFocusInputWindow(window(uid = 2000, type = "SYSTEM_ERROR"), 2, 2000))
+    assertTrue(PrivilegedExecution.FOCUS_SHIELD_WINDOW_TYPE == 2026)
+    assertTrue(PrivilegedExecution.ownsFocusInputWindow(window(uid = 2000, type = "2026"), 2, 2000))
+    assertTrue(PrivilegedExecution.ownsFocusInputWindow(window(uid = 2000, type = "DISPLAY_OVERLAY"), 2, 2000))
+    assertFalse(PrivilegedExecution.ownsFocusInputWindow(window(uid = 2000, type = "2010"), 2, 2000))
+    assertFalse(PrivilegedExecution.ownsFocusInputWindow(window(uid = 2000, type = "SYSTEM_ERROR"), 2, 2000))
     assertFalse(PrivilegedExecution.ownsFocusInputWindow(window(uid = 2000, type = "2008"), 2, 2000))
     assertFalse(PrivilegedExecution.ownsFocusInputWindow(window(uid = 2000, type = "SYSTEM_DIALOG"), 2, 2000))
     assertFalse(PrivilegedExecution.ownsFocusInputWindow(window(uid = 2000), 2, 2000))
-    assertFalse(PrivilegedExecution.ownsFocusInputWindow(window(uid = 10072, type = "2010"), 2, 2000))
+    assertFalse(PrivilegedExecution.ownsFocusInputWindow(window(uid = 10072, type = "2026"), 2, 2000))
     assertFalse(PrivilegedExecution.ownsFocusInputWindow(window(name = "game", uid = 10070) + "\n" +
-      window(uid = 2000, type = "2010"), 2, 2000))
+      window(uid = 2000, type = "2026"), 2, 2000))
+  }
+
+  @Test fun vendorGameWindowAboveAnOtherwiseValidShieldStillRejectsInput() {
+    val game = window(name = "selected game", display = 8, uid = 10070, type = "FIRST_APPLICATION_WINDOW",
+      flags = "NOT_TOUCH_MODAL | KEEP_SCREEN_ON | LAYOUT_IN_SCREEN | FULLSCREEN | LAYOUT_INSET_DECOR | SPLIT_TOUCH | DRAWS_SYSTEM_BAR_BACKGROUNDS")
+    val surface = window(name = "selected game surface", display = 8, uid = 10070, type = "UNKNOWN",
+      flags = "NOT_TOUCH_MODAL", features = "NO_INPUT_CHANNEL", token = false, region = "<empty>")
+    val shield = window(display = 8, uid = 2000, type = "2026",
+      flags = "NOT_TOUCH_MODAL | LAYOUT_IN_SCREEN | HARDWARE_ACCELERATED")
+    val blocked = PrivilegedExecution.checkFocusInputWindow(listOf(game, surface, shield).joinToString("\n"), 8, 2000)
+    assertFalse(blocked.verified)
+    assertEquals("OTHER_OWNER_ON_TOP", blocked.reason)
+    assertTrue(blocked.diagnostic.contains("targetWindows=3 ownedShields=1 visibleShields=1"))
+    assertTrue(PrivilegedExecution.ownsFocusInputWindow(listOf(shield, game, surface).joinToString("\n"), 8, 2000))
+  }
+
+  @Test fun embeddedFocusSurfaceMustHaveTheExactOwnedHostNameUidTypeAndRegion() {
+    val host = PrivilegedExecution.FOCUS_SHIELD_TITLE
+    val embedded = window(uid = 2000, type = "2026")
+      .replace("name='abc $host'", "name='EmbeddedWindow{ u0 $host}'")
+    assertTrue(PrivilegedExecution.ownsFocusInputWindow(embedded, 2, 2000))
+    for (invalid in listOf(
+      embedded.replace("ownerUid=2000", "ownerUid=10070"),
+      embedded.replace("type=2026", "type=2010"),
+      embedded.replace("EmbeddedWindow{ u0", "EmbeddedWindow{ u10"),
+      embedded.replace("$host}'", "$host impostor}'"),
+      embedded.replace("EmbeddedWindow{", "other EmbeddedWindow{"),
+      embedded.replace("touchableRegion=[0,0][1280,720]", "touchableRegion=[65,0][1280,720]"),
+      embedded.replace("hasToken=true", "hasToken=false"),
+    )) assertFalse(PrivilegedExecution.ownsFocusInputWindow(invalid, 2, 2000))
+  }
+
+  @Test fun aPortalCannotRedirectTheHandshakeToAnotherDisplayWithoutAnInputChannel() {
+    val shield = window(uid = 2000, type = "2026")
+    val portal = window(name = "portal", uid = 10070, features = "NO_INPUT_CHANNEL", token = false)
+      .replace("portalToDisplayId=-1", "portalToDisplayId=0")
+    val check = PrivilegedExecution.checkFocusInputWindow(portal + "\n" + shield, 2, 2000)
+    assertFalse(check.verified)
+    assertEquals("OTHER_DISPLAY_PORTAL", check.reason)
+    assertFalse(PrivilegedExecution.ownsFocusInputWindow(shield.replace("portalToDisplayId=-1, ", ""), 2, 2000))
   }
 
   @Test fun otherDisplaysAndNonInputSurfaceLayersAreIgnored() {
@@ -70,7 +112,7 @@ class PreviewFocusHandshakeTest {
   }
 
   @Test fun anUnknownWindowDisplayCannotBeSkippedAboveTheOwnedShield() {
-    val shield = window(uid = 2000, type = "2010")
+    val shield = window(uid = 2000, type = "2026")
     val other = window(name = "other dialog", uid = 10070)
     for (unknown in listOf(other.replace("displayId=2, ", ""),
       other.replace("displayId=2", "displayId=unknown"),
@@ -90,7 +132,7 @@ class PreviewFocusHandshakeTest {
   }
 
   @Test fun focusDiagnosticsDistinguishUnpublishedHiddenAndObscuredShields() {
-    val shield = window(uid = 2000, type = "2010")
+    val shield = window(uid = 2000, type = "2026")
     val missing = PrivilegedExecution.checkFocusInputWindow("Input Dispatcher State:", 2, 2000)
     assertFalse(missing.verified)
     assertEquals("NO_TOUCHABLE_WINDOW", missing.reason)

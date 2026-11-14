@@ -20,18 +20,18 @@ def load(name):
 
 
 class AndroidDeviceDependenciesTest(unittest.TestCase):
-    def generated_app_current(self):
+    def generated_method(self, name):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             load("bootstrap")._write_uiautomator2_stub(root)
             tree = ast.parse((root / "uiautomator2/__init__.py").read_text(encoding="utf-8"))
-        method = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == "app_current")
+        method = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == name)
         namespace = {"os": os, "re": re}
-        exec(compile(ast.Module(body=[method], type_ignores=[]), "generated-app-current", "exec"), namespace)
-        return namespace["app_current"]
+        exec(compile(ast.Module(body=[method], type_ignores=[]), "generated-" + name, "exec"), namespace)
+        return namespace[name]
 
     def test_native_current_package_does_not_fall_back_to_the_physical_display(self):
-        app_current = self.generated_app_current()
+        app_current = self.generated_method("app_current")
         device = types.SimpleNamespace(_jsonrpc=Mock(), shell=Mock())
         with patch.dict(os.environ, {"BAAS_ANDROID_NATIVE_CAPTURE": "1"}):
             for package in ("", "example.game"):
@@ -43,12 +43,32 @@ class AndroidDeviceDependenciesTest(unittest.TestCase):
             device.shell.assert_not_called()
 
     def test_legacy_current_package_fallback_remains_available_outside_native_capture(self):
-        app_current = self.generated_app_current()
+        app_current = self.generated_method("app_current")
         device = types.SimpleNamespace(_jsonrpc=Mock(return_value={"currentPackageName": ""}),
                                        shell=Mock(return_value=("mCurrentFocus=Window{123 u0 example.physical/.Main}", 0)))
         with patch.dict(os.environ, {"BAAS_ANDROID_NATIVE_CAPTURE": "0"}):
             self.assertEqual(app_current(device), {"package": "example.physical", "activity": ".Main"})
             device.shell.assert_called_once()
+
+    def test_failed_native_launch_does_not_enter_game_navigation(self):
+        app_start = self.generated_method("app_start")
+        bridge = Mock(return_value=False)
+        device = types.SimpleNamespace(_jsonrpc=bridge)
+        with patch.dict(os.environ, {"BAAS_ANDROID_NATIVE_CAPTURE": "1"}):
+            with self.assertRaisesRegex(RuntimeError, "could not launch example.game"):
+                app_start(device, "example.game")
+            bridge.assert_called_once_with("appStart", ["example.game"], timeout=20)
+            bridge.return_value = True
+            self.assertTrue(app_start(device, "example.game"))
+
+    def test_native_readiness_error_reaches_the_backends_bounded_retry_loop(self):
+        probe = self.generated_method("_uiautomator_alive")
+        device = types.SimpleNamespace(_jsonrpc=Mock(side_effect=RuntimeError("game display unavailable")))
+        with patch.dict(os.environ, {"BAAS_ANDROID_NATIVE_CAPTURE": "1"}):
+            with self.assertRaisesRegex(RuntimeError, "game display unavailable"):
+                probe(device)
+        with patch.dict(os.environ, {"BAAS_ANDROID_NATIVE_CAPTURE": "0"}):
+            self.assertFalse(probe(device))
 
     def test_third_party_device_packages_are_not_bundled(self):
         gradle = (ROOT / "src-tauri/gen/android/app/build.gradle.kts").read_text()

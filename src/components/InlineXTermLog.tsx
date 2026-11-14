@@ -3,6 +3,7 @@ import "@xterm/xterm/css/xterm.css";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
+import { attachAndroidReadOnlyTerminal } from "@/shared/AndroidReadOnlyTerminal";
 
 /** Renders a compact xterm log for Android updater output. */
 const InlineXTermLog: React.FC<{ text: string }> = ({ text }) => {
@@ -32,6 +33,9 @@ const InlineXTermLog: React.FC<{ text: string }> = ({ text }) => {
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(hostRef.current);
+    const detachReadOnlyLog = __WITH_ANDROID__
+      ? attachAndroidReadOnlyTerminal(term, hostRef.current)
+      : undefined;
     termRef.current = term;
     fitRef.current = fit;
 
@@ -47,6 +51,7 @@ const InlineXTermLog: React.FC<{ text: string }> = ({ text }) => {
 
     return () => {
       stopObserving();
+      detachReadOnlyLog?.();
       fit.dispose();
       term.dispose();
       termRef.current = null;

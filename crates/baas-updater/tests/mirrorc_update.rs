@@ -74,27 +74,38 @@ fn full_then_incremental_then_current_version_preserves_local_configuration() {
     fs::create_dir(target.path().join("config")).unwrap();
     let local_config = target.path().join("config/profile.json");
     fs::write(&local_config, "local profile stays unchanged").unwrap();
+    let packages = [
+        zip_files(&[
+            ("repo/main.py", "version one"),
+            ("repo/obsolete.txt", "old"),
+            ("repo/config/profile.json", "packaged default"),
+            ("repo/setup.toml", "packaged settings"),
+            ("repo/unchanged.txt", "keep"),
+        ]),
+        zip_files(&[
+            (
+                "changes.json",
+                r#"{"added":["repo/new.txt"],"modified":["repo/main.py"],"deleted":["repo/obsolete.txt"]}"#,
+            ),
+            ("repo/main.py", "version two"),
+            ("repo/new.txt", "new"),
+        ]),
+    ];
+    let response = |i: usize, version: &str, kind: &str| {
+        use sha2::{Digest, Sha256};
+        let sha: String = Sha256::digest(&packages[i])
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        json!({"code":0,"msg":"ok","data":{"version_name":version,"url":"https://test.invalid/package","update_type":kind,"sha256":sha,"filesize":packages[i].len()}})
+    };
     let http = Packages {
         responses: RefCell::new(VecDeque::from([
-            json!({"code":0,"msg":"ok","data":{"version_name":"v1","url":"https://test.invalid/full","update_type":"full"}}),
-            json!({"code":0,"msg":"ok","data":{"version_name":"v2","url":"https://test.invalid/delta","update_type":"incremental"}}),
+            response(0, "v1", "full"),
+            response(1, "v2", "incremental"),
             json!({"code":0,"msg":"ok","data":{"version_name":"v2"}}),
         ])),
-        packages: RefCell::new(VecDeque::from([
-            zip_files(&[
-                ("repo/main.py", "version one"),
-                ("repo/obsolete.txt", "old"),
-                ("repo/unchanged.txt", "keep"),
-            ]),
-            zip_files(&[
-                (
-                    "changes.json",
-                    r#"{"added":["repo/new.txt"],"modified":["repo/main.py"],"deleted":["repo/obsolete.txt"]}"#,
-                ),
-                ("repo/main.py", "version two"),
-                ("repo/new.txt", "new"),
-            ]),
-        ])),
+        packages: RefCell::new(VecDeque::from(packages)),
         downloads: Cell::new(0),
     };
     let client = MirrorCClient::new(&http);
@@ -139,6 +150,7 @@ fn full_then_incremental_then_current_version_preserves_local_configuration() {
         "keep"
     );
     assert!(!target.path().join("obsolete.txt").exists());
+    assert!(!target.path().join("setup.toml").exists());
 }
 
 #[test]
@@ -168,4 +180,49 @@ fn cdk_errors_never_download_or_modify_existing_files_even_at_the_latest_version
         assert_eq!(http.downloads.get(), 0);
         assert_eq!(fs::read_to_string(&sentinel).unwrap(), "untouched");
     }
+}
+
+#[test]
+fn mismatched_archive_does_not_replace_existing_files() {
+    let target = tempfile::tempdir().unwrap();
+    fs::write(target.path().join("main.py"), "existing").unwrap();
+    let package = zip_files(&[("repo/main.py", "changed")]);
+    let http = Packages {
+        responses: RefCell::new(VecDeque::from([json!({"code":0,"msg":"ok","data":{
+            "version_name":"v2","url":"https://test.invalid/archive","sha256":"0".repeat(64),"filesize":package.len()}})])),
+        packages: RefCell::new(VecDeque::from([package])),
+        downloads: Cell::new(0),
+    };
+    let error = MirrorCClient::new(&http)
+        .update(
+            &MirrorUpdateRequest {
+                kind: RepositoryKind::Main,
+                channel: UpdateChannel::Stable,
+                current_version: "v1",
+                cdk: "local-test-only",
+                target_dir: target.path(),
+            },
+            &NoopOutput,
+        )
+        .unwrap_err();
+    assert!(error.message().contains("SHA-256"));
+    assert_eq!(
+        fs::read_to_string(target.path().join("main.py")).unwrap(),
+        "existing"
+    );
+}
+
+#[test]
+fn malformed_delta_is_rejected_before_removing_any_old_files() {
+    let target = tempfile::tempdir().unwrap();
+    fs::write(target.path().join("main.py"), "existing").unwrap();
+    let delta = zip_files(&[(
+        "changes.json",
+        r#"{"added":["repo/missing.py"],"modified":[],"deleted":["repo/main.py"]}"#,
+    )]);
+    assert!(baas_updater::mirrorc::apply_incremental_package(&delta, target.path()).is_err());
+    assert_eq!(
+        fs::read_to_string(target.path().join("main.py")).unwrap(),
+        "existing"
+    );
 }

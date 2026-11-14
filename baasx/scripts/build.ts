@@ -1,13 +1,27 @@
-import { mkdir, copyFile, chmod, stat } from "node:fs/promises";
+import { mkdir, copyFile, chmod, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { BunPlugin } from "bun";
 import manifest from "../package.json";
+import { platformFor } from "./distribution-platforms.mjs";
+import { installNodeRuntime } from "./node-runtime.mjs";
 
 const root = resolve(import.meta.dir, "../..");
 const cli = resolve(import.meta.dir, "..");
 const binary = process.argv.includes("--binary");
-const trim = binary && !process.argv.includes("--no-trim");
-const name = process.platform === "win32" ? "baas-cli-runtime.exe" : "baas-cli-runtime";
+const jsOnly = process.argv.includes("--js-only");
+const requestedTarget = process.argv.find((arg) => arg.startsWith("--target="))?.slice(9);
+const platform = platformFor(requestedTarget || `${process.platform}-${process.arch}`);
+if (!platform) throw new Error(`Unsupported BAASX target: ${requestedTarget}`);
+const nodeBinary = binary && platform.runtime === "node";
+if (nodeBinary && process.platform !== "linux")
+  throw new Error("Linux ARM32 cross builds require a Linux host with the ARM hard-float toolchain.");
+if (requestedTarget && !nodeBinary && requestedTarget !== `${process.platform}-${process.arch}`)
+  throw new Error("Only Linux ARM32 uses cross compilation; build other targets on their native runners.");
+if (binary && jsOnly) throw new Error("--binary and --js-only are mutually exclusive");
+const trim = binary && !nodeBinary && !process.argv.includes("--no-trim");
+const suffix = platform.os === "win32" ? ".exe" : "";
+const name = "baasx-runtime" + suffix;
+const legacyName = "baas-cli-runtime" + suffix;
 const compilerRevision = "b1007f1177fd402fae67387b8548cae5ae9b5707";
 
 if (!Bun.semver.satisfies(Bun.version, ">=1.4.4-0"))
@@ -65,35 +79,59 @@ const withoutInkDevtools: BunPlugin = {
   },
 };
 
-const metadata = Bun.spawn(["cargo", "metadata", "--locked", "--no-deps", "--format-version=1"], {
-  cwd: root,
-  stdout: "pipe",
-  stderr: "inherit",
-});
-const metadataText = await new Response(metadata.stdout).text();
-if (await metadata.exited) process.exit(1);
-const targetDirectory: unknown = JSON.parse(metadataText).target_directory;
-if (typeof targetDirectory !== "string")
-  throw new Error("Cargo did not return its target directory");
-const build = Bun.spawn(["cargo", "build", "--release", "--locked", "-p", "baas-cli-runtime"], {
-  cwd: root,
-  stdout: "inherit",
-  stderr: "inherit",
-});
-if (await build.exited) process.exit(1);
-for (const directory of [join(cli, "runtime"), join(cli, "dist/runtime")]) {
-  await mkdir(directory, { recursive: true });
-  const target = join(directory, name);
-  await copyFile(
-    join(
-      targetDirectory,
-      ...(process.env.CARGO_BUILD_TARGET ? [process.env.CARGO_BUILD_TARGET] : []),
-      "release",
-      name
-    ),
-    target
+if (!jsOnly) {
+  const metadata = Bun.spawn(["cargo", "metadata", "--locked", "--no-deps", "--format-version=1"], {
+    cwd: root,
+    stdout: "pipe",
+    stderr: "inherit",
+  });
+  const metadataText = await new Response(metadata.stdout).text();
+  if (await metadata.exited) process.exit(1);
+  const targetDirectory: unknown = JSON.parse(metadataText).target_directory;
+  if (typeof targetDirectory !== "string")
+    throw new Error("Cargo did not return its target directory");
+  const rustTarget = nodeBinary ? platform.rustTarget : process.env.CARGO_BUILD_TARGET;
+  const buildEnvironment = { ...process.env };
+  if (nodeBinary) {
+    // libgit2 must use readdir64/stat64 on ARM32 filesystems with 64-bit inodes.
+    for (const key of ["CFLAGS_armv7_unknown_linux_gnueabihf", "CXXFLAGS_armv7_unknown_linux_gnueabihf"])
+      buildEnvironment[key] = [buildEnvironment[key], "-D_FILE_OFFSET_BITS=64"].filter(Boolean).join(" ");
+  }
+  const build = Bun.spawn(["cargo", "build", "--release", "--locked", "-p", "baasx-runtime", ...(rustTarget ? ["--target", rustTarget] : [])], {
+    cwd: root,
+    env: buildEnvironment,
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+  if (await build.exited) process.exit(1);
+  const releaseDir = join(
+    targetDirectory,
+    ...(rustTarget ? [rustTarget] : []),
+    "release"
   );
-  if (process.platform !== "win32") await chmod(target, 0o755);
+  const packagedRuntime = join(cli, "runtime");
+  const standaloneRuntime = join(cli, "dist/runtime");
+  for (const directory of [packagedRuntime, standaloneRuntime]) {
+    await mkdir(directory, { recursive: true });
+    await copyFile(join(releaseDir, name), join(directory, name));
+    if (process.platform !== "win32") await chmod(join(directory, name), 0o755);
+  }
+  const legacy = join(packagedRuntime, legacyName);
+  if (process.platform === "win32") {
+    const source = join(cli, "scripts/platform/windows/runtime-alias.rs");
+    const compileAlias = Bun.spawn(
+      ["rustc", "--edition=2024", "-C", "opt-level=s", "-C", "strip=symbols", source, "-o", legacy],
+      {
+        stdout: "inherit",
+        stderr: "inherit",
+      }
+    );
+    if (await compileAlias.exited) process.exit(1);
+  } else {
+    await writeFile(legacy, '#!/bin/sh\nexec "${0%/*}/baasx-runtime" "$@"\n');
+    await chmod(legacy, 0o755);
+  }
+  await copyFile(legacy, join(standaloneRuntime, legacyName));
 }
 const result = await Bun.build({
   entrypoints: [join(cli, "src/index.ts")],
@@ -129,7 +167,15 @@ const nodeResult = await Bun.build({
 for (const message of nodeResult.logs) console.error(message);
 if (!nodeResult.success) process.exit(1);
 
-if (binary) {
+if (nodeBinary) {
+  const distribution = join(cli, "dist");
+  await installNodeRuntime(join(distribution, "runtime"));
+  await writeFile(join(distribution, "baasx"), '#!/bin/sh\nBAASX_FILE=$(readlink -f -- "$0") || exit 1\nBAASX_DIR=${BAASX_FILE%/*}\nexec "$BAASX_DIR/runtime/node" "$BAASX_DIR/dist/baasx-node.mjs" "$@"\n');
+  await chmod(join(distribution, "baasx"), 0o755);
+  await mkdir(join(distribution, "dist"), { recursive: true });
+  await copyFile(join(distribution, "baasx-node.mjs"), join(distribution, "dist/baasx-node.mjs"));
+  console.log(`baasx: Linux ARMv7 hard-float launcher, bundled Node.js and ${platform.rustTarget} helper`);
+} else if (binary) {
   const outfile = join(cli, `dist/baasx${process.platform === "win32" ? ".exe" : ""}`);
   // Keep ESM/top-level await and precompile just the first function level: this
   // improves startup without embedding bytecode for every seldom-used editor.

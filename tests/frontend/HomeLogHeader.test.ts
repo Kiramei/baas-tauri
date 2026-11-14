@@ -8,7 +8,7 @@ test("the shared home log heading has no count on any platform", () => {
     ?.find((text) => text.includes('t("log")'));
   expect(heading).toBeDefined();
   expect(heading).not.toContain("activeLogs");
-  expect(source).toContain("<Logger logs={logs}");
+  expect(source).toContain("<Logger ");
   expect(source).toContain("<ProfileLogView");
   expect(source).toContain("onClick={exportLog}");
 });

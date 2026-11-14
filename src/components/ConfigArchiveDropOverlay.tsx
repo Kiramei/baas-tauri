@@ -5,6 +5,12 @@ import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { runProfileCommand, waitForProfileConfig } from "@/shared/ProfileCommands";
+import {
+  profileNameAllocatorFor,
+  destinationProfileNames,
+  importProfileArchive as importNormalizedArchive,
+  type ProfileNameAllocator,
+} from "@/shared/ProfileArchiveImport";
 
 type DropState = "zip" | "invalid" | null;
 type PendingArchive = {
@@ -36,7 +42,7 @@ const ConfigArchiveDropOverlay: React.FC = () => {
   }, []);
 
   const importArchive = React.useCallback(
-    async (name: string, bytes: ArrayBuffer | Uint8Array) => {
+    async (_name: string, bytes: ArrayBuffer | Uint8Array, allocator: ProfileNameAllocator) => {
       const state = useWebSocketStore.getState();
       if (state._auth_phase !== "authenticated" || !state.connections.trigger) {
         throw new Error(
@@ -46,11 +52,11 @@ const ConfigArchiveDropOverlay: React.FC = () => {
         );
       }
 
-      const result = await runProfileCommand(
-        useWebSocketStore.getState,
-        "import_config",
-        { filename: name },
-        bytes
+      const result = await importNormalizedArchive(
+        bytes,
+        (filename, binary) =>
+          runProfileCommand(useWebSocketStore.getState, "import_config", { filename }, binary),
+        allocator
       );
       const config = await waitForProfileConfig(useWebSocketStore.getState, result?.serial);
       setActiveProfile({ id: result.serial, name: config.name });
@@ -81,8 +87,12 @@ const ConfigArchiveDropOverlay: React.FC = () => {
       );
 
       try {
+        const allocator = profileNameAllocatorFor(
+          useWebSocketStore.getState().connections.trigger,
+          () => destinationProfileNames(useWebSocketStore.getState())
+        );
         for (const archive of archives) {
-          await importArchive(archive.name, await archive.bytes);
+          await importArchive(archive.name, await archive.bytes, allocator);
         }
         toast.success(
           t("profile.dropImportSuccess", {

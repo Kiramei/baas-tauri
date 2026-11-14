@@ -4,21 +4,27 @@ import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { Info, Loader2, X } from "lucide-react";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
+import { useModalFocus } from "@/components/ui/Modal";
 import CButton from "@/components/ui/CButton";
 
 const overlayCls = "fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-[1100]";
 
 /** Renders the tauri update progress modal component. */
 export const TauriUpdateProgressModal: React.FC<{
-  open: boolean;
   onClose: () => void;
   updating: boolean;
-  tauriProgress: number;
-  tauriStatus: string;
-}> = ({ open, onClose, updating, tauriProgress, tauriStatus }) => {
+  progress: number | null;
+  status: string;
+  errorDetail: string | null;
+  onRetry: () => void;
+}> = ({ onClose, updating, progress, status, errorDetail, onRetry }) => {
   const { t } = useTranslation();
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
-  if (!open) return null;
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
+  useModalFocus(true, panelRef, () => {
+    if (!updating) onClose();
+  });
 
   return createPortal(
     <div
@@ -30,6 +36,11 @@ export const TauriUpdateProgressModal: React.FC<{
       }}
     >
       <motion.div
+        ref={panelRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         initial={lowPerformanceMode ? false : { opacity: 0, scale: 0.96, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.95, y: 10 }}
@@ -45,7 +56,9 @@ export const TauriUpdateProgressModal: React.FC<{
             ) : (
               <Info className="size-5 shrink-0 text-muted-foreground" />
             )}
-            <h2 className="modal-title">{t("update.tauriInstallTitle")}</h2>
+            <h2 id={titleId} className="modal-title">
+              {t("update.tauriInstallTitle")}
+            </h2>
           </div>
           <button
             type="button"
@@ -58,23 +71,36 @@ export const TauriUpdateProgressModal: React.FC<{
           </button>
         </div>
 
-        {tauriStatus && <p className="mb-4 text-sm text-muted-foreground">{tauriStatus}</p>}
-
-        <div className="h-2 rounded-full bg-secondary overflow-hidden">
-          <div
-            className="h-full bg-[var(--control-checked)] transition-all"
-            style={{ width: `${tauriProgress}%` }}
+        <p role="status" className="mb-4 text-sm text-muted-foreground">
+          {status}
+        </p>
+        {errorDetail !== null && (
+          <p role="alert" className="mb-4 break-words text-sm text-destructive">
+            {errorDetail}
+          </p>
+        )}
+        {updating && (
+          <progress
+            aria-label={status}
+            className="h-2 w-full accent-[var(--control-checked)]"
+            max={100}
+            value={progress ?? undefined}
           />
-        </div>
+        )}
 
         <div className="modal-footer">
+          {errorDetail !== null && (
+            <CButton onClick={onRetry} disabled={updating}>
+              {t("androidSetup.retry")}
+            </CButton>
+          )}
           <CButton
             onClick={onClose}
             disabled={updating}
             variant="secondary"
             className="border-transparent bg-secondary hover:bg-accent"
           >
-            {t("common.cancel")}
+            {t("common.close")}
           </CButton>
         </div>
       </motion.div>

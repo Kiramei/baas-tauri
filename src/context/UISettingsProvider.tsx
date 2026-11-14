@@ -35,6 +35,7 @@ const DEFAULT_UI_SETTINGS: UISettings = {
   scrollToEnd: true,
   assetsDisplay: true,
   enableBAComet: false,
+  enableBACursors: true,
   lowPerformanceMode: false,
   enableSystemNotifications: true,
   minimizeToTray: false,

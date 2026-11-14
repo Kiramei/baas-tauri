@@ -1,0 +1,72 @@
+name: Client Frontend
+
+on:
+  workflow_call:
+    inputs:
+      modes:
+        description: JSON array of webui, tauri, android, windows, macos or linux
+        required: true
+        type: string
+      bundles:
+        description: Whether any client bundle requires validation
+        required: true
+        type: boolean
+      adapters:
+        description: JSON matrix object for the selected OS adapters
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  client:
+    name: Client UI checks and bundles
+    if: inputs.bundles
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-bun-deps
+      - name: Validate caller's frontend plan
+        env:
+          MODES: ${{ inputs.modes }}
+          BUNDLES: ${{ inputs.bundles }}
+          ADAPTERS: ${{ inputs.adapters }}
+        run: bun scripts/ci/client-frontend.mjs validate
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.12"}
+      - name: Generate fonts once for selected bundles
+        env:
+          CI_FONT_BUILD_STRICT: "1"
+        run: |
+          python -m pip install --disable-pip-version-check "fonttools[woff]" brotli zopfli
+          bun run gen:fonts
+      - name: Check selected client modes
+        env:
+          MODES: ${{ inputs.modes }}
+        run: bun scripts/ci/client-frontend.mjs client
+
+  os:
+    name: ${{ matrix.mode }} frontend adapter
+    if: ${{ fromJSON(inputs.adapters).include[0] != null }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.adapters) }}
+    runs-on: ${{ matrix.mode == 'windows' && 'windows-latest' || matrix.mode == 'macos' && 'macos-latest' || 'ubuntu-24.04' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-bun-deps
+      - name: Validate caller's frontend plan
+        env:
+          MODES: ${{ inputs.modes }}
+          BUNDLES: ${{ inputs.bundles }}
+          ADAPTERS: ${{ inputs.adapters }}
+        run: bun scripts/ci/client-frontend.mjs validate
+      - name: Check platform adapter on its native runner
+        env:
+          CLIENT_OS: ${{ matrix.mode }}
+        run: bun scripts/ci/client-frontend.mjs os

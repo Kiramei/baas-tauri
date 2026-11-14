@@ -9,7 +9,7 @@ import urllib.request
 from pathlib import Path
 from typing import Optional
 
-# 配置区 -------------------------------------------------
+# Configuration -------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCAN_DIRS = [PROJECT_ROOT / "src", PROJECT_ROOT / "public"]
 REMOTE_TEXT_SOURCES = [

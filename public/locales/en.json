@@ -3,6 +3,8 @@
     "back": "Back",
     "close": "Close",
     "collapseSidebar": "Collapse sidebar",
+    "devServerHint": "Use the BAAS Tauri desktop window for this development session. The browser URL serves Vite assets for the Tauri WebView.",
+    "devServerTitle": "BAAS Tauri dev server is running",
     "expandSidebar": "Expand sidebar",
     "forward": "Forward",
     "maximize": "Maximize",
@@ -19,10 +21,12 @@
     "mobileConfiguration": "Config",
     "mobilePlugins": "Plugins",
     "mobileScheduler": "Tasks",
-    "mobileSettings": "Settings",
+    "mobileSettings": "Preferences",
     "plugins": "Plugins",
     "scheduler": "Scheduler",
-    "settings": "Settings"
+    "scrollLeft": "Scroll left",
+    "scrollRight": "Scroll right",
+    "settings": "Preferences"
   },
   "common": {
     "add": "Add",
@@ -34,6 +38,7 @@
     "delete": "Delete",
     "edit": "Edit",
     "execute": "Execute",
+    "loading": "Loading…",
     "save": "Save",
     "start": "Start",
     "stop": "Stop",
@@ -56,6 +61,7 @@
   },
   "log": {
     "$self": "Logs",
+    "copied": "Logs copied to clipboard",
     "empty": {
       "description": "Start a task to see its progress here.",
       "title": "No activity yet"
@@ -71,10 +77,20 @@
     "noneQueued": "No tasks in the queue",
     "noneRunning": "No task is currently running",
     "overview": "Task Overview",
-    "running": "Running Task"
+    "running": "Running Task",
+    "status": {
+      "failed": "Failed",
+      "idle": "Idle",
+      "pending": "Pending",
+      "running": "Running",
+      "skipped": "Skipped",
+      "stopped": "Stopped",
+      "success": "Success"
+    }
   },
   "notification": {
     "script": {
+      "batchBody": "{{count}} new execution updates. {{latest}}",
       "completedBody": "{{task}} completed.",
       "completedTitle": "BAAS task completed",
       "failedBody": "{{task}} exited abnormally. Exit code: {{exitCode}}.",
@@ -88,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "Settings categories",
+    "categories": "Preference categories",
     "descriptions": {
       "assets": "Show game resources on the home page.",
       "idleAutoUpdate": "Automatically update scripts when all profiles are idle.",
@@ -106,8 +122,8 @@
       "display": "Display & effects",
       "preferences": "Preferences"
     },
-    "noResults": "No matching settings",
-    "search": "Search settings",
+    "noResults": "No matching preferences",
+    "search": "Search preferences",
     "sections": {
       "appearance": "Appearance",
       "general": "General",
@@ -177,11 +193,13 @@
       "backgroundImageSelected": "Background image set",
       "backgroundImageTooLarge": "Background image must be 5MB or smaller.",
       "enableBAComet": "Enable BAComet",
+      "enableBACursors": "Enable BACursors",
       "enableSafeStream": "Encrypt remote video",
       "enableSystemNotifications": "Enable system notifications",
       "idleAutoUpdate": "Automatically update scripts when idle",
       "lowPerformanceMode": "Reduced effects",
       "player": "Video decoder",
+      "reloadInterface": "Reload interface",
       "storageFailed": "Unable to save preferences in this browser. Free up site storage or choose a smaller background image.",
       "themeColor": "Theme color",
       "themeColorInvalid": "Enter a theme color in #RRGGBB format.",
@@ -190,11 +208,12 @@
     "updateSuccess": "Settings Updated Successfully"
   },
   "update": {
+    "androidInstallerOpened": "Confirm the update in the Android installer.",
+    "androidPackageUnavailable": "This release has no APK for this device.",
     "backendAction": "Update BAAS",
     "backendStarted": "BAAS update started",
     "backendStartFailed": "Failed to start BAAS update",
     "channel": "Update Channel",
-    "dueDate": "Expiration Date",
     "enterCdk": "Enter CDK",
     "method": "Update Source",
     "mirrorCdk": "MirrorC CDK (Optional)",
@@ -204,6 +223,7 @@
     "tauriAction": "Client",
     "tauriAvailable": "Client update available",
     "tauriChecking": "Checking for client update...",
+    "tauriDisabled": "Client updates are disabled in setup.toml.",
     "tauriDownloading": "Downloading {{version}}...",
     "tauriFailed": "Client update failed",
     "tauriInstalling": "Installing and restarting...",
@@ -224,6 +244,7 @@
     "copy": "Copy Profile",
     "copyFailed": "Failed to copy profile",
     "create": "Create Profile",
+    "createElsewhere": "Create a profile from {{tasks}} or {{configuration}}.",
     "deleteConfirmMessage": "Are you sure you want to delete the profile '{{name}}'? This action cannot be undone!",
     "deleteConfirmTitle": "Confirm Deletion",
     "dropAuthRequired": "Connect and authenticate before importing a profile archive.",
@@ -238,10 +259,19 @@
     "exportFailed": "Failed to export profile",
     "import": "Import Profile Archive",
     "importArchive": "Choose profile archive",
+    "importEntry": "Import profiles",
     "importFailed": "Failed to import profile",
+    "importFolder": "Import profiles from folder",
+    "importFolderEmpty": "No profile subfolders containing config.json were found.",
+    "importFolderProgress": "Importing {{completed}} of {{total}} profiles…",
+    "importFolderResult": "Imported {{imported}} profiles; {{failed}} failed.",
+    "importFolderUnsupported": "Folder selection is unavailable in this browser. Please import ZIP archives instead.",
+    "importRefreshFailed": "Profiles were imported, but refreshing the list failed. Reconnect to see them.",
     "list": "Profiles",
     "name": "Profile Name",
-    "nameExists": "Name already exists"
+    "nameExists": "Name already exists",
+    "runFailed": "Run failed",
+    "running": "Running"
   },
   "description": {
     "arena": "Opponents and challenge limits",
@@ -283,20 +313,31 @@
     "advancedHint": "Language, appearance, update channel and connection.",
     "autoEnter": "Enter automatically after installation",
     "autoEnterHint": "When off, installation logs remain visible until you click “Open Home”.",
+    "autoLoginFailed": "Automatic login failed. The existing backend Key may be different.",
+    "backendNotReady": "Backend authentication endpoint is not ready.",
+    "backToSetup": "Back to setup",
     "completed": "Installation complete",
     "directoryHint": "The runtime and script files will be installed in this directory.",
+    "duration": "Duration",
     "enter": "Open Home",
     "entering": "Opening…",
+    "errorHint": "Return to setup to change the install path or retry. Copy logs before reporting this issue.",
+    "errorTitle": "Setup error",
     "exit": "Cancel Installation",
+    "finished": "Finished",
     "logs": "Installation logs",
     "noOutput": "No terminal output yet.",
+    "noStructuredLogs": "No structured logs captured.",
     "portableHint": "Portable mode uses the directory beside the app.",
     "preparing": "Preparing terminal…",
     "setting": "Installation Settings",
     "start": "Start Installation",
+    "started": "Started",
+    "stepProgress": "Step {{index}}/{{total}}",
     "title": {
       "wizard": "Setup Wizard"
-    }
+    },
+    "workflowFailed": "The installation or update did not complete successfully."
   },
   "auth": {
     "authenticationFailed": "Unable to authenticate. Check your Key and server connection.",
@@ -611,6 +652,8 @@
     "switch": {
       "start": "Start/Stop"
     },
+    "triggerFailed": "Shortcut trigger failed",
+    "triggerNotReady": "BAAS trigger connection is not ready.",
     "usage": "Use combinations like"
   },
   "property": {
@@ -699,7 +742,11 @@
   },
   "mirrorc": {
     "cdk": {
-      "noInput": "Please enter MirrorC CDK!",
+      "blocked": "CDK is blocked.",
+      "configured": "CDK saved on this device",
+      "mismatch": "This CDK does not cover the selected resource.",
+      "quota": "The daily download quota has been reached.",
+      "requestFailed": "Could not verify or save the local CDK. Try again.",
       "testOk": "CDK OK"
     },
     "message": {
@@ -710,8 +757,6 @@
   },
   "contextMenu": {
     "copy": "Copy",
-    "inspect": "Inspect",
-    "inspectWebuiHint": "Press F12 to open developer tools.",
     "paste": "Paste",
     "pasteFailed": "Clipboard is not available.",
     "reload": "Reload"
@@ -742,9 +787,12 @@
       "inspectFailed": "Unable to read installed games",
       "live": "Live",
       "liveDisplay": "{{game}} live display",
+      "previewAlt": "Game display on the virtual screen",
+      "previewConnecting": "Connecting to the game display…",
+      "previewHidden": "The game preview is no longer visible.",
       "restartFailed": "Unable to restart the game",
-      "showControls": "Show game controls",
       "startBackground": "Start game in background",
+      "takeoverBusy": "The game is already in manual control or a backend update is in progress.",
       "takeoverFailed": "Unable to enter fullscreen game mode"
     },
     "start": {
@@ -777,16 +825,19 @@
     }
   },
   "androidSetup": {
+    "authStatus": "Authentication: {{status}}",
     "awaitingConfirmation": "Awaiting confirmation",
+    "backendStatus": "Python backend: {{status}}",
     "channelDev": "Development",
     "channelStable": "Stable",
     "channelTitle": "Choose the update channel",
-    "channelUnavailable": "Stable is not currently available on Android.",
     "clientAuth": "Authenticate session",
     "clientConnect": "Connect to local service",
     "clientSync": "Sync configuration",
     "clientTitle": "App connection",
+    "configStatus": "Configuration sync: {{status}}",
     "confirmInstall": "Confirm and install",
+    "continueLocal": "Continue with verified local resources",
     "copied": "Copied",
     "copyLogs": "Copy logs",
     "errorTitle": "Installation stopped",
@@ -794,6 +845,7 @@
     "noLogs": "Waiting for backend output…",
     "progress": "Installation progress",
     "retry": "Retry installation",
+    "startup": "Android startup",
     "stateDone": "Done",
     "stateFailed": "Failed",
     "statePending": "Waiting",
@@ -802,9 +854,17 @@
     "stepChannel": "Choose update channel",
     "stepDownload": "Download backend",
     "stepExtract": "Install backend files",
+    "stepOcr": "Prepare OCR runtime and models",
+    "stepResources": "Prepare script resources",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
+    "stepUpdate": "Check backend updates",
     "title": "Set up BAAS",
+    "updateApplying": "Updating backend files…",
+    "updateChecking": "Checking the selected backend channel…",
+    "updateRestarting": "Restarting the backend and preparing resources…",
+    "updateRestoring": "Restoring the previous script state…",
+    "updateWaitingIdle": "Waiting for scripts and manual control to stop…",
     "waiting": "Working…"
   },
   "applicationShortcutHelp": {
@@ -813,8 +873,8 @@
     "fullscreen": "Enter or leave full screen.",
     "redo": "Redo an undone configuration change.",
     "resetZoom": "Reset interface scale to 100%.",
-    "settings": "Open app settings.",
-    "sidebar": "Toggle the profile sidebar; settings keep it open.",
+    "settings": "Open preferences.",
+    "sidebar": "Toggle the profile sidebar; it stays open in Preferences.",
     "undo": "Undo the latest config change; search fields keep text undo.",
     "zoomIn": "Enlarge the interface.",
     "zoomOut": "Shrink the interface."
@@ -835,6 +895,21 @@
     "unavailable": "Could not reach GitHub. Showing available release notes.",
     "version": "Version"
   },
+  "colorPicker": {
+    "alpha": "Alpha transparency percentage",
+    "blue": "Blue color component (0–255)",
+    "brightness": "Brightness percentage (0–100)",
+    "currentColor": "Current color: {{color}}",
+    "eyeDropper": "Pick a color from the screen",
+    "format": "Color format",
+    "green": "Green color component (0–255)",
+    "hex": "Hex color value",
+    "hue": "Hue in degrees (0–360)",
+    "lightness": "Lightness percentage (0–100)",
+    "noSelection": "No color selected",
+    "red": "Red color component (0–255)",
+    "saturation": "Saturation percentage (0–100)"
+  },
   "commitHistory": {
     "author": "Author",
     "current": "Currently installed",
@@ -842,6 +917,7 @@
     "empty": "No commit history is available.",
     "emptyMessage": "(No commit message)",
     "failed": "Unable to load history. Reconnect or update the backend, then retry.",
+    "hash": "Commit ID",
     "issue": {
       "offline": "The history source is unreachable.",
       "rateLimited": "GitHub API rate limit reached. Try again later.",
@@ -1004,6 +1080,19 @@
     "uiautomator2Control": "Control through the device's uiautomator2 service.",
     "uiautomator2Screenshot": "Capture through the device's uiautomator2 service."
   },
+  "connection": {
+    "authenticated": "Session authenticated",
+    "authenticating": "Authenticating session…",
+    "connecting": "Connecting to the backend…",
+    "initializing": "Initializing BAAS Key…",
+    "interrupted": "Backend link interrupted",
+    "opening": "Opening secure control channel…",
+    "reconnecting": "Re-establishing backend connection…",
+    "resuming": "Restoring encrypted session…",
+    "serverVerified": "Server verified. Waiting for authentication…",
+    "synchronizing": "Synchronizing connection state…",
+    "waitingPassword": "Authentication required to continue."
+  },
   "edit": {
     "actionFailed": "The edit action failed. Check clipboard permissions and try again.",
     "cut": "Cut",
@@ -1090,7 +1179,8 @@
     "bar": "Application menu",
     "edit": "Edit",
     "file": "File",
-    "view": "View"
+    "view": "View",
+    "window": "Window"
   },
   "placeholder": {
     "config": {
@@ -1387,7 +1477,7 @@
     "websocket": "WebSocket (compatible)"
   },
   "ui": {
-    "zoom": "UI Zoom Settings"
+    "zoom": "Interface scale"
   },
   "updateChannel": {
     "dev": "Development",

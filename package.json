@@ -1,6 +1,6 @@
 {
   "name": "baas-tauri",
-  "version": "0.0.10-0.post.1",
+  "version": "0.0.10",
   "license": "GPL-3.0-only",
   "type": "module",
   "workspaces": [
@@ -66,6 +66,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "events": "^3.3.0",
+    "fflate": "0.8.3",
     "framer-motion": "^12.23.12",
     "i18next": "^25.4.2",
     "libsodium-wrappers-sumo": "^0.8.4",
@@ -108,5 +109,5 @@
     "vite": "8.0.5",
     "vite-plugin-compression": "^0.5.1"
   },
-  "releaseVersion": "0.0.9.post1"
+  "releaseVersion": "0.0.10"
 }

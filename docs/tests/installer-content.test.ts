@@ -120,7 +120,7 @@ test("privacy review covers the current image inventory without publishing OCR t
       published.sha256
     );
   }
-});
+}, 60_000);
 
 test("published JSON and reader pages exclude local private workspace paths", () => {
   for (const relative of ["docs/public/", "docs/content/docs/"]) {

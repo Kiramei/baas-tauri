@@ -265,7 +265,6 @@ object PrivilegedDisplayMain {
       ?: context.packageManager.getLeanbackLaunchIntentForPackage(packageName)
       ?: throw IllegalStateException("No launcher activity is available for $packageName")
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
-    Runtime.getRuntime().exec(arrayOf("am", "force-stop", "--user", "0", packageName)).waitFor()
     val options = ActivityOptions.makeBasic().apply { launchDisplayId = displayId }
     val manager = Class.forName("android.app.ActivityManagerNative").getDeclaredMethod("getDefault").invoke(null)
     val method = manager.javaClass.getMethod(

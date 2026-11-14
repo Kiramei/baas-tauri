@@ -21,6 +21,8 @@ import {
   applicationShortcutMatches,
   normalizeApplicationShortcut,
 } from "@/shared/ApplicationShortcuts";
+import { usesMacNativeMenu, type MacMenuGroup } from "@/platform/macos/NativeMenu";
+import { useMacNativeMenu } from "@/platform/macos/useMacNativeMenu";
 
 const menuIds = ["file", "edit", "view", "help"] as const;
 type MenuId = (typeof menuIds)[number];
@@ -42,6 +44,8 @@ export default function TitlebarMenus() {
   const [configurationEdit, setConfigurationEdit] = useState(false);
   const layout = useWindowLayout();
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || "");
+  const nativeMac = usesMacNativeMenu(__WITH_TAURI__, __WITH_ANDROID__, navigator.platform || "");
+  const [nativeModal, setNativeModal] = useState(false);
   const applicationShortcuts = useApplicationShortcuts();
   const shortcuts = {
     ...titlebarShortcutLabels(mac),
@@ -67,6 +71,34 @@ export default function TitlebarMenus() {
     );
     edit.captureTarget();
   };
+  useEffect(() => {
+    if (!nativeMac) return;
+    // Opening a system menu does not pass through the HTML trigger's capture handler.
+    const refresh = () => {
+      captureEditTarget();
+      const next = edit.getAvailability();
+      setAvailability((current) =>
+        JSON.stringify(current) === JSON.stringify(next) ? current : next
+      );
+      setNativeModal(
+        Boolean(document.querySelector("[aria-modal='true'],[role='dialog'],[role='alertdialog']"))
+      );
+    };
+    const events = ["focusin", "selectionchange", "input", "select"];
+    for (const event of events) document.addEventListener(event, refresh, true);
+    const observer = new MutationObserver(refresh);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["aria-modal", "role"],
+    });
+    refresh();
+    return () => {
+      for (const event of events) document.removeEventListener(event, refresh, true);
+      observer.disconnect();
+    };
+  }, [nativeMac, configurationProfile, edit]);
   useEffect(() => {
     const onResize = () => {
       setOpenMenu(null);
@@ -316,16 +348,30 @@ export default function TitlebarMenus() {
     },
   ];
 
+  const groups: MacMenuGroup[] = [
+    { id: "file", label: t("menu.file"), entries: fileEntries },
+    { id: "edit", label: t("menu.edit"), entries: editEntries },
+    { id: "view", label: t("menu.view"), entries: viewEntries },
+    { id: "help", label: t("help.title"), entries: helpEntries },
+  ];
+  const nativeMenuInstalled = useMacNativeMenu(nativeMac, {
+    groups: groups.map((group) => ({
+      ...group,
+      entries: group.entries.map((entry) =>
+        nativeModal && !("separator" in entry) && (group.id !== "edit" || entry.id === "settings")
+          ? { ...entry, disabled: true }
+          : entry
+      ),
+    })),
+    windowLabel: t("menu.window"),
+  });
+  if (nativeMenuInstalled) return null;
+
   return (
     <div role="menubar" aria-label={t("menu.bar")} className="flex h-8 items-center gap-0.5">
       {menuLayout !== "wide" ? (
         <CollapsedTitlebarMenu
-          groups={[
-            { id: "file", label: t("menu.file"), entries: fileEntries },
-            { id: "edit", label: t("menu.edit"), entries: editEntries },
-            { id: "view", label: t("menu.view"), entries: viewEntries },
-            { id: "help", label: t("help.title"), entries: helpEntries },
-          ]}
+          groups={groups}
           open={collapsedOpen}
           onOpenChange={setCollapsedOpen}
           onCapture={() => {

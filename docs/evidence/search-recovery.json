@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-07T13:00:00.761Z",
+  "checkedAt": "2026-11-14T11:47:49.788Z",
   "cases": 24,
   "failures": 0,
   "testedSources": {
@@ -15,8 +15,8 @@
     "docs/app/search-index/[file]/route.ts": "6e6975692fbcf20bb93548c61dc49dad042f2727f7bd04f0b06f0456dd044f4c",
     "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d"
   },
-  "searchIndexPath": "search-index/2f1811f94e20c3d3139de3a3f372843a0bb159f42f03d7ae5f397fc567bc291a.json",
-  "searchIndexSha256": "94668fb6f0e98668df0b4fef2c501c8df1e714da0f361257c78c263575902d79",
+  "searchIndexPath": "search-index/167bc3a8bbcc47fffb0c5c3954defb0a7fd5fb92afa586c935a066ebb2f3544c.json",
+  "searchIndexSha256": "5611eaaab6eba61f73d8e65c6db6ad5395dca42be1279ba7edfd43829fc251f5",
   "results": [
     {
       "locale": "en",

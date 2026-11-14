@@ -3,7 +3,7 @@ title: Interface and Workspaces
 description: Current navigation, profile workspaces, titlebar menus, configuration editing, runtime controls, and compact layouts.
 ---
 
-The desktop window has a narrow navigation rail, a profile and category sidebar, and the current work area. Home, Scheduler and Configuration use the selected profile. Settings applies to the client as a whole. Changing the page does not stop a running scheduler.
+The desktop window has a narrow navigation rail, a profile and category sidebar, and the current work area. Home, Scheduler and Configuration use the selected profile. Preferences applies to the client as a whole. Changing the page does not stop a running scheduler.
 
 <img
   className="baas-screenshot"
@@ -13,7 +13,7 @@ The desktop window has a narrow navigation rail, a profile and category sidebar,
 
 ## Navigation and Profiles
 
-The rail icons open Home, Scheduler, Configuration and Settings. Hover an icon to read its label. The sidebar button in the titlebar collapses or expands the profile pane; its state is remembered. On wide windows, hovering a navigation icon while collapsed can temporarily reveal its pane. Leaving it or pressing Escape closes the temporary pane. An open menu or dialog keeps it available while being used.
+The rail icons open Home, Scheduler, Configuration and Preferences. Hover an icon to read its label. The sidebar button in the titlebar collapses or expands the profile pane; its state is remembered. On wide windows, hovering a navigation icon while collapsed can temporarily reveal its pane. Leaving it or pressing Escape closes the temporary pane. An open menu or dialog keeps it available while being used.
 
 The profile list selects the account, server and device whose data the work area displays. The add-profile icon opens creation; the ellipsis beside a profile opens rename, copy, export and delete actions. Drag profiles to reorder the list. On narrow windows, profiles appear in a horizontal strip with scroll controls. [Profiles](../features/profile) explains archives and account isolation.
 
@@ -21,14 +21,16 @@ The BAAS menu identifies the current workspace. BAAS Raid is shown as in develop
 
 ## Titlebar Menus
 
+On macOS, application actions live in the native system menu bar; Preferences is in the application menu. Windows, Linux and browser clients retain the in-app menus.
+
 | Menu | Actions and behavior                                                                       |
 | ---- | ------------------------------------------------------------------------------------------ |
 | File | Create/import a profile; open the backend configuration folder on supported desktop builds |
-| Edit | Undo/redo, cut/copy/paste, delete, select all, and open Settings                           |
+| Edit | Undo/redo, cut/copy/paste, delete, select all, and open Preferences                           |
 | View | Sidebar, back/forward navigation, zoom in/out/reset to 100%, fullscreen                    |
 | Help | Documentation and the current help entries                                                 |
 
-Unavailable commands are disabled. Edit commands target the focused editable control or selection. On Configuration, undo/redo can target the profile's configuration history instead; the arrows beside the editor heading expose that same history. Dialogs and profile-run shortcut conflicts affect shortcut handling, so consult [System Settings](../features/system) for the current binding rather than assuming a shortcut is always active.
+Unavailable commands are disabled. Edit commands target the focused editable control or selection. On Configuration, undo/redo can target the profile's configuration history instead; the arrows beside the editor heading expose that same history. Dialogs and profile-run shortcut conflicts affect shortcut handling, so consult [Preferences](../features/system) for the current binding rather than assuming a shortcut is always active.
 
 The titlebar also provides back/forward and native minimize, maximize/restore and close controls. Window framing differs across platforms. Closing or minimizing follows the configured tray preference; leaving the visible window is not a reliable way to stop automation. Use Stop first when the task must end.
 
@@ -57,9 +59,9 @@ Configuration opens an inline editor. The category list and search remain beside
 
 Use the undo and redo arrows to reverse configuration edits for the selected profile, including edits in another category. History belongs to this window and is not a permanent backend backup. A newly made edit clears the redo branch. [Editing Configuration](./configuration) covers search, automatic persistence, structured editors and profile boundaries.
 
-## Settings Workspace
+## Preferences Workspace
 
-Settings replaces profile categories with General, Appearance, Shortcuts, Runtime, Updates and Logs. The sidebar stays expanded while Settings is open; leaving Settings restores the previous sidebar preference. Search finds settings across categories and highlights matching controls.
+Preferences replaces profile categories with General, Appearance, Shortcuts, Runtime, Updates and Logs. The sidebar stays expanded while Preferences is open; leaving Preferences restores the previous sidebar preference. Search finds settings across categories and highlights matching controls.
 
 <img
   className="baas-screenshot"

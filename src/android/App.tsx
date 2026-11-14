@@ -28,7 +28,6 @@ const ignoreReady = () => {};
 const BAComet = React.lazy(() => import("@/components/ui/BAComet.tsx"));
 const ConfigArchiveDropOverlay = React.lazy(() => import("@/components/ConfigArchiveDropOverlay"));
 const GlobalAppearanceEffects = React.lazy(() => import("@/components/GlobalAppearanceEffects"));
-const GlobalContextMenu = React.lazy(() => import("@/components/GlobalContextMenu"));
 const ReconnectingOverlay = React.lazy(() => import("@/components/ReconnectingOverlay.tsx"));
 const TauriScriptNotifier = React.lazy(() => import("@/components/TauriScriptNotifier"));
 const TauriServiceNotifier = React.lazy(() => import("@/components/TauriServiceNotifier"));
@@ -89,14 +88,23 @@ const PageLoadingFallback: React.FC = () => (
   </div>
 );
 
-const CreateFirstProfile: React.FC = () => {
+const CreateFirstProfile: React.FC<{ allowCreate: boolean }> = ({ allowCreate }) => {
   const actions = useProfileActions();
   const { t } = useAppTranslation();
   return (
     <div className="flex h-full items-center justify-center p-6">
-      <CButton type="button" onClick={() => actions?.create()} disabled={!actions}>
-        {t("profile.create")}
-      </CButton>
+      {allowCreate ? (
+        <CButton type="button" onClick={() => actions?.create()} disabled={!actions}>
+          {t("profile.create")}
+        </CButton>
+      ) : (
+        <p className="text-center text-sm text-muted-foreground">
+          {t("profile.createElsewhere", {
+            tasks: t("nav.scheduler"),
+            configuration: t("nav.configuration"),
+          })}
+        </p>
+      )}
     </div>
   );
 };
@@ -212,7 +220,7 @@ export const Main: React.FC<{ onReady?: () => void }> = ({ onReady = ignoreReady
   if ((!activeProfile || !activePid) && activePage !== "settings") {
     return (
       <MainLayout activePage={activePage} setActivePage={setActivePage}>
-        <CreateFirstProfile />
+        <CreateFirstProfile allowCreate={activePage !== "home"} />
         <HomeReadyMarker onReady={onReady} />
       </MainLayout>
     );
@@ -336,7 +344,6 @@ const WrappedApp: React.FC = () => {
             <TauriSelfUpdateProvider>
               <TauriShortcutProvider>
                 {enableBAComet && !lowPerformanceMode && <BAComet />}
-                <GlobalContextMenu />
                 <GlobalAppearanceEffects />
                 {__WITH_TAURI__ && <TauriServiceNotifier />}
                 {__WITH_TAURI__ && !__WITH_ANDROID__ && <TauriScriptNotifier />}

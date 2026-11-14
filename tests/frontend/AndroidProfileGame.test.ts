@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import {
   AndroidProfileGameSession,
   androidPackageForServer,
@@ -7,7 +8,7 @@ import {
   resolveAndroidProfileGame,
   type AndroidInstalledGame,
 } from "../../src/shared/AndroidProfileGame";
-import { SERVER_VALUES } from "../../src/shared/serverOptions";
+import { isPcServer, SERVER_VALUES } from "../../src/shared/serverOptions";
 
 const official: AndroidInstalledGame = {
   packageName: "com.RoamingStar.BlueArchive",
@@ -31,6 +32,30 @@ describe("Android game selection belongs to the profile server", () => {
       packageName: bilibili.packageName,
       game: bilibili,
     });
+  });
+
+  test("every mobile server has a visible, discoverable and launchable Android package", () => {
+    const readNative = (file: string) =>
+      readFileSync(new URL(`../../src-tauri/${file}`, import.meta.url), "utf8");
+    const androidMain = "gen/android/app/src/main";
+    const manifest = readNative(`${androidMain}/AndroidManifest.xml`);
+    const plugin = readNative(
+      `${androidMain}/java/io/github/kiramei/baas_tauri/BackendServicePlugin.kt`
+    );
+    const commands = readNative("src/mobile_commands.rs");
+    const queries = manifest.match(/<queries>([\s\S]*?)<\/queries>/)?.[1] ?? "";
+    const listing = plugin.match(/val gamePackages = linkedMapOf\(([\s\S]*?)\n\s*\)/)?.[1] ?? "";
+    const candidates =
+      commands.match(/fn android_blue_archive_package_candidates\([^)]*\)[^{]*\{([^}]*)}/)?.[1] ??
+      "";
+    const mobileServers = Object.values(SERVER_VALUES).filter((server) => !isPcServer(server));
+    for (const server of mobileServers) {
+      const name = androidPackageForServer(server);
+      expect(name, server).toBeDefined();
+      expect(queries, `Manifest visibility for ${server}`).toContain(`android:name="${name}"`);
+      expect(listing, `Kotlin discovery for ${server}`).toContain(`"${name}" to`);
+      expect(candidates, `Rust launch permission for ${server}`).toContain(`"${name}"`);
+    }
   });
 
   test("installation order never overrides the configured server", () => {

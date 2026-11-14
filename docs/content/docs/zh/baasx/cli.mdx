@@ -30,7 +30,7 @@ baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID --json status
 | 调度编辑   | `/scheduler`                                | 当前没有对应的单次调度编辑命令                                       |
 | 查看日志   | `/logs` 打开日志页；`/logs 50` 读取最近日志 | `baasx logs 50`；加 `--follow` 持续跟随                              |
 | 重载       | `/reload` 或 Ctrl+R：重建整个工作台并重连   | `baasx reload`：重读指令包、输出计数并退出                           |
-| 安装环境   | `/install [dev]`、`/local`、`/setup`        | 使用 `baasx` 进入安装向导；它们不是单次 CLI 子命令                   |
+| 安装环境   | `/install [channel]`、`/local`、`/setup`        | 使用 `baasx` 进入安装向导；它们不是单次 CLI 子命令                   |
 | 帮助       | `/help` 或 `?`，可翻页的命令说明            | `baasx --help` 或 `baasx help`                                       |
 
 工作台 `/reload` 保留已运行的本地后端和后台任务，但清除未保存的编辑、页面和输入状态。它不会重新启动新版本的可执行文件；更新程序后需要重新打开程序。
@@ -86,7 +86,7 @@ baasx --pipe /tmp/baasx.sock --profile PROFILE_ID --json status
 | `login`、`logout`                                   | 在当前进程隐藏输入 Key 或清除当前连接；不是跨进程凭据存储           |
 | `settings show`                                     | 同时显示已保存与本次有效的偏好                                      |
 | `settings set <字段> <值>`、`settings unset <字段>` | 管理本地非敏感偏好                                                  |
-| `check-update`、`update`                            | 检查或应用 CLI 托管本地 `dev` 环境的更新                            |
+| `check-update`、`update`                            | 检查或应用 CLI 托管本地环境的更新                            |
 
 服务器参数示例使用实际值，即使界面为英文也不翻译：
 

@@ -2,6 +2,9 @@ import { Loader2, RefreshCw } from "lucide-react";
 import CButton from "@/components/ui/CButton";
 import { EllipsisWithTooltip } from "@/components/ui/ETooltip";
 import { useAppTranslation } from "@/shared/useAppTranslation";
+import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
+import { resolveClientVersion } from "@/shared/ClientVersion";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 import { SettingsGroup } from "./SettingsControls";
 
 interface VersionValues {
@@ -17,12 +20,6 @@ interface VersionOverviewProps {
     checking: boolean;
     checkLabel: string;
     onCheck: () => void | Promise<void>;
-  };
-  client?: VersionValues & {
-    status: string;
-    busy: boolean;
-    updateAvailable: boolean;
-    onAction: () => void | Promise<void>;
   };
 }
 
@@ -46,8 +43,54 @@ function VersionFields({ current, latest, currentDetail, latestDetail }: Version
   );
 }
 
+function ClientVersionOverview() {
+  const { t } = useAppTranslation();
+  const { updating, runUpdate } = useTauriSelfUpdate();
+  const report = useWebSocketStore((state) => state.versionStore.tauri) ?? {};
+  const checkTauriUpdater = useWebSocketStore((state) => state.checkTauriUpdater);
+  const current = resolveClientVersion(report.currentVersion);
+  const latest = report.error
+    ? t("version.checkError")
+    : report.lastChecked
+      ? resolveClientVersion(report.version, current)
+      : "—";
+  const busy = Boolean(report.checking || updating);
+  let status = "";
+  if (report.checking) status = t("update.tauriChecking");
+  else if (report.error) status = t("update.tauriFailed");
+  else if (report.disabled) status = t("update.tauriDisabled");
+  else if (report.missingPackage) status = t("update.androidPackageUnavailable");
+  else if (report.updateAvailable) status = t("update.tauriAvailable");
+  else if (report.lastChecked) status = t("update.tauriUpToDate");
+
+  return (
+    <SettingsGroup title={t("about.clientVersion")}>
+      <VersionFields current={current} latest={latest} />
+      <div className="settings-version-footer">
+        <p className="settings-description" role="status">
+          {status}
+        </p>
+        <CButton
+          type="button"
+          variant="secondary"
+          className="settings-update-action"
+          disabled={busy}
+          onClick={report.updateAvailable ? runUpdate : () => void checkTauriUpdater(true, true)}
+        >
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          {report.updateAvailable ? t("update.tauriInstallTitle") : t("version.tapToTest")}
+        </CButton>
+      </div>
+    </SettingsGroup>
+  );
+}
+
 /** Keep each product's versions and update action together in reading order. */
-export function VersionOverview({ script, client }: VersionOverviewProps) {
+export function VersionOverview({ script }: VersionOverviewProps) {
   const { t } = useAppTranslation();
   return (
     <>
@@ -74,30 +117,7 @@ export function VersionOverview({ script, client }: VersionOverviewProps) {
           </CButton>
         </div>
       </SettingsGroup>
-      {client && (
-        <SettingsGroup title={t("about.clientVersion")}>
-          <VersionFields {...client} />
-          <div className="settings-version-footer">
-            <p className="settings-description" role="status">
-              {client.status}
-            </p>
-            <CButton
-              type="button"
-              variant="secondary"
-              className="settings-update-action"
-              disabled={client.busy}
-              onClick={client.onAction}
-            >
-              {client.busy ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-              ) : (
-                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-              )}
-              {client.updateAvailable ? t("update.tauriInstallTitle") : t("version.tapToTest")}
-            </CButton>
-          </div>
-        </SettingsGroup>
-      )}
+      {__WITH_TAURI__ && <ClientVersionOverview />}
     </>
   );
 }

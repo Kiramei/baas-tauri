@@ -1,0 +1,58 @@
+name: Mirror app release upstream
+description: Mirror verified platform installers with explicit platform filenames to an isolated upstream prerelease, without building.
+inputs:
+  source-token:
+    description: Token with read-only source repository contents access.
+    required: true
+  target-token:
+    description: Separate target repository contents-write token; optional only for dry-run against a public target.
+    required: false
+    default: ""
+  source-repository:
+    description: Source owner/repository.
+    required: false
+    default: ${{ github.repository }}
+  target-repository:
+    description: Target owner/repository.
+    required: false
+    default: pur1fying/blue_archive_auto_script
+  tag-name:
+    description: Exact published stable source tag, with optional v prefix.
+    required: true
+  dry-run:
+    description: Only GET metadata and print a plan; do not download binaries, mutate releases, or claim SHA256 verification.
+    required: false
+    default: "false"
+outputs:
+  target-tag:
+    description: Isolated tauri-<canonicalVersion> target tag.
+    value: ${{ steps.mirror.outputs.target-tag }}
+  release-url:
+    description: Target prerelease URL.
+    value: ${{ steps.mirror.outputs.release-url }}
+  status:
+    description: planned for dry-run, or synced after complete verification.
+    value: ${{ steps.mirror.outputs.status }}
+runs:
+  using: composite
+  steps:
+    - name: Verify and mirror release assets
+      id: mirror
+      shell: bash
+      env:
+        SOURCE_GITHUB_TOKEN: ${{ inputs.source-token }}
+        TARGET_GITHUB_TOKEN: ${{ inputs.target-token }}
+        SOURCE_REPOSITORY: ${{ inputs.source-repository }}
+        TARGET_REPOSITORY: ${{ inputs.target-repository }}
+        SOURCE_TAG: ${{ inputs.tag-name }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        MIRROR_SCRIPT: ${{ github.action_path }}/../../../scripts/mirror-upstream-release.py
+      run: |
+        set -euo pipefail
+        args=(--source-repository "$SOURCE_REPOSITORY" --target-repository "$TARGET_REPOSITORY" --tag-name "$SOURCE_TAG")
+        case "$DRY_RUN" in
+          true) args+=(--dry-run) ;;
+          false) ;;
+          *) echo "::error::dry-run must be true or false"; exit 1 ;;
+        esac
+        python3 "$MIRROR_SCRIPT" "${args[@]}"

@@ -51,7 +51,7 @@ Missing supported fields take their defaults. Empty root paths in a raw default 
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `transport`             | `websocket`, `pipe`, or supported desktop `shm`; native Windows/Linux/macOS default to shared memory, Android to pipe                                         |
 | `transport_version`     | Native transport migration marker; current value `1`, not a protocol throughput setting                                                                         |
-| `mirrorc_cdk`           | Secret MirrorC delivery key, empty by default; nonempty selects MirrorC rather than the Git path                                                                |
+| `mirrorc_cdk` | Legacy field. Native clients migrate an existing key into private local storage. Manage it in Updates settings. |
 | `channel`               | `stable` or `dev`, default stable; backend delivery/ref selection, not game region or client prerelease selection                                               |
 | `current_baas_sha`      | Recorded main backend revision, initially empty; updater-maintained, not a version you should invent                                                            |
 | `current_baas_cpp_sha`  | Recorded Cpp/OCR component revision, initially empty                                                                                                            |
@@ -91,9 +91,9 @@ Repository updates can replace tracked code. The CLI update path uses a bounded 
 
 Persisted operational rankings live under `.baas-updater/source-ranking/`: `main.json`, `cpp.json`, `uv.json`, `cpython.json` and `pypi.json`. They are not a global fastest-source league table. Actual operation success can become the preferred URL; failures can disable/demote a source. URL-set changes or exhausted sources can trigger rebuilding and retrying rankings. Preserve source/error context before deleting this evidence.
 
-A valid nonempty CDK chooses MirrorC. Empty chooses Git according to `git_backend`. Successful CDK verification is not proof that every archive or OCR component is available; source/SHA tests and complete installation are separate operations. See [Updates](../features/update).
+A verified key enables MirrorChyan for the stable backend. Development and OCR use Git. See [Updates](../features/update).
 
-UV's reusable downloads/builds remain under `<toolkit_path>/uv/cache`. The graph's retained-cache stage is not an automatic full cache purge. A successful requirements cache records normalized requirements/lock paths, their SHA-256 contents and the selected PyPI index in `.baas-updater/requirements-cache.json`. Reuse also requires the lock file. It is not a full installed-environment integrity check and does not hash every installed package. Preserve raw measurement scope when comparing startup timings; see [Performance](./performance).
+UV's downloads/builds use `<toolkit_path>/uv/cache`. Successful managed dependency setup now cleans that private cache with UV, including unchanged-requirements startup; failed setup and cache-dependent symlink environments keep it for retry. The installed environment and custom/shared caches are preserved. See [managed UV cache](./updater-internals#managed-uv-cache). A successful requirements cache records normalized requirements/lock paths, their SHA-256 contents and the selected PyPI index in `.baas-updater/requirements-cache.json`. Reuse also requires the lock file. It is not a full installed-environment integrity check and does not hash every installed package. Preserve raw measurement scope when comparing startup timings; see [Performance](./performance).
 
 ## Legacy Files and Invalid Configuration
 

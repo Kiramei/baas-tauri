@@ -4,7 +4,9 @@
 //! This worker only produces a checkout, per-request logs, progress, and a result.
 
 use baas_updater::{
-    android::{install_android_main_repository, AndroidMainInstallOptions},
+    android::{
+        install_android_main_repository, stage_android_mirror_repository, AndroidMainInstallOptions,
+    },
     OutputSink, OutputStyle, UpdateChannel,
 };
 use serde::{Deserialize, Serialize};
@@ -35,13 +37,13 @@ struct InstallRequest {
 }
 
 /// Start before the backend so installation also advances without frontend polling.
-pub(crate) fn start(root: PathBuf) -> Result<(), String> {
+pub(crate) fn start(root: PathBuf, credential_dir: PathBuf) -> Result<(), String> {
     if WATCHER_STARTED.swap(true, Ordering::AcqRel) {
         return Ok(());
     }
     let spawned = thread::Builder::new()
         .name("baas-git2-bootstrap".into())
-        .spawn(move || watch_requests(&root));
+        .spawn(move || watch_requests(&root, &credential_dir));
     if let Err(error) = spawned {
         WATCHER_STARTED.store(false, Ordering::Release);
         return Err(format!(
@@ -59,7 +61,7 @@ fn valid_request_id(value: &str) -> bool {
     value.len() == 32 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-fn watch_requests(root: &Path) {
+fn watch_requests(root: &Path, credential_dir: &Path) {
     let mut previous_id = String::new();
     loop {
         if let Some(request) = read_request(root) {
@@ -71,7 +73,7 @@ fn watch_requests(root: &Path) {
                     .and_then(|data| serde_json::from_slice::<serde_json::Value>(&data).ok())
                     .is_some_and(|value| value["requestId"] == request.request_id);
                 if !completed {
-                    execute_request(root, &request);
+                    execute_request(root, credential_dir, &request);
                 }
             }
         }
@@ -79,9 +81,9 @@ fn watch_requests(root: &Path) {
     }
 }
 
-fn execute_request(root: &Path, request: &InstallRequest) {
+fn execute_request(root: &Path, credential_dir: &Path, request: &InstallRequest) {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        install_requested_checkout(root, request)
+        install_requested_checkout(root, credential_dir, request)
     }))
     .unwrap_or_else(|_| {
         Err("The Rust git2 installation worker panicked; retry installation.".into())
@@ -110,6 +112,7 @@ fn execute_request(root: &Path, request: &InstallRequest) {
 
 fn install_requested_checkout(
     root: &Path,
+    credential_dir: &Path,
     request: &InstallRequest,
 ) -> Result<(String, String), String> {
     if request.version != 1 {
@@ -119,12 +122,20 @@ fn install_requested_checkout(
         ));
     }
     let channel = UpdateChannel::parse(&request.channel).map_err(|error| error.message())?;
-    if channel != UpdateChannel::Dev {
-        return Err(
-            "Stable does not include the Android service. Choose Development (Dev).".into(),
-        );
-    }
     let output = Arc::new(InstallOutput::new(root, &request.request_id)?);
+    if baas_updater::mirrorc::supports_mirror_package(baas_updater::RepositoryKind::Main, channel) {
+        let cdk = crate::mirrorc_credentials::load(credential_dir)?;
+        if !cdk.is_empty() {
+            let stage = tempfile::tempdir_in(root).map_err(|error| error.to_string())?;
+            let sha = stage_android_mirror_repository(stage.path(), &cdk, output.as_ref())
+                .map_err(|error| error.message())?;
+            if read_request(root).is_none_or(|active| active.request_id != request.request_id) {
+                return Err("Android backend installation cancelled".into());
+            }
+            fs::rename(stage.path(), root.join(".baas-next")).map_err(|error| error.to_string())?;
+            return Ok((sha, "MirrorChyan".to_owned()));
+        }
+    }
     output.line(
         OutputStyle::Info,
         "[handoff] Rust git2 accepted the backend installation request.",
@@ -152,7 +163,7 @@ fn install_requested_checkout(
         OutputStyle::Info,
         "[revision] Resolving the official GitHub master commit before ranking mirrors (8s timeout).",
     );
-    match official_backend_revision() {
+    match official_backend_revision(channel) {
         Ok(sha) => {
             output.line(
                 OutputStyle::Info,
@@ -190,13 +201,16 @@ fn install_requested_checkout(
     }
 }
 
-fn official_backend_revision() -> Result<String, String> {
-    let response = minreq::get("https://api.github.com/repos/Kiramei/baas-dev/commits/master")
-        .with_header("User-Agent", "baas-tauri-android")
-        .with_header("Accept", "application/vnd.github+json")
-        .with_timeout(8)
-        .send()
-        .map_err(|error| error.to_string())?;
+fn official_backend_revision(channel: UpdateChannel) -> Result<String, String> {
+    let repository = baas_updater::history::repository(channel);
+    let response = minreq::get(format!(
+        "https://api.github.com/repos/{repository}/commits/master"
+    ))
+    .with_header("User-Agent", "baas-tauri-android")
+    .with_header("Accept", "application/vnd.github+json")
+    .with_timeout(8)
+    .send()
+    .map_err(|error| error.to_string())?;
     if response.status_code != 200 {
         return Err(format!("HTTP {}", response.status_code));
     }

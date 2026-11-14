@@ -29,7 +29,9 @@ export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
           ) : (
             <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" strokeWidth={1.6} />
           )}
-          <span className="task-status-label shrink-0 text-muted-foreground">{t("task.running")}</span>
+          <span className="task-status-label shrink-0 text-muted-foreground">
+            {t("task.running")}
+          </span>
           <IconTooltip content={runningTask ? runningTaskName : undefined}>
             <span
               data-running-task-name
@@ -78,6 +80,9 @@ export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
         </IconTooltip>
         <PopoverContent
           align="end"
+          side="bottom"
+          avoidCollisions={!__WITH_ANDROID__}
+          data-native-preview-compatible={__WITH_ANDROID__ ? "" : undefined}
           className="max-h-80 w-64 overflow-y-auto rounded-lg bg-popover p-1.5 text-popover-foreground shadow-lg"
           onFocusOutside={() => setOpen(false)}
         >

@@ -6,15 +6,15 @@ use crate::{
     config::{ConfigManager, UpdaterConfig},
     environ::{
         CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, RealProcessRunner,
-        ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
-        launch_backend_pipe_command, launch_backend_shm_command, managed_python_configured,
-        requirements_compile_cached, requirements_path, save_requirements_cache,
-        uses_managed_runtime, uv_compile_command_with_index, uv_executable,
-        uv_python_install_command_with_mirror, uv_sync_command_with_index, uv_venv_command,
-        validate_backend_shm_support, with_cpython_install_mirror,
+        ReqwestDownloader, cleanup_uv_cache_after_sync, ensure_uv_installed_from,
+        launch_backend_command, launch_backend_pipe_command, launch_backend_shm_command,
+        managed_python_configured, requirements_compile_cached, requirements_path,
+        save_requirements_cache, uses_managed_runtime, uv_compile_command_with_index,
+        uv_executable, uv_python_install_command_with_mirror, uv_sync_command_with_index,
+        uv_venv_command, validate_backend_shm_support, with_cpython_install_mirror,
         with_environment_source_failover,
     },
-    mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp},
+    mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp, supports_mirror_package},
     repo::{
         GitExecutor, GitHttpSourceProbe, GitSourceProbe, GitUpdateGuard, RealGitExecutor,
         RepoManager, RepoSyncOptions,
@@ -155,10 +155,11 @@ impl WorkflowServices for RealWorkflowServices {
         ranking_path: &Path,
         output: &(dyn OutputSink + Send + Sync),
     ) -> UpdaterResult<RepositoryOutcome> {
-        if !config.general.mirrorc_cdk.is_empty() {
-            let current_version = match kind {
-                RepositoryKind::Main => &config.general.current_baas_sha,
-                RepositoryKind::Cpp => &config.general.current_baas_cpp_sha,
+        if use_mirrorc(config, kind) {
+            let current_version = if target_dir.join("main.service.py").is_file() {
+                config.general.current_baas_sha.as_str()
+            } else {
+                ""
             };
             let mirror = MirrorCClient::new(ReqwestMirrorHttp);
             let result = mirror.update(
@@ -171,7 +172,9 @@ impl WorkflowServices for RealWorkflowServices {
                 },
                 output,
             )?;
-            remove_git_metadata_if_present(target_dir, output)?;
+            if result.status != UpdateStatus::Skipped {
+                remove_git_metadata_if_present(target_dir, output)?;
+            }
             return Ok(RepositoryOutcome {
                 kind,
                 status: result.status,
@@ -255,11 +258,16 @@ fn load_manager(options: &WorkflowOptions) -> UpdaterResult<ConfigManager> {
     }
 }
 
+fn use_mirrorc(config: &UpdaterConfig, kind: RepositoryKind) -> bool {
+    !config.general.mirrorc_cdk.trim().is_empty()
+        && supports_mirror_package(kind, config.general.channel)
+}
+
 /// Handles the repository job workflow.
 fn repository_job(config: &UpdaterConfig, kind: RepositoryKind) -> RepositoryJob {
     let root = config.baas_root();
     let tmp = config.tmp_dir();
-    let using_mirrorc = !config.general.mirrorc_cdk.trim().is_empty();
+    let using_mirrorc = use_mirrorc(config, kind);
     match kind {
         RepositoryKind::Main => {
             if using_mirrorc {
@@ -344,32 +352,6 @@ fn finalize_job(job: &RepositoryJob) -> UpdaterResult<()> {
         return Ok(());
     }
     move_dir_contents(&job.target_dir, &job.final_dir)
-}
-
-/// Handles the validate mirrorc cdk before workflow workflow.
-fn validate_mirrorc_cdk_before_workflow(config: &UpdaterConfig) -> UpdaterResult<()> {
-    let cdk = config.general.mirrorc_cdk.trim();
-    if cdk.is_empty() {
-        return Ok(());
-    }
-    let latest = MirrorCClient::new(ReqwestMirrorHttp).latest(
-        RepositoryKind::Main,
-        config.general.channel,
-        "",
-        cdk,
-    )?;
-    if latest.is_success() {
-        return Ok(());
-    }
-    let message = if latest.message.trim().is_empty() {
-        latest
-            .cdk_state()
-            .map(|state| format!("MirrorC CDK validation failed: {state:?}"))
-            .unwrap_or_else(|| format!("MirrorC CDK validation failed with code {}", latest.code))
-    } else {
-        latest.message
-    };
-    Err(UpdaterError::MirrorC(message))
 }
 
 /// Performs the remove git metadata if present operation.
@@ -461,6 +443,7 @@ fn environment_ranking_dir(config: &UpdaterConfig) -> PathBuf {
 #[derive(Default)]
 struct TerminalWorkflowState {
     manager: Option<ConfigManager>,
+    private_mirrorc_cdk: Option<String>,
     main_job: Option<RepositoryJob>,
     cpp_job: Option<RepositoryJob>,
     ranking_dir: Option<PathBuf>,
@@ -711,12 +694,12 @@ pub fn terminal_workflow_plan() -> WorkflowPlan {
             "If it takes too long time, restart by clicking the red button.",
             "uv pip sync",
         )
-        .process_task(
+        .thread_task(
             "uv-cache-clean",
             "uv-cache-clean",
-            "Retain UV Cache",
-            "Keep downloaded and built wheels for subsequent dependency updates.",
-            "Retain UV cache",
+            "Clean UV Cache",
+            "Release this installation's package cache after dependencies are ready.",
+            "uv cache clean",
         )
         .serial(vec![
             WorkflowTask::new(
@@ -873,28 +856,33 @@ fn terminal_config_task(
             spinner.set_detail("applying selected install path");
             manager.config.paths.baas_root_path = path.to_string_lossy().to_string();
         }
-        if !manager.config.general.no_update
-            && !manager.config.general.mirrorc_cdk.trim().is_empty()
-        {
-            spinner.set_detail("validating MirrorC CDK");
-            validate_mirrorc_cdk_before_workflow(&manager.config)
-                .map_err(|error| error.message())?;
+        let private_mirrorc_cdk = args
+            .options
+            .mirrorc_credential_dir
+            .as_deref()
+            .map(crate::mirrorc_credentials::load)
+            .transpose()?;
+        let mut update_config = manager.config.clone();
+        if let Some(cdk) = &private_mirrorc_cdk {
+            update_config.general.mirrorc_cdk.clone_from(cdk);
+            manager.config.general.mirrorc_cdk.clear();
         }
         spinner.set_detail("saving migrated configuration");
         manager.save().map_err(|error| error.message())?;
         fs::create_dir_all(manager.config.baas_root()).map_err(|error| error.to_string())?;
-        let ranking_dir = environment_ranking_dir(&manager.config);
+        let ranking_dir = environment_ranking_dir(&update_config);
         fs::create_dir_all(&ranking_dir).map_err(|error| error.to_string())?;
 
         spinner.set_detail("planning repository targets");
-        let main_job = repository_job(&manager.config, RepositoryKind::Main);
-        let cpp_job = repository_job(&manager.config, RepositoryKind::Cpp);
+        let main_job = repository_job(&update_config, RepositoryKind::Main);
+        let cpp_job = repository_job(&update_config, RepositoryKind::Cpp);
         register_cleanup_paths(&args.cleanup_state, &main_job, &cpp_job)
             .map_err(|error| error.message())?;
         let mut state = args
             .state
             .lock()
             .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
+        state.private_mirrorc_cdk = private_mirrorc_cdk;
         state.manager = Some(manager);
         state.main_job = Some(main_job);
         state.cpp_job = Some(cpp_job);
@@ -1086,8 +1074,12 @@ fn terminal_repo_thread_task(
             .ranking_dir
             .as_ref()
             .ok_or_else(|| "ranking directory not initialized".to_string())?;
+        let mut config = manager.config.clone();
+        if let Some(cdk) = &state.private_mirrorc_cdk {
+            config.general.mirrorc_cdk.clone_from(cdk);
+        }
         (
-            manager.config.clone(),
+            config,
             job,
             ranking_dir.join(format!("{}.json", args.kind.as_str())),
         )
@@ -1121,7 +1113,7 @@ fn terminal_repo_thread_task(
                 args.kind.as_str()
             ),
         );
-        let outcome = if config.general.mirrorc_cdk.is_empty()
+        let outcome = if !use_mirrorc(&config, args.kind)
             && config.general.git_backend != GitBackend::Git2
             && RealGitExecutor.has_cli()
         {
@@ -1584,15 +1576,52 @@ fn run_terminal_dependency_stage(
     {
         return false;
     }
-    if !run_terminal_skip_task(
-        context,
-        "uv-cache-clean",
-        "Retaining UV cache for subsequent dependency updates",
-    ) {
+    if spawn_thread_task_with_outcome(
+        context.inner,
+        context.session_id,
+        planned_thread_task(context.workflow_plan, "uv-cache-clean"),
+        context.renderer_tx,
+        context.completion_tx,
+        TerminalUvCacheCleanArgs {
+            config: config.clone(),
+            process: TerminalProcessContext::new(context),
+        },
+        terminal_uv_cache_clean_task,
+    )
+    .is_err()
+        || !wait_for_task(context.completion_rx, "uv-cache-clean")
+    {
         return false;
     }
 
     run_terminal_launch_stage(context, config, launch, pipe_name, shm_name)
+}
+
+struct TerminalUvCacheCleanArgs {
+    config: UpdaterConfig,
+    process: TerminalProcessContext,
+}
+
+fn terminal_uv_cache_clean_task(
+    output: ThreadOutput,
+    cancelled: Arc<AtomicBool>,
+    args: TerminalUvCacheCleanArgs,
+) -> Result<ThreadTaskOutcome, String> {
+    if cancelled.load(Ordering::Relaxed) {
+        return Err("UV cache cleanup cancelled".to_string());
+    }
+    let cleaned = cleanup_uv_cache_after_sync(&args.config, &output, |command| {
+        args.process.run(command, &output, &cancelled)
+    })
+    .map_err(|error| error.message())?;
+    if cancelled.load(Ordering::Relaxed) {
+        return Err("UV cache cleanup cancelled".to_string());
+    }
+    Ok(if cleaned {
+        ThreadTaskOutcome::Success
+    } else {
+        ThreadTaskOutcome::Skipped
+    })
 }
 
 /// Performs the run terminal skip task operation.
@@ -2247,6 +2276,9 @@ mod tests {
             uv_sync_command_with_index(&config, "https://unused.invalid/simple"),
         ] {
             command.program = uv.clone();
+            command
+                .env
+                .push(("UV_LINK_MODE".to_string(), "symlink".to_string()));
             command.args.extend([
                 "--offline".to_string(),
                 "--no-index".to_string(),
@@ -2287,6 +2319,42 @@ mod tests {
             requirements_compile_cached(&config, &requirements, "https://unused.invalid/simple")
                 .unwrap()
         );
+        let user_config = root.path().join("config/account.json");
+        fs::create_dir_all(user_config.parent().unwrap()).unwrap();
+        fs::write(&user_config, "preserve user configuration").unwrap();
+        let shared_cache = tempfile::tempdir().unwrap();
+        let shared_marker = shared_cache.path().join("unrelated-wheel");
+        fs::write(&shared_marker, "preserve unrelated cache").unwrap();
+        assert!(
+            cleanup_uv_cache_after_sync(&config, &output, |command| {
+                let mut command = command.clone();
+                command.program = uv.clone();
+                command.env.push((
+                    "UV_CACHE_DIR".to_string(),
+                    shared_cache.path().to_string_lossy().into_owned(),
+                ));
+                context.run(&command, &output, &cancelled)
+            })
+            .unwrap()
+        );
+        context
+            .run(
+                &CommandSpec::new(crate::environ::venv_python(&config))
+                    .arg("-c")
+                    .arg("import baas_pty_fixture; assert baas_pty_fixture.value == 1")
+                    .cwd(root.path()),
+                &output,
+                &cancelled,
+            )
+            .unwrap();
+        assert_eq!(
+            fs::read_to_string(user_config).unwrap(),
+            "preserve user configuration"
+        );
+        assert_eq!(
+            fs::read_to_string(shared_marker).unwrap(),
+            "preserve unrelated cache"
+        );
         assert_eq!(context.inner.lock().unwrap().tasks.len(), 1);
     }
 
@@ -2315,7 +2383,7 @@ mod tests {
 
     /// Handles the mirrorc jobs use final dirs without requiring git metadata workflow.
     #[test]
-    fn mirrorc_jobs_use_final_dirs_without_requiring_git_metadata() {
+    fn mirrorc_uses_stable_main_and_git_staging_for_ocr_and_dev() {
         let dir = tempfile::tempdir().unwrap();
         let install_path = dir.path().join("BAAS");
         let mut config = UpdaterConfig::default();
@@ -2327,15 +2395,11 @@ mod tests {
 
         assert!(!main_job.needs_move);
         assert_eq!(main_job.target_dir, install_path);
-        assert!(!cpp_job.needs_move);
-        assert_eq!(
-            cpp_job.target_dir,
-            install_path
-                .join("core")
-                .join("ocr")
-                .join("baas_ocr_client")
-                .join("bin")
-        );
+        assert!(cpp_job.needs_move);
+        assert_eq!(cpp_job.target_dir, install_path.join("tmp/cpp-repo"));
+        config.general.channel = crate::UpdateChannel::Dev;
+        assert!(repository_job(&config, RepositoryKind::Main).needs_move);
+        assert!(!use_mirrorc(&config, RepositoryKind::Main));
     }
 
     /// Handles the mirrorc cleanup removes extra git metadata workflow.

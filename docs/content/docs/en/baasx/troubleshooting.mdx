@@ -35,7 +35,7 @@ If startup immediately reports a JSON or pack error, see [Pack Loading Failures]
 
 ## Local Runtime Installation or Startup Fails
 
-BAASX local mode requires the BAAS service backend with `main.service.py` and local-pipe support. The current wizard uses the `dev` channel. The older GUI `stable` backend is not a substitute; rejecting `stable` early is expected behavior.
+BAASX local mode requires the BAAS service backend with `main.service.py` and local-pipe support. The wizard defaults to `stable` for a new installation. Use `/install dev` to select the development backend.
 
 - Extract the complete release archive and preserve the executable's relative location to `runtime/` and its executable permissions. Do not copy only one binary and remove its installation helper.
 - Bun packages also need their bundled runtime components. Packaged releases do not require Rust; source development requires Rust, Cargo and a native compiler toolchain.
@@ -145,7 +145,7 @@ baasx --dry-run --json update
 baasx --yes update
 ```
 
-Another CLI instance holding a runtime lease on the same environment can also prevent replacement. Close instances that no longer need the environment. Do not remove lock files to bypass active processes. Updates target a complete CLI-managed `dev` environment, not an external service connected with `--server` / `--pipe`.
+Another CLI instance holding a runtime lease on the same environment can also prevent replacement. Close instances that no longer need the environment. Do not remove lock files to bypass active processes. Updates use the recorded channel of the CLI-managed local environment.
 
 ## Display, Mouse or Keyboard Issues
 

@@ -6,6 +6,7 @@ members = [
   "crates/baas-i18n",
   "crates/baas-shortcut",
   "crates/baas-notifier",
+  "crates/baasx-runtime",
   "crates/baas-cli-runtime"
 ]
 resolver = "2"

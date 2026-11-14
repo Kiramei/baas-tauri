@@ -16,8 +16,8 @@ pub mod constants;
 #[cfg(not(target_os = "android"))]
 pub mod environ;
 pub mod history;
-#[cfg(not(target_os = "android"))]
 pub mod mirrorc;
+pub mod mirrorc_credentials;
 pub mod repo;
 #[cfg(not(target_os = "android"))]
 pub mod workflow;
@@ -113,7 +113,6 @@ impl From<toml::ser::Error> for UpdaterError {
     }
 }
 
-#[cfg(not(target_os = "android"))]
 impl From<zip::result::ZipError> for UpdaterError {
     /// Handles the from workflow.
     fn from(error: zip::result::ZipError) -> Self {
@@ -246,6 +245,9 @@ pub struct WorkflowOptions {
     /// Optional explicit setup.toml path. Tauri callers pass the active
     /// portable or install-root config path here.
     pub config_path: Option<PathBuf>,
+    /// Native private directory for the optional user credential, separate from shared setup.toml.
+    #[serde(skip)]
+    pub mirrorc_credential_dir: Option<PathBuf>,
     /// Optional override for the BAAS installation directory.
     pub install_path: Option<PathBuf>,
     /// Whether the workflow should launch the backend after syncing.
@@ -264,6 +266,7 @@ impl Default for WorkflowOptions {
     fn default() -> Self {
         Self {
             config_path: None,
+            mirrorc_credential_dir: None,
             install_path: None,
             launch: true,
             pipe_name: None,

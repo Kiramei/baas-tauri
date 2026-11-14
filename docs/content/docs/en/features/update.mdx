@@ -3,7 +3,7 @@ title: Updates
 description: Backend/client versions, source and SHA lookup mapping, MirrorC verification, Android installation boundaries and idle-update recovery.
 ---
 
-Open **Settings → Updates**. Backend code and the native client are different update targets. A healthy version check does not install either one; a failed check is not proof that you are up to date. Version-by-version notes are in [Release History](../reference/release-history).
+Open **Preferences → Updates**. Backend code and the native client are different update targets. A healthy version check does not install either one; a failed check is not proof that you are up to date. Version-by-version notes are in [Release History](../reference/release-history).
 
 Native workflows, file replacement, cancellation and trust boundaries are covered in [Updater Internals](../reference/updater-internals).
 
@@ -23,11 +23,11 @@ Native workflows, file replacement, cancellation and trust boundaries are covere
 
 Check again after changing source/channel. Blank, Checking, error or disabled-check state is not an equality proof. A backend commit and client version number are not directly comparable.
 
-When a backend update is available, the desktop and WebUI sidebar action (or compact/floating equivalent) requests Stop all tasks and waits for stopped state. Native desktop then reloads into its managed startup/update path; WebUI uses the streamed backend updater. Android's manual entry branches into its own git2 workflow and terminal before this `stopAllTasks` call, so this action does not establish that tasks have stopped.
+When a backend update is available, desktop and WebUI sidebar actions request Stop all tasks and wait for stopped state. Native desktop then reloads into managed startup; WebUI uses its streamed updater. Android handles backend preparation on the startup page and no longer exposes the separate bottom update-log panel.
 
-**Before a manual Android backend update, stop tasks in every profile and confirm that all profiles are stopped.**
+Android first verifies OCR/models, script resources and authenticated configuration. When automatic updates are enabled, its startup coordinator checks the saved channel, waits for scripts/manual control to become idle, records scheduler state and applies the update before Home opens.
 
-After Android synchronization succeeds, `updater_reset_backend_auth_and_restart` returns `restarted: false` and `restart_deferred: true`, only ensuring the service exists. The subsequent WebView reload reconnects to that service; loaded Python modules remain in the existing service process. A changed disk revision does not prove the new code is running. Automatic idle updates have a separate stop/recovery sequence below.
+The Android startup path explicitly requests `updater_restart_backend` after synchronization and waits for fresh resource readiness before restoring scheduler state. The older `updater_reset_backend_auth_and_restart` API still returns `restarted: false` and `restart_deferred: true`; direct API callers must not treat that response as a process restart.
 
 Native client installation also requests **Stop all tasks**, waits for stopped state, downloads/installs and normally relaunches the desktop app. Download percent is not an overall installation/restart percentage. A progress error requires investigation; closing a progress view is not a documented cancellation mechanism. Android APK installation follows platform handling and must not be described as a desktop relaunch.
 
@@ -37,7 +37,7 @@ Some Android service files come first from APK-matched `backend-service-overlay`
 
 ## View Update History
 
-Open the history group in Settings to inspect commits, authors, and messages for the selected backend channel. The current commit is marked; click a message for its full text. The first request loads 100 entries, with more available up to 500. Refresh bypasses the metadata cache.
+Open the history group in Preferences to inspect commits, authors, and messages for the selected backend channel. The current commit is marked; click a message for its full text. The first request loads 100 entries, with more available up to 500. Refresh bypasses the metadata cache.
 
 The list identifies remote, local, or cached data and warns when it is stale or partial. Reading history does not fetch Git objects, deepen a shallow clone, replace installed code, or validate download-source availability. Client release history in the Help menu is a separate release-note feed. Authenticated WebUI sessions can also query backend history.
 
@@ -50,9 +50,8 @@ These are shared backend setup fields, not per-profile game strategies:
 | `updateMethod` | Source control value; backend maps it to `general.get_remote_sha_method` |
 | `channel`      | `stable` or `dev`, resolved using the configured repository refs  |
 | `shaMethod`    | SHA lookup preference; maps to the same `general.get_remote_sha_method` |
-| `mirrorcCdk`   | Verified MirrorC key; handle as a secret                          |
 
-The two controls share one persisted field and cannot retain independent values. When both occur in one patch, `updateMethod` is written last. Native Git downloads select among repository URLs separately and persist successful sources; this field does not pin their URL. A nonempty CDK selects desktop MirrorC, whose requests currently hardcode `stable` even when the UI selects `dev`. Android repository workflows force git2 and clear the CDK. The source control, SHA probes and actual download path require separate interpretation.
+The two controls share one persisted field and cannot retain independent values. When both occur in one patch, `updateMethod` is written last. Native Git downloads select among repository URLs separately and persist successful sources; this field does not pin their URL. The source control, SHA probes and actual download path require separate interpretation.
 
 Source choices in this client are:
 
@@ -72,9 +71,9 @@ A listed mirror is not a promise of reachability, freshness or matching channel 
 
 ## MirrorC Key
 
-Typing edits a local key draft; **Verify**, or Enter in the field, submits `valid_cdk` with the channel. A successful result stores the key and can show its expiry. A rejected result clears the draft/stored key and expiry. The text field is not password-masked.
+On desktop or Android, select the stable channel in **Preferences → Updates**, enter your own CDK and choose **Verify**. The native client checks the key with MirrorChyan and stores it in this device’s private directory after a successful check. The result includes expiry when available and distinguishes expired, mismatched, exhausted and blocked keys. Selecting another download source while MirrorChyan is active clears the saved key; switching to Development keeps it stored for a later return to Stable.
 
-A stored key makes MirrorC available in the source list. Switching from MirrorC to another source clears the stored key and expiry; return requires verification again. Do not publish the key in screenshots, issue reports or shared setup files. CDK verification confirms server-reported key status. The desktop implementation parses the response's `sha256` but never compares it with downloaded archive bytes, so successful verification does not establish archive integrity.
+A configured CDK selects MirrorChyan archives for the stable main backend. Without a CDK, the stable backend uses Git. The updater verifies SHA-256 before applying an archive; desktop supports full or incremental packages, while Android requests a full package because its Python tree contains device-specific patches. The development backend and platform-specific OCR use Git. Polling requests public version metadata. The native client sends the user’s key to MirrorChyan when requesting validation or download authorization. WebUI has no local credential input.
 
 ## SHA Diagnostics
 
@@ -98,7 +97,9 @@ Idle means no current task and no queued work; a waiting continuous scheduler ma
 
 Before updating it durably records each profile's running/stopped state and backend root, then stops tasks. After restart it restores both running **and stopped** profiles. Turning the preference off prevents a new automatic attempt; it is not cancellation of a workflow already underway, and a pending valid restoration can still complete while the switch is off. Restoration resumes scheduler state, not an interrupted battle at its exact frame.
 
-The Android idle path sends `stop_all_tasks` and awaits its command response before synchronizing repositories, unlike manual entry. It still invokes the deferred-restart command above and reloads the WebView; the recovery record does not make the existing Python process load new code. Android terminal abort sets cancellation flags, but in-progress repository synchronization does not consume them and may keep writing after the terminal reports stopped.
+On Android, the automatic-update preference controls startup checking. Its coordinator awaits `stop_all_tasks`, runs repository synchronization and schedules a real backend restart before restoring prior state. Failure remains on the preparation page with logs. Native cancellation still cannot guarantee immediate interruption of an in-flight git2 synchronization; retry only after checking the operation state.
+
+Windows portable clients keep their portable mode when updating: verified client files are replaced beside the executable, and a recovery copy remains until the new interface confirms startup. Fixed-WebView2 editions update the matching runtime bundle. Configuration and backend data are retained; installed editions continue using the installer path.
 
 ## After Updating
 
@@ -106,4 +107,4 @@ Wait for startup/authentication/configuration synchronization, confirm the local
 
 Failure can leave partially replaced code: desktop fresh clones move into place entry by entry, MirrorC edits the live installation, Android git2 resets in place, and bootstrap archives also replace entries individually. There is no whole-directory atomic swap or automatic code rollback. Idle recovery records contain scheduler state only.
 
-Android embeds Python/bootstrap. Bootstrap can use a backend archive when present in the APK or download one when the backend is missing; manual repository updates use git2. The client does not bundle a Shizuku installer or provide the old notification script toggle. See [Android Client](../guide/android) for current behavior and the explicit game-validation limits. Repository refs, no-update policy and advanced source configuration are described in [setup.toml](../reference/setup-toml).
+Android embeds Python/bootstrap. Bootstrap can use a backend archive when present in the APK or download one when the backend is missing; manual updates use MirrorChyan for a configured stable backend and git2 for the other repositories. The client does not bundle a Shizuku installer or provide the old notification script toggle. See [Android Client](../guide/android) for current behavior and the explicit game-validation limits. Repository refs, no-update policy and advanced source configuration are described in [setup.toml](../reference/setup-toml).

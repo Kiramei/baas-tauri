@@ -37,6 +37,9 @@ export default defineConfig(({ mode }) => {
       host: mode === "tauri" ? "127.0.0.1" : "0.0.0.0",
       port: withTauri ? 8191 : 8192,
       strictPort: true,
+      fs: {
+        deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", ".secret", ".secret.*", ".secrets", "mirrorc.key"],
+      },
       proxy: !withTauri
         ? Object.fromEntries(
             ["/ws", "/auth/remember", "/auth/logout", "/health"].map((route) => [

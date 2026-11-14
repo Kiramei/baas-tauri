@@ -21,7 +21,6 @@ internal class NativeGameFullscreen(private val activity: Activity, private val 
   private val onFrame: (FullscreenFrame) -> Unit, private val cancelTouch: () -> Unit,
   private val onReturn: () -> Unit, private val onCloseGame: () -> Unit) {
   private fun dp(value: Int) = (value * activity.resources.displayMetrics.density).toInt()
-  private val chinese = language.startsWith("zh")
   private val backdrop = View(activity).apply { isClickable = true }
   private val chrome = FrameLayout(activity)
   private val dismissMenu = View(activity).apply {
@@ -31,12 +30,12 @@ internal class NativeGameFullscreen(private val activity: Activity, private val 
   private val menu = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE; elevation = dp(10).toFloat() }
   private val floating = TextView(activity).apply {
     text = "⋮"; textSize = 26f; gravity = Gravity.CENTER
-    contentDescription = if (chinese) "游戏菜单" else "Game menu"
+    contentDescription = NativeGameText.text(language, NativeGameLabel.GAME_MENU)
     elevation = dp(6).toFloat()
   }
   private val entries = mutableListOf<TextView>()
   private val coexistenceHint = TextView(activity).apply {
-    text = if (chinese) "手操不暂停脚本；脚本输入优先" else "Scripts keep running; script input takes priority"
+    text = NativeGameText.text(language, NativeGameLabel.INPUT_PRIORITY)
     textSize = 12f
     gravity = Gravity.CENTER_VERTICAL
     setPadding(dp(18), dp(8), dp(18), dp(8))
@@ -52,8 +51,8 @@ internal class NativeGameFullscreen(private val activity: Activity, private val 
     parent.addView(backdrop, parent.indexOfChild(host).coerceAtLeast(0), FrameLayout.LayoutParams(-1, -1))
     chrome.addView(dismissMenu, FrameLayout.LayoutParams(-1, -1))
     menu.addView(coexistenceHint, LinearLayout.LayoutParams(-1, dp(60)))
-    listOf((if (chinese) "返回内嵌画面" else "Return to preview") to onReturn,
-      (if (chinese) "关闭游戏" else "Close game") to onCloseGame).forEach { (label, action) ->
+    listOf(NativeGameText.text(language, NativeGameLabel.RETURN_PREVIEW) to onReturn,
+      NativeGameText.text(language, NativeGameLabel.CLOSE_GAME) to onCloseGame).forEach { (label, action) ->
       val entry = TextView(activity).apply {
         text = label; textSize = 15f; gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(18), 0, dp(18), 0); isClickable = true
@@ -150,6 +149,7 @@ internal class NativeGameFullscreen(private val activity: Activity, private val 
       rounded(theme.primary, 24), rounded(theme.primaryForeground, 24))
   }
 
+  fun showMenu() = setMenu(true)
   fun closeMenu() = setMenu(false)
   fun destroy() {
     if (destroyed) return

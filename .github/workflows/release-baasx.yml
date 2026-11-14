@@ -4,19 +4,45 @@ on:
   push:
     tags:
       - "baasx-v[0-9]*.[0-9]*.[0-9]*"
-  # Select an existing baasx-v* tag, not a branch, for a manual rerun.
+  # Release reruns require an existing baasx-v* tag. Auth-only checks also allow branches.
   workflow_dispatch:
+    inputs:
+      auth_only:
+        description: Check npm authentication only; skip builds and all publication.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-baasx-${{ github.ref }}
-  cancel-in-progress: false
+  group: release-baasx-publication
+  queue: max
 
 jobs:
+  npm-auth:
+    name: Check npm trusted publishing before builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Check package-specific npm OIDC exchanges
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: node baasx/scripts/npm-auth.mjs
+
   validate:
     name: Validate the independent baasx release tag
+    if: ${{ !inputs.auth_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -55,8 +81,8 @@ jobs:
 
   build:
     name: Verify and build baasx on all platforms
-    needs: validate
-    uses: ./.github/workflows/cli.yml
+    needs: [validate, npm-auth]
+    uses: ./.github/workflows/baasx.yml
     permissions:
       contents: read
 
@@ -95,9 +121,15 @@ jobs:
           set -euo pipefail
           cd release-assets
           native=(baasx-"$BAASX_VERSION"-*.tar.gz)
-          packages=(baasx-"$BAASX_VERSION"-*-bun.tgz)
-          test "${#native[@]}" -eq 3
-          test "${#packages[@]}" -eq 3
+          packages=(baasx-"$BAASX_VERSION"-*.tgz)
+          node --input-type=module <<'JS'
+          import { platforms } from '../baasx/scripts/distribution-platforms.mjs';
+          import { readdirSync, statSync } from 'node:fs';
+          if (readdirSync('.').some(name => name.endsWith('.sig'))) throw new Error('BAASX assets must not include .sig files');
+          for (const p of platforms) for (const ext of ['.tar.gz',p.packageExtension]) {
+            if (!statSync(`baasx-${process.env.BAASX_VERSION}-${p.asset}${ext}`).size) throw new Error('Empty asset');
+          }
+          JS
           sha256sum "${native[@]}" "${packages[@]}" > SHA256SUMS
           sha256sum --check SHA256SUMS
       - name: Publish baasx assets without changing the desktop Latest release
@@ -116,17 +148,18 @@ jobs:
             ## Installation
             Standalone baasx automation terminal. This release is separate from the BAAS Tauri desktop client.
 
-            - Download the native archive for your operating system and architecture. Keep its `runtime` directory beside `baasx` / `baasx.exe`; Bun and Rust are not required on the target machine.
-            - The platform-specific `-bun.tgz` packages include the matching installer helper and require Bun 1.4.4 or newer.
-            - `SHA256SUMS` contains checksums for all six distributions.
-            - Builds use the pinned Bun compiler and must pass source tests, compiled CLI checks and extracted-package smoke tests on all three platforms before publication.
+            - Download the native archive for your operating system and architecture and preserve all extracted directories; Bun and Rust are not required on the target machine.
+            - Linux ARMv7 hard-float (`armv7l` / `armhf`) uses `Linux-ARMV7L`, with bundled Node.js and a native ARM32 Rust helper. Its `-node.tgz` package requires Node.js 20.3+. Other platforms retain their `-bun.tgz` packages.
+            - ARM32 supports the terminal, remote services and scheduling. Managed local setup requires a published OCR payload and validated Python/dependencies and is unavailable on ARM32.
+            - `SHA256SUMS` contains checksums for all platform distributions.
+            - Builds use the pinned Bun compiler and must pass source tests, CLI checks and extracted-package smoke tests on all supported platforms, including ARM32 Rust, Node and terminal tests through QEMU, before publication. Archives have no `.sig` files.
 
   sync-cnb-release:
     name: Sync baasx release to CNB
     needs: [publish]
     if: github.repository == 'Kiramei/baas-tauri'
     runs-on: ubuntu-latest
-    timeout-minutes: 260
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
@@ -141,6 +174,8 @@ jobs:
           tag-name: ${{ github.ref_name }}
           cnb-repo-slug: kiramei/baas-tauri
           make-latest: "false"
+          asset-contract: baasx
+          wait-timeout-minutes: "0"
 
   publish-registry:
     name: Publish baasx to ${{ matrix.registry }}
@@ -178,18 +213,17 @@ jobs:
         with:
           name: registry-node-bundle
           path: registry-bundle
-      - name: Assemble the three verified platform archives
+      - name: Assemble platform packages and scoped CLI
         run: node baasx/scripts/registry-package.mjs --assets release-assets --bundle registry-bundle/baasx-node.mjs --output "$RUNNER_TEMP/baasx-registry" --scope "${{ matrix.scope }}" > "$RUNNER_TEMP/baasx-registry-info.json"
-      - name: Verify the registry package installs and launches
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: "1.3.14" }
+      - name: Smoke test the actual split packages before publication
         env:
-          NODE_AUTH_TOKEN: ${{ matrix.registry == 'GitHub Packages' && github.token || secrets.NPM_TOKEN }}
+          BAASX_SMOKE_BUN: bun
         run: |
-          set -euo pipefail
-          archive=$(node -p 'require(process.argv[1]).archive' "$RUNNER_TEMP/baasx-registry-info.json")
-          prefix="$RUNNER_TEMP/baasx-registry-check"
-          npm install --global --prefix "$prefix" "$archive" --ignore-scripts --no-audit --no-fund
-          "$prefix/bin/baasx" --demo --json status
-          "$prefix/lib/node_modules/@${{ matrix.scope }}/baasx/platforms/linux-x64/runtime/baas-cli-runtime" inspect --root "$RUNNER_TEMP/baasx-not-installed"
+          node baasx/scripts/registry-smoke.mjs "$RUNNER_TEMP/baasx-registry-info.json"
+          node baasx/scripts/registry-smoke.mjs "$RUNNER_TEMP/baasx-registry-info.json" --target linux-armv7l --install-only
+          node baasx/scripts/registry-smoke.mjs "$RUNNER_TEMP/baasx-registry-info.json" --target linux-armhf --install-only
       - name: Publish package
         env:
           NODE_AUTH_TOKEN: ${{ matrix.registry == 'GitHub Packages' && github.token || secrets.NPM_TOKEN }}

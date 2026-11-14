@@ -8,9 +8,6 @@ import { gfmFromMarkdown } from "mdast-util-gfm";
 import ts from "typescript";
 import publication from "../evidence/webp-publication.json";
 
-// Include application entry-link coverage in the documentation-only CI job.
-import "../../tests/frontend/Documentation.test";
-
 const root = new URL("../../", import.meta.url);
 const read = (file: string) => readFileSync(new URL(file, root), "utf8");
 const documents = ["README.md", "README_zh.md"].map(file => ({ file, content: read(file) }));

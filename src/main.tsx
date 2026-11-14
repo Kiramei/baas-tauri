@@ -1,4 +1,5 @@
 import React from "react";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import ReactDOM from "react-dom/client";
 import StartupShellHandoff from "@/components/StartupShellHandoff";
 import { installFrontendSystemLogging } from "@/shared/SystemLogService";
@@ -13,29 +14,29 @@ if (!Object.hasOwn) {
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
 
 /** Renders the browser tauri dev fallback component. */
-const BrowserTauriDevFallback = () => (
-  <div
-    style={{
-      alignItems: "center",
-      background: "#0f172a",
-      color: "#e2e8f0",
-      display: "flex",
-      fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
-      height: "100vh",
-      justifyContent: "center",
-      margin: 0,
-      padding: 24,
-    }}
-  >
-    <div style={{ maxWidth: 520 }}>
-      <h1 style={{ fontSize: 24, marginBottom: 12 }}>BAAS Tauri dev server is running</h1>
-      <p style={{ color: "#94a3b8", lineHeight: 1.6, margin: 0 }}>
-        Use the BAAS Tauri desktop window for this dev session. The browser URL is only the Vite
-        asset server for the Tauri WebView.
-      </p>
+const BrowserTauriDevFallback = () => {
+  const { t } = useAppTranslation();
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        background: "#0f172a",
+        color: "#e2e8f0",
+        display: "flex",
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        height: "100vh",
+        justifyContent: "center",
+        margin: 0,
+        padding: 24,
+      }}
+    >
+      <div style={{ maxWidth: 520 }}>
+        <h1 style={{ fontSize: 24, marginBottom: 12 }}>{t("app.devServerTitle")}</h1>
+        <p style={{ color: "#94a3b8", lineHeight: 1.6, margin: 0 }}>{t("app.devServerHint")}</p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const closeSplash = async () => {
   if (!__WITH_TAURI__) return;
@@ -49,6 +50,8 @@ const closeSplash = async () => {
 
 const bootstrap = async () => {
   if (__WITH_TAURI_MODE__ && !__WITH_TAURI__ && !__WITH_ANDROID__) {
+    const { initI18n } = await import("@/shared/I18nTranslator.ts");
+    await initI18n();
     root.render(
       <StartupShellHandoff>
         <BrowserTauriDevFallback />

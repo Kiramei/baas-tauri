@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/platform/App": ["./src/android/App.tsx"],
+      "@/platform/startup": ["./src/android/startup.ts"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src/main.tsx", "src/android/**/*", "src/components/Android*.ts*", "src/shared/Android*.ts*", "src/types/**/*.d.ts"]
+}

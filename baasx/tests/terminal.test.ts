@@ -108,6 +108,16 @@ describe("terminal interaction protocol", () => {
       target as unknown as NodeJS.WriteStream,
       mouse
     );
+    // Ink drains its readable stream one event at a time even when it was busy
+    // rendering while these separate input chunks arrived.
+    source.write("/tasks");
+    source.write("\r");
+    expect(session.input.read()).toBe("/tasks");
+    expect(session.input.read()).toBe("\r");
+    source.write("\n");
+    expect(session.input.read()).toBe("\r");
+    source.write("paste\nlines");
+    expect(session.input.read()).toBe("paste\nlines");
     let cancelled = 0;
     mouse.capture(
       () => {},

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { parseReleaseVersion } from "../src/shared/ReleaseVersion.mjs";
 import {
   cargoLockVersionPattern,
+  compatibilityRuntimeDependency,
   nativeReleaseVersions,
   readReleaseState,
   workspaceReleasePackages,
@@ -33,14 +34,23 @@ export function setReleaseVersion(root, value, { dryRun = false, env = process.e
       },
     })
   );
-  for (const member of packages)
-    updates.set(
-      member.relative,
-      member.source.replace(
-        /(\[package\][\s\S]*?^version\s*=\s*")[^"]+(".*$)/m,
-        `$1${release.semver}$2`
-      )
+  for (const member of packages) {
+    let source = member.source.replace(
+      /(\[package\][\s\S]*?^version\s*=\s*")[^"]+(".*$)/m,
+      `$1${release.semver}$2`
     );
+    if (member.name === "baas-cli-runtime") {
+      const dependency = compatibilityRuntimeDependency(source);
+      source = source.replace(
+        dependency.line,
+        dependency.line.replace(
+          /(\bversion\s*=\s*")[^"]+(")/,
+          (_match, prefix, suffix) => prefix + release.semver + suffix
+        )
+      );
+    }
+    updates.set(member.relative, source);
+  }
   const lockPath = path.join(root, "Cargo.lock");
   if (fs.existsSync(lockPath)) {
     let lock = fs.readFileSync(lockPath, "utf8");

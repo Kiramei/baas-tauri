@@ -37,7 +37,7 @@ def log(message):
     print("[macOS bundles] " + message, flush=True)
 
 
-def run_tool(arguments):
+def run_tool(arguments, *, input_text=None):
     arguments = [str(argument) for argument in arguments]
     log("$ " + shlex.join(arguments))
     try:
@@ -45,6 +45,7 @@ def run_tool(arguments):
             arguments,
             capture_output=True,
             text=True,
+            input=input_text,
             timeout=TOOL_TIMEOUT_SECONDS,
             check=False,
         )
@@ -177,7 +178,12 @@ def mounted_dmg(dmg, mountpoint):
     try:
         # Even a failed/timeout attach may have mounted a volume. Always attempt
         # to detach our private mountpoint, including on verification failures.
-        run_tool(["hdiutil", "attach", "-readonly", "-nobrowse", "-mountpoint", mountpoint, dmg])
+        # The release DMG embeds this project's license. Answer its prompt once;
+        # keep the image read-only and reject every unsuccessful attach as before.
+        run_tool(
+            ["hdiutil", "attach", "-readonly", "-nobrowse", "-mountpoint", mountpoint, dmg],
+            input_text="Y\n",
+        )
         attached = True
         yield mountpoint
     except BaseException as error:

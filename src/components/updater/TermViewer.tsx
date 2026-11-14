@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
+import { attachAndroidReadOnlyTerminal } from "@/shared/AndroidReadOnlyTerminal";
 import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
 import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
@@ -175,6 +176,7 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
     const term = new Terminal({
       allowProposedApi: false,
       convertEol: true,
+      disableStdin: __WITH_ANDROID__,
       fontFamily: '"JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace',
       fontSize: 13,
       lineHeight: 1.22,
@@ -189,6 +191,9 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(hostRef.current);
+    const detachReadOnlyLog = __WITH_ANDROID__
+      ? attachAndroidReadOnlyTerminal(term, hostRef.current)
+      : undefined;
 
     termRef.current = term;
     fitRef.current = fit;
@@ -197,6 +202,7 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
 
     return () => {
       stopObserving();
+      detachReadOnlyLog?.();
       fit.dispose();
       term.dispose();
       termRef.current = null;
@@ -227,16 +233,6 @@ const statusEdgeClass: Record<TermTaskStatus, string> = {
   skipped: "#64748b",
   failed: "#ef4444",
   stopped: "#eab308",
-};
-
-const statusLabel: Record<TermTaskStatus, string> = {
-  idle: "Idle",
-  pending: "Pending",
-  running: "Running",
-  success: "Success",
-  skipped: "Skipped",
-  failed: "Failed",
-  stopped: "Stopped",
 };
 
 const statusPillClass: Record<TermTaskStatus, string> = {
@@ -307,6 +303,16 @@ const plannedTasksFromNodes = (nodes: WorkflowNodePayload[]) => {
 
 /** Renders the workflow node dot component. */
 const WorkflowNodeDot: React.FC<{ task: TermTaskView }> = ({ task }) => {
+  const { t } = useAppTranslation();
+  const statusLabel: Record<TermTaskStatus, string> = {
+    idle: t("task.status.idle"),
+    pending: t("task.status.pending"),
+    running: t("task.status.running"),
+    success: t("task.status.success"),
+    skipped: t("task.status.skipped"),
+    failed: t("task.status.failed"),
+    stopped: t("task.status.stopped"),
+  };
   const duration = task.status === "success" ? formatDuration(fallbackDuration(task)) : null;
   const startedAt = formatTime(task.startedAt);
   const finishedAt = formatTime(task.finishedAt);
@@ -316,7 +322,7 @@ const WorkflowNodeDot: React.FC<{ task: TermTaskView }> = ({ task }) => {
         <button
           type="button"
           className="relative flex h-4.5 w-4.5 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-          aria-label={`${task.name}: ${task.status}`}
+          aria-label={`${task.name}: ${statusLabel[task.status]}`}
         >
           {task.status === "skipped" ? (
             <CircleSlash2 className="h-4 w-4 text-slate-500" strokeWidth={2.25} />
@@ -343,8 +349,10 @@ const WorkflowNodeDot: React.FC<{ task: TermTaskView }> = ({ task }) => {
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold leading-5 text-white">{task.name}</div>
               <div className="mt-0.5 text-[11px] font-medium text-slate-400">
-                Step {String(task.stepIndex).padStart(2, "0")}/
-                {String(task.stepTotal).padStart(2, "0")}
+                {t("installer.stepProgress", {
+                  index: String(task.stepIndex).padStart(2, "0"),
+                  total: String(task.stepTotal).padStart(2, "0"),
+                })}
               </div>
             </div>
             <span
@@ -361,19 +369,19 @@ const WorkflowNodeDot: React.FC<{ task: TermTaskView }> = ({ task }) => {
           <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] leading-4 text-slate-400">
             {duration && (
               <>
-                <span>Duration</span>
+                <span>{t("installer.duration")}</span>
                 <span className="text-right font-medium text-green-200">{duration}</span>
               </>
             )}
             {startedAt && (
               <>
-                <span>Started</span>
+                <span>{t("installer.started")}</span>
                 <span className="text-right text-slate-200">{startedAt}</span>
               </>
             )}
             {finishedAt && (
               <>
-                <span>Finished</span>
+                <span>{t("installer.finished")}</span>
                 <span className="text-right text-slate-200">{finishedAt}</span>
               </>
             )}
@@ -551,6 +559,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
   onSessionFinished,
 }) => {
   const { t } = useAppTranslation();
+  const translatorRef = useRef(t);
   const terminalLogData = useGlobalLogStore((e) => e.terminalLogData);
   const appendTerminalLog = useGlobalLogStore((e) => e.appendTerminalLog);
   const appendTerminalLogs = useGlobalLogStore((e) => e.appendTerminalLogs);
@@ -571,19 +580,20 @@ const TermViewer: React.FC<TermViewerProps> = ({
   >("preparing");
 
   useEffect(() => {
+    translatorRef.current = t;
     onReadyRef.current = onReady;
     onFailureRef.current = onFailure;
     onSessionFinishedRef.current = onSessionFinished;
     appendTerminalLogRef.current = appendTerminalLog;
     appendTerminalLogsRef.current = appendTerminalLogs;
-  }, [appendTerminalLog, appendTerminalLogs, onFailure, onReady, onSessionFinished]);
+  }, [appendTerminalLog, appendTerminalLogs, onFailure, onReady, onSessionFinished, t]);
 
   const copyLogs = () => {
     const text = terminalLogData
       .map((l) => `[${l.time}] [${l.level.toUpperCase()}] ${l.message}`)
       .join("\n");
     navigator.clipboard.writeText(text).then(undefined);
-    toast.success("Logs copied to clipboard");
+    toast.success(t("log.copied"));
   };
 
   useEffect(() => {
@@ -724,6 +734,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
           }
         }),
         listen<TermSessionFinishedPayload>("term:session-finished", (event) => {
+          const t = translatorRef.current;
           if (disposed) return;
           if (!terminalOutputSeenRef.current) setTerminalDisplayState("empty");
           flushChunks();
@@ -732,7 +743,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
           if (!event.payload.success && !concreteFailureRef.current) {
             onFailureRef.current?.({
               step: "workflow",
-              message: "Updater workflow did not complete successfully.",
+              message: t("installer.workflowFailed"),
             });
           }
         }),
