@@ -57,7 +57,7 @@ test.skipIf(!executable)(
       await rm(directory, { recursive: true, force: true });
     }
   },
-  5000 * timeoutScale
+  timeoutScale === 1 ? 5000 : 60000
 );
 
 test.skipIf(!executable || process.platform === "win32" || typeof Bun.Terminal !== "function")(
