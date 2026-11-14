@@ -526,6 +526,13 @@ const Header: React.FC<{
                         ? t("profile.running")
                         : "";
                   const rightIndicator = outcome === "failed" || (outcome === "running" && desktop);
+                  const nameSpacing = allowContextMenu
+                    ? __WITH_ANDROID__
+                      ? "pr-10 lg:pr-7"
+                      : "pr-6 lg:pr-7"
+                    : rightIndicator
+                      ? "pr-6 lg:pr-7"
+                      : "";
                   // A config can arrive before its status or survive status
                   // recovery. Missing status must not hide its entry point.
                   return (
@@ -547,7 +554,7 @@ const Header: React.FC<{
                           (event.shiftKey && event.key === "F10")
                         ) {
                           event.preventDefault();
-                          if (!allowContextMenu) return;
+                          if (__WITH_ANDROID__ || !allowContextMenu) return;
                           const bounds = event.currentTarget.getBoundingClientRect();
                           ctxMenuOpener.current = event.currentTarget;
                           setCtxMenu({ x: bounds.right - 8, y: bounds.bottom, tab });
@@ -568,7 +575,7 @@ const Header: React.FC<{
                   `}
                       onClick={() => onSelect(tab)}
                       onPointerDown={(e: any) => {
-                        if (allowContextMenu && (e as any).button === 1) {
+                        if (!__WITH_ANDROID__ && allowContextMenu && (e as any).button === 1) {
                           e.preventDefault();
                           setConfirmDelete(tab);
                         }
@@ -576,7 +583,7 @@ const Header: React.FC<{
                       onContextMenu={(e: any) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (!allowContextMenu) return;
+                        if (__WITH_ANDROID__ || !allowContextMenu) return;
                         ctxMenuOpener.current = e.currentTarget;
                         setCtxMenu({ x: e.clientX, y: e.clientY, tab });
                       }}
@@ -591,9 +598,7 @@ const Header: React.FC<{
                       )}
 
                       {/* Profile name */}
-                      <span
-                        className={`min-w-0 truncate text-[14px] font-normal lg:pr-7 ${__WITH_ANDROID__ ? "pr-10" : "pr-6"}`}
-                      >
+                      <span className={`min-w-0 truncate text-[14px] font-normal ${nameSpacing}`}>
                         {tab.name}
                       </span>
 

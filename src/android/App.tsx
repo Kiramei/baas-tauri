@@ -28,7 +28,6 @@ const ignoreReady = () => {};
 const BAComet = React.lazy(() => import("@/components/ui/BAComet.tsx"));
 const ConfigArchiveDropOverlay = React.lazy(() => import("@/components/ConfigArchiveDropOverlay"));
 const GlobalAppearanceEffects = React.lazy(() => import("@/components/GlobalAppearanceEffects"));
-const GlobalContextMenu = React.lazy(() => import("@/components/GlobalContextMenu"));
 const ReconnectingOverlay = React.lazy(() => import("@/components/ReconnectingOverlay.tsx"));
 const TauriScriptNotifier = React.lazy(() => import("@/components/TauriScriptNotifier"));
 const TauriServiceNotifier = React.lazy(() => import("@/components/TauriServiceNotifier"));
@@ -345,7 +344,6 @@ const WrappedApp: React.FC = () => {
             <TauriSelfUpdateProvider>
               <TauriShortcutProvider>
                 {enableBAComet && !lowPerformanceMode && <BAComet />}
-                <GlobalContextMenu />
                 <GlobalAppearanceEffects />
                 {__WITH_TAURI__ && <TauriServiceNotifier />}
                 {__WITH_TAURI__ && !__WITH_ANDROID__ && <TauriScriptNotifier />}

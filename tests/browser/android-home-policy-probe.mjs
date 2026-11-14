@@ -12,11 +12,34 @@ try {
   await page.goto(`${origin}/tests/browser/workspace.html?homePolicy=1&profileFeatures=1&lang=en`, { waitUntil: "domcontentloaded" });
   const catalog = await (await page.request.get(`${origin}/locales/en.json`)).json();
   const header = page.locator("header.profile-navigation");
+  const nativeSelectionInPage = async () => {
+    const result = await page.locator(".desktop-main-panel").evaluate((main) => {
+      const text = document.createElement("p");
+      text.textContent = "Native selectable document text";
+      text.style.userSelect = "text";
+      main.appendChild(text);
+      window.getSelection().selectAllChildren(text);
+      const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+      text.dispatchEvent(event);
+      const result = { prevented: event.defaultPrevented, selected: window.getSelection().toString() };
+      text.remove();
+      return result;
+    });
+    assert.deepEqual(result, { prevented: false, selected: "Native selectable document text" });
+  };
   await page.locator("#tab-alpha").waitFor();
   assert.equal(await header.locator("button[aria-haspopup=menu]").count(), 0);
   assert.equal(await header.getByRole("button", { name: catalog.profile.add, exact: true }).count(), 0);
   await page.locator("#tab-alpha").click({ button: "right" });
   assert.equal(await page.getByRole("menu").count(), 0);
+  await nativeSelectionInPage();
+  const spacing = await page.locator("#tab-alpha").evaluate((element) => {
+    const name = [...element.children].find((child) => child.tagName === "SPAN");
+    return { namePadding: getComputedStyle(name).paddingRight, rowPadding: getComputedStyle(element).paddingRight,
+      gap: element.getBoundingClientRect().right - name.getBoundingClientRect().right };
+  });
+  assert.equal(spacing.namePadding, "0px");
+  assert(Math.abs(spacing.gap - parseFloat(spacing.rowPadding)) < 1, "hidden menu leaves no extra action slot");
   await page.locator(".home-log-toolbar h2").click({ button: "right" });
   assert.equal(await page.getByRole("menu").count(), 0);
   // The queue remains interactive and never matches a native-preview blocker.
@@ -58,15 +81,46 @@ try {
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
   assert(Buffer.concat(chunks).toString().includes("Fixture OCR resource unavailable"));
-  // Task/config screens retain creation, profile menus and normal context menus.
+  // Task/config retain explicit management buttons, but never open them from context-menu gestures.
   for (const destination of ["scheduler", "configuration"]) {
     await page.locator("nav").getByRole("button", { name: catalog.nav[destination], exact: true }).last().click();
-    await header.locator("button[aria-haspopup=menu]").first().waitFor();
+    await page.getByRole("button", { name: catalog.profile.add, exact: true }).waitFor();
+    assert((await header.locator("button[aria-haspopup=menu]").count()) > 0);
     assert.equal(await header.getByRole("button", { name: catalog.profile.add, exact: true }).count(), 1);
+    await page.locator("#tab-alpha").click({ button: "right" });
+    await page.locator("#tab-alpha").press("Shift+F10");
+    await page.locator("#tab-alpha").click({ button: "middle" });
+    assert.equal(await page.getByRole("menu").count(), 0);
+    assert.equal(await page.getByRole("alertdialog").count(), 0);
+    await nativeSelectionInPage();
     await header.locator("button[aria-haspopup=menu]").first().click();
     await page.getByRole("menu").waitFor();
     await page.keyboard.press("Escape");
   }
+  await page.locator("nav").getByRole("button", { name: catalog.nav.settings, exact: true }).last().click();
+  await page.locator(".app-content-shell").click({ button: "right", position: { x: 4, y: 4 } });
+  assert.equal(await page.getByRole("menu").count(), 0);
+  await nativeSelectionInPage();
+  // An accidentally mounted global component remains inert, including native edit/selection events.
+  await page.getByRole("button", { name: "Editors", exact: true }).click();
+  const input = page.locator('[data-fixture-editor="input"]');
+  const nativeInput = await input.evaluate((element) => {
+    element.focus(); element.setSelectionRange(0, 5);
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    element.dispatchEvent(event);
+    return { prevented: event.defaultPrevented, start: element.selectionStart, end: element.selectionEnd };
+  });
+  assert.deepEqual(nativeInput, { prevented: false, start: 0, end: 5 });
+  const nativeText = await page.locator("[data-fixture-selection]").evaluate((element) => {
+    window.getSelection().selectAllChildren(element);
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    element.dispatchEvent(event);
+    return { prevented: event.defaultPrevented, text: window.getSelection().toString() };
+  });
+  assert.equal(nativeText.prevented, false);
+  assert(nativeText.text.includes("Plain document text"));
+  assert.equal(await page.getByRole("menu").count(), 0);
+  await page.getByRole("button", { name: "Editors", exact: true }).click();
   await page.locator("nav").getByRole("button", { name: catalog.nav.home, exact: true }).last().click();
   assert.equal(await header.locator("button[aria-haspopup=menu]").count(), 0);
   assert.equal(await header.getByRole("button", { name: catalog.profile.add, exact: true }).count(), 0);
@@ -79,7 +133,7 @@ try {
   await page.getByRole("button", { name: catalog.profile.create, exact: true }).waitFor();
   assert.equal(await header.getByRole("button", { name: catalog.profile.add, exact: true }).count(), 1);
   assert.deepEqual(errors, []);
-  console.log("PASS Android: home actions hidden, long-press blocked, queue stays live, errors in log/export, native log selection retained, task/config menus preserved");
+  console.log("PASS Android: no right-click application menus, compact Home profile spacing, native text/input/log selection retained, explicit task/config management and creation retained");
   await context.close();
 } finally {
   await browser.close();
