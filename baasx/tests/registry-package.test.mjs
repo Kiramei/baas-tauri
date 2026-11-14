@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { execFile, execFileSync, spawnSync } from "node:child_process";
 import { promisify } from "node:util";
 import { randomBytes } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
@@ -130,7 +130,7 @@ describe("registry package", () => {
           ["--require", guard, path.join(bin, "baasx.mjs"), "--demo", "status"],
           { encoding: "utf8", env }
         );
-        expect(JSON.parse(result)).toEqual({ helper, args: ["--demo", "status"] });
+        expect(JSON.parse(result)).toEqual({ helper: realpathSync(helper), args: ["--demo", "status"] });
       }
     } finally {
       rmSync(root, { recursive: true, force: true });
