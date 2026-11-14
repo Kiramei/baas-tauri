@@ -5,7 +5,7 @@ import { render } from "ink";
 import { FieldEditor } from "../src/field-editor";
 import type { EditableField } from "../src/field-editor";
 import { MouseContext } from "../src/terminal-components";
-import { MouseBus } from "../src/terminal";
+import { MouseBus, terminalSession } from "../src/terminal";
 import { displayWidth, terminalText } from "../src/ui";
 
 async function update<T>(action: () => T): Promise<T> {
@@ -32,6 +32,7 @@ async function mount(
     width?: number;
     height?: number;
     active?: boolean;
+    terminal?: boolean;
     onSave?: (value: unknown) => Promise<void>;
   } = {}
 ) {
@@ -58,6 +59,14 @@ async function mount(
     ref() {},
     unref() {},
   });
+  const session = options.terminal
+    ? terminalSession(
+        stdin as unknown as NodeJS.ReadStream,
+        stdout as unknown as NodeJS.WriteStream,
+        mouse
+      )
+    : undefined;
+  const input = session?.input ?? stdin;
   const app = await update(() =>
     render(
       <MouseContext.Provider value={mouse}>
@@ -76,7 +85,7 @@ async function mount(
       </MouseContext.Provider>,
       {
         stdout: stdout as unknown as NodeJS.WriteStream,
-        stdin: stdin as unknown as NodeJS.ReadStream,
+        stdin: input as unknown as NodeJS.ReadStream,
         debug: true,
         patchConsole: false,
         maxFps: 1000,
@@ -96,6 +105,14 @@ async function mount(
     async key(text: string) {
       await update(() => stdin.write(text));
     },
+    async burst(...chunks: string[]) {
+      await update(() => {
+        for (const chunk of chunks) {
+          stdin.write(chunk);
+          input.emit("readable");
+        }
+      });
+    },
     async click(text: string, rowContains?: string) {
       const lines = frame.split("\n");
       const y = lines.findIndex(
@@ -108,6 +125,7 @@ async function mount(
     close() {
       app.unmount();
       app.cleanup();
+      session?.close();
       stdin.destroy();
       stdout.destroy();
       expect(mouse.listenerCount("mouse")).toBe(0);
@@ -139,6 +157,37 @@ const table: EditableField = {
     },
   ],
 };
+
+test.each([false, true])(
+  "framed table navigation, increment and save preserve the selected row: %s",
+  async (coalesced) => {
+    const ui = await mount(table, { terminal: true });
+    try {
+      const keys = ["\x1b[B", "+", "\x13"];
+      await ui.burst(...(coalesced ? [keys.join("")] : keys));
+      const expected = structuredClone(table.value) as Array<{ count: number }>;
+      expected[1].count = 2;
+      expect(ui.writes).toEqual([expected]);
+    } finally {
+      ui.close();
+    }
+  }
+);
+
+test("framed table navigation opens the current row's child editor", async () => {
+  const ui = await mount(table, { terminal: true });
+  try {
+    await ui.burst("\x1b[B\r");
+    expect(ui.frame).toContain("Central · 次数");
+    await ui.burst("3\r");
+    await ui.burst("\x13");
+    const expected = structuredClone(table.value) as Array<{ count: number }>;
+    expected[1].count = 3;
+    expect(ui.writes).toEqual([expected]);
+  } finally {
+    ui.close();
+  }
+});
 
 test("each region has count controls and incrementing respects numeric boundaries", async () => {
   const ui = await mount(table);
