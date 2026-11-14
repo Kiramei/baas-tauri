@@ -184,9 +184,11 @@ class AndroidBackendLifecycleTest(unittest.TestCase):
                         patch.dict(sys.modules, modules), \
                         patch.object(bootstrap, "_clear_backend_modules"), \
                         patch.object(bootstrap, "_build_baas_asgi_app"), \
+                        patch.object(bootstrap, "_report_service_ready") as report_ready, \
                         patch.object(os, "stat", side_effect=stat):
                     bootstrap._run_baas_service(root, 8190)
                 uvicorn.Server.return_value.run.assert_called_once()
+                report_ready.assert_called_once_with(root, 8190)
                 if local_marker:
                     direct_adb.start.assert_called_once_with("127.0.0.1:5555")
                 else:
