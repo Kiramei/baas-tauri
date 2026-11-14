@@ -14,7 +14,13 @@ interface Step {
 
 interface Workflow {
   env: Record<string, string>;
-  jobs: Record<string, { if?: string; steps: Step[] }>;
+  jobs: Record<string, {
+    if?: string;
+    "runs-on"?: string;
+    env?: Record<string, string>;
+    outputs?: Record<string, string>;
+    steps: Step[];
+  }>;
 }
 
 const workflow = (name: string) =>
@@ -60,17 +66,11 @@ test("release gates classify optional-v rc/post tags and keep every major-zero r
     ] as const) {
       const ref = `refs/tags/${prefix}${version}`;
       expect(evaluate(app.jobs["submit-to-winget"].if, ref), ref).toBe(winget);
-      expect(evaluate(docker.env.PUBLISH_IMAGE, ref), ref).toBe(true);
-      expect(evaluate(docker.env.PUBLISH_LATEST, ref), ref).toBe(stable);
       expect(evaluate(fixed.if, ref), ref).toBe(stable);
       expect(evaluate(publish.env!.MAKE_LATEST, ref), ref).toBe(String(stable));
       expect(evaluate(app.jobs["release-update"].if, ref), ref).toBe(true);
     }
   }
-  expect(evaluate(docker.env.PUBLISH_IMAGE, "refs/heads/main")).toBe(true);
-  expect(evaluate(docker.env.PUBLISH_LATEST, "refs/heads/main")).toBe(true);
-  expect(evaluate(docker.env.PUBLISH_IMAGE, "refs/heads/dev")).toBe(false);
-  expect(evaluate(docker.env.PUBLISH_LATEST, "refs/heads/dev")).toBe(false);
 });
 
 test("Winget keeps the real release tag separate from the public version", () => {
@@ -80,40 +80,142 @@ test("Winget keeps the real release tag separate from the public version", () =>
 });
 
 const shellTest = process.platform === "win32" ? test.skip : test;
-shellTest(
-  "the Docker version step strips exactly one optional v without changing rc/post suffixes",
-  () => {
-    const script = step(docker, "build-and-push", "Resolve canonical image version").run!;
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "baas-docker-version-"));
-    try {
-      for (const tag of [
-        "0.0.9",
-        "v0.0.9",
-        "0.0.9.rc1",
-        "v0.0.9.rc1",
-        "0.0.9.post2",
-        "v0.0.9.post2",
-      ]) {
-        const output = path.join(root, "output");
-        fs.writeFileSync(output, "");
-        const result = Bun.spawnSync(["bash", "-c", script], {
-          env: {
-            ...process.env,
-            GITHUB_REF: `refs/tags/${tag}`,
-            GITHUB_REF_NAME: tag,
-            GITHUB_OUTPUT: output,
-          },
-          stdout: "pipe",
-          stderr: "pipe",
-        });
+shellTest("Docker recovery resolves existing main-ancestor tags and keeps default branch publication", () => {
+  const script = step(docker, "prepare", "Resolve and validate image source").run!;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "baas-docker-source-"));
+  const source = path.join(root, "source");
+  fs.mkdirSync(source);
+  const git = (...args: string[]) => {
+    const result = Bun.spawnSync(["git", "-c", "user.name=Docker Test", "-c", "user.email=docker@example.invalid", ...args], {
+      cwd: source,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(result.exitCode, new TextDecoder().decode(result.stderr)).toBe(0);
+    return new TextDecoder().decode(result.stdout).trim();
+  };
+  try {
+    git("init", "--initial-branch=main");
+    fs.mkdirSync(path.join(source, "src/shared"), { recursive: true });
+    fs.copyFileSync(new URL("../../src/shared/ReleaseVersion.mjs", import.meta.url), path.join(source, "src/shared/ReleaseVersion.mjs"));
+    git("add", ".");
+    git("commit", "-m", "fixture");
+    const sha = git("rev-parse", "HEAD");
+    const cases = ["0.0.10", "v0.0.10", "0.0.10.rc1", "v0.0.10.rc1", "0.0.10.post2", "v0.0.10.post2"];
+    for (const tag of cases) git("tag", tag);
+    git("checkout", "-b", "outside-main");
+    git("commit", "--allow-empty", "-m", "not in main");
+    git("tag", "9.9.9");
+    git("checkout", "main");
+    git("commit", "--allow-empty", "-m", "new recovery workflow on main");
+    const mainSha = git("rev-parse", "HEAD");
+    git("clone", "--bare", source, path.join(root, "remote.git"));
+    git("remote", "add", "origin", path.join(root, "remote.git"));
+    const run = (ref: string, input = "", event = "workflow_dispatch") => {
+      const output = path.join(root, "output");
+      fs.writeFileSync(output, "");
+      const result = Bun.spawnSync(["bash", "-c", script], {
+        cwd: source,
+        env: { ...process.env, INPUT_RELEASE_TAG: input, GITHUB_EVENT_NAME: event, GITHUB_REF: ref, GITHUB_REF_NAME: ref.replace(/^refs\/(tags|heads)\//, ""), GITHUB_OUTPUT: output },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      return { result, output: Object.fromEntries(fs.readFileSync(output, "utf8").trim().split("\n").filter(Boolean).map(line => line.split("="))) };
+    };
+    for (const tag of cases) {
+      for (const [ref, input, event] of [["refs/heads/main", tag, "workflow_dispatch"], [`refs/tags/${tag}`, "", "push"]]) {
+        const { result, output } = run(ref, input, event);
         expect(result.exitCode, new TextDecoder().decode(result.stderr)).toBe(0);
-        expect(fs.readFileSync(output, "utf8")).toBe(`version=${tag.replace(/^v/, "")}\n`);
+        expect(output).toEqual({ "release-tag": tag, "image-version": tag.replace(/^v/, ""), "source-sha": sha, "source-short-sha": sha.slice(0, 7), "publish-image": "true", "publish-latest": String(!tag.includes(".rc")) });
       }
-    } finally {
-      fs.rmSync(root, { recursive: true, force: true });
     }
+    for (const [branch, publish] of [["main", "true"], ["dev", "false"]]) {
+      const { result, output } = run(`refs/heads/${branch}`);
+      expect(result.exitCode).toBe(0);
+      expect(output).toEqual({ "release-tag": "", "image-version": "", "source-sha": mainSha, "source-short-sha": mainSha.slice(0, 7), "publish-image": publish, "publish-latest": publish });
+    }
+    for (const tag of ["baasx-v0.0.10", "refs/tags/0.0.10", "refs/heads/main", "0.0.10-rc1", " 0.0.10", "0.0.10\n", "0.0.10$(touch injected)", "0.0.10;touch injected", "--help", "vv0.0.10", "0.0.42", "9.9.9"]) {
+      const { result, output } = run("refs/heads/main", tag);
+      expect(result.exitCode, tag).not.toBe(0);
+      expect(output).toEqual({});
+    }
+    expect(fs.existsSync(path.join(source, "injected"))).toBe(false);
+    expect(run("refs/heads/dev", "0.0.10").result.exitCode).not.toBe(0);
+    expect(run("refs/tags/0.0.10", "0.0.10", "push").result.exitCode).not.toBe(0);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
   }
-);
+});
+
+test("Docker recovery pins validated source and runtime for build, version metadata and mirrors", () => {
+  const inputs = (docker as unknown as { on: { workflow_dispatch: { inputs: Record<string, { default: string; required: boolean }> } } }).on.workflow_dispatch.inputs;
+  expect(inputs["release-tag"]).toMatchObject({ default: "", required: false });
+  for (const job of Object.values(docker.jobs)) expect(job["runs-on"]).toBe("ubuntu-24.04");
+  for (const job of ["prepare", "build-and-push"]) {
+    expect(docker.jobs[job].steps.some(item => item.with?.["node-version"] === "22")).toBe(true);
+  }
+  expect(step(docker, "prepare", "Checkout validated image source").with!.ref).toBe("${{ steps.source.outputs.source-sha }}");
+  expect(step(docker, "prepare", "Check selected release version").run).toBe('node scripts/check-release-version.mjs "$RELEASE_TAG"');
+  expect(step(docker, "build-and-push", "Checkout repository").with!.ref).toBe("${{ needs.prepare.outputs.source-sha }}");
+  expect(docker.jobs["build-and-push"].env!.PUBLISH_LATEST).toBe("${{ needs.prepare.outputs.publish-latest }}");
+  for (const name of ["Extract GitHub Container Registry metadata", "Extract Docker Hub metadata"]) {
+    const tags = step(docker, "build-and-push", name).with!.tags;
+    expect(tags).toContain("needs.prepare.outputs.release-tag");
+    expect(tags).not.toContain("startsWith(github.ref");
+  }
+  expect(step(docker, "build-and-push", "Extract GitHub Container Registry metadata").with!.labels).toContain("org.opencontainers.image.revision=${{ needs.prepare.outputs.source-sha }}");
+  expect(step(docker, "mirror", "Mirror Docker Hub image to CNB").env!.IMAGE_VERSION).toBe("${{ needs.build-and-push.outputs.image-version }}");
+});
+
+shellTest("Docker promotion preserves monotonic latest and identifies each failed stage without a pipeline", () => {
+  const script = step(docker, "build-and-push", "Avoid promoting an older stable version").run!;
+  expect(script).not.toMatch(/\|\s*(?:node|jq)/);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "baas-docker-promotion-"));
+  const calls = path.join(root, "calls");
+  const output = path.join(root, "environment");
+  const command = (name: string, body: string) => fs.writeFileSync(path.join(root, name), "#!/bin/bash\nset -eu\n" + body + "\n", { mode: 0o755 });
+  command("docker", 'printf \'{"org.opencontainers.image.version":"0.0.9.post1"}\\n\'');
+  command("gh", 'echo gh >> "$CAPTURE_PATH"\nif [[ "$FAIL_STAGE" == gh ]]; then exit 73; fi\nprintf "%s\\n" "$RELEASES_PAYLOAD"');
+  command("jq", 'if [[ "${1:-}" == --arg ]]; then\n  echo jq >> "$CAPTURE_PATH"\n  if [[ "$FAIL_STAGE" == jq ]]; then exit 74; fi\nfi\nexec "$REAL_JQ" "$@"');
+  command("node", 'if [[ "${1:-}" != --version ]]; then\n  echo node >> "$CAPTURE_PATH"\n  if [[ "$FAIL_STAGE" == node ]]; then exit 139; fi\n  if [[ "$FAIL_STAGE" == invalid ]]; then printf "true\\nfalse\\n"; exit 0; fi\nfi\nexec "$REAL_NODE" "$@"');
+  try {
+    for (const [failure, releases, expectedCode, expectedCalls, decision] of [
+      ["", [[{ tag_name: "0.0.9.post1" }]], 0, ["gh", "jq", "node"], "true"],
+      ["", [[{ tag_name: "0.0.11" }]], 0, ["gh", "jq", "node"], "false"],
+      ["gh", [], 73, ["gh"], ""],
+      ["jq", [], 74, ["gh", "jq"], ""],
+      ["node", [], 139, ["gh", "jq", "node"], ""],
+      ["invalid", [], 1, ["gh", "jq", "node"], ""],
+    ] as const) {
+      fs.writeFileSync(calls, "");
+      fs.writeFileSync(output, "");
+      const result = Bun.spawnSync(["bash", "-c", script], {
+        cwd: new URL("../../", import.meta.url).pathname,
+        env: {
+          ...process.env,
+          PATH: `${root}${path.delimiter}${process.env.PATH}`,
+          REAL_NODE: Bun.which("node")!,
+          REAL_JQ: Bun.which("jq")!,
+          RUNNER_TEMP: root,
+          CAPTURE_PATH: calls,
+          GITHUB_ENV: output,
+          IMAGE_NAME: "ghcr.io/example/baas-webui",
+          TAG: "0.0.10",
+          FAIL_STAGE: failure,
+          RELEASES_PAYLOAD: JSON.stringify(releases),
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      expect(result.exitCode, new TextDecoder().decode(result.stderr)).toBe(expectedCode);
+      expect(fs.readFileSync(calls, "utf8").trim().split("\n")).toEqual([...expectedCalls]);
+      expect(fs.readFileSync(output, "utf8")).toBe(decision ? `PUBLISH_LATEST=${decision}\n` : "");
+      expect(fs.readdirSync(root).filter(name => name.startsWith("docker-promotion."))).toEqual([]);
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 shellTest("Docker Hub versions are mirrored without promoting release candidates to latest", () => {
   const script = step(docker, "mirror", "Mirror Docker Hub image to CNB").run!;
@@ -124,10 +226,12 @@ shellTest("Docker Hub versions are mirrored without promoting release candidates
     mode: 0o755,
   });
   try {
-    for (const [ref, name, latest, expectedTags] of [
-      ["refs/tags/v0.0.9.rc1", "v0.0.9.rc1", "false", ["0.0.9.rc1"]],
-      ["refs/tags/0.0.9.post1", "0.0.9.post1", "true", ["0.0.9.post1", "latest"]],
-      ["refs/heads/main", "main", "true", ["main", "latest"]],
+    for (const [ref, name, latest, expectedTags, releaseTag] of [
+      ["refs/tags/v0.0.9.rc1", "v0.0.9.rc1", "false", ["0.0.9.rc1"], "v0.0.9.rc1"],
+      ["refs/tags/0.0.9.post1", "0.0.9.post1", "true", ["0.0.9.post1", "latest"], "0.0.9.post1"],
+      ["refs/heads/main", "main", "true", ["main", "latest"], ""],
+      ["refs/heads/main", "main", "true", ["0.0.10", "latest"], "0.0.10"],
+      ["refs/heads/main", "main", "false", ["0.0.10.rc1"], "v0.0.10.rc1"],
     ] as const) {
       fs.writeFileSync(output, "");
       const result = Bun.spawnSync(["bash", "-c", script], {
@@ -137,6 +241,8 @@ shellTest("Docker Hub versions are mirrored without promoting release candidates
           CAPTURE_PATH: output,
           GITHUB_REF: ref,
           GITHUB_REF_NAME: name,
+          RELEASE_TAG: releaseTag,
+          IMAGE_VERSION: releaseTag.replace(/^v/, ""),
           PUBLISH_LATEST: latest,
           DOCKERHUB_USERNAME: "example",
           DOCKERHUB_TOKEN: "test-token",
