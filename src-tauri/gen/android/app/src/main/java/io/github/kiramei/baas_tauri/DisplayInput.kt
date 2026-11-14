@@ -11,7 +11,7 @@ object DisplayInput {
   /** ATM's focused root task can disagree with Android 12's input display. */
   fun focusedDisplayId(): Int? = PrivilegedExecution.focusedInputDisplayId(inputWindowSnapshot())
 
-  /** Android 12 presents TYPE_PRESENTATION below app tasks; own a higher shield. */
+  /** Own a temporary system display overlay above the Android 12 game task. */
   @Synchronized fun focusShieldWindow(context: android.content.Context, displayId: Int): Boolean {
     PrivilegedExecution.virtualDisplayId(displayId)
     check(android.os.Build.VERSION.SDK_INT in 31..32 && android.os.Process.myUid() == android.os.Process.SHELL_UID)

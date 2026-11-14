@@ -3,9 +3,9 @@ package io.github.kiramei.baas_tauri
 /** Policies shared by the Binder service and its isolated display process. */
 internal object PrivilegedExecution {
   const val FOCUS_SHIELD_TITLE = "BAAS preview focus shield"
-  // Internal system-error layer, scoped to our separate game display. Android
-  // 12 can keep SYSTEM_DIALOG behind an existing game despite its base layer.
-  const val FOCUS_SHIELD_WINDOW_TYPE = 2010
+  // The system display-overlay layer is scoped to our separate game display.
+  // Android 12 vendor policies can keep legacy alert windows behind the game.
+  const val FOCUS_SHIELD_WINDOW_TYPE = 2026
 
   // Android 12 has per-display input, but UID-targeted injection arrived in 13.
   fun supportsPreviewFocus(sdk: Int): Boolean = sdk >= 31
@@ -56,7 +56,7 @@ internal object PrivilegedExecution {
       if (field(line, "paused") != "false") return result(false, "PAUSED_OR_UNKNOWN")
       if (field(line, "hasToken") != "true") return result(false, "UNKNOWN_INPUT_TOKEN")
       if (field(line, "ownerUid")?.toIntOrNull() != ownerUid) return result(false, "OTHER_OWNER_ON_TOP")
-      if (ownerUid == 2000 && field(line, "type") !in listOf(FOCUS_SHIELD_WINDOW_TYPE.toString(), "SYSTEM_ERROR")) {
+      if (ownerUid == 2000 && field(line, "type") !in listOf(FOCUS_SHIELD_WINDOW_TYPE.toString(), "DISPLAY_OVERLAY")) {
         return result(false, "OTHER_WINDOW_TYPE_ON_TOP")
       }
       val name = Regex("name='([^']*)'").find(line)?.groupValues?.get(1)
