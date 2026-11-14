@@ -800,7 +800,7 @@
     ]
   },
   "integrationSupplement": {
-    "checkedAt": "2026-11-14T13:01:43.492Z",
+    "checkedAt": "2026-11-14T14:09:20.273Z",
     "verificationKind": "code inspection and pinned Git-content comparison; no credential file read",
     "runtimeUpdateExecuted": false,
     "scope": [
@@ -816,211 +816,211 @@
     "sources": [
       {
         "file": "src/shared/MirrorCdk.ts",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "0516615cb85a7c1578fe8f66209cc1213b8eee689fa99d73b22a231e909f48f4",
         "gitContentVerified": true
       },
       {
         "file": "src/shared/useMirrorCdkSource.ts",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "de53ade0d986ce3f22dcd07a8187bac81a60ec8976fe3ec5305570a63d4ca50a",
         "gitContentVerified": true
       },
       {
         "file": "src/components/settings/MirrorCdkField.tsx",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "e991b3139d92436903014ab5d1eb0aeaf5233fa650f92424d892c19673efd643",
         "gitContentVerified": true
       },
       {
         "file": "src/pages/SettingsPage.tsx",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
-        "sha256": "fe80c2232f1ab2f76296bb1b020d8223905002e6616bc8717588ddc6c0d89954",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
+        "sha256": "caaad314b050b51317c77337b811e1c2265baed78b8a8a5354cfe7dfba39fcba",
         "gitContentVerified": true
       },
       {
         "file": "src-tauri/src/commands.rs",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "bba9786c8b3e8855483dbc3e76a600a0bf8f7a06828d1edd3a290e7f07016ffe",
         "gitContentVerified": true
       },
       {
         "file": "src-tauri/src/mobile_commands.rs",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "c29d337da0d18e44e1c7b69792ae645ed5ed1d2a60d1379d314d2a209381272a",
         "gitContentVerified": true
       },
       {
         "file": "src-tauri/src/mirrorc_validation.rs",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "314da3a9bf9f2756ca977f7bf4c24b5c82c0b798c52b138952e5b48067884de7",
         "gitContentVerified": true
       },
       {
         "file": "crates/baas-updater/src/mirrorc_credentials.rs",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "e63482bf329db5956c6c3deb8de4ed2eca49244d8a02c29932faf6a399b70dc3",
         "gitContentVerified": true
       },
       {
         "file": "crates/baas-updater/src/mirrorc.rs",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "ff89fcaca888abcd1cbc23cae63bb53e7618086b14bde8357cd522ee5383bfa5",
         "gitContentVerified": true
       },
       {
         "file": "crates/baas-updater/src/workflow.rs",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "17836925071d1a19d47630ea69009575e4d52c488b9b5c9dc0d0a7aa0b94029f",
         "gitContentVerified": true
       },
       {
         "file": "crates/baas-updater/src/android.rs",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "4c265078c6ed3b5c77d5768f6034b1234c79dad3cea77b17dda24009b1c3c6c1",
         "gitContentVerified": true
       },
       {
         "file": "src/components/settings/CommitHistory.tsx",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "9723af22ff8b833ea270798173b92859a723598a08e804efb9d0657ffbfc4214",
         "gitContentVerified": true
       },
       {
         "file": "src/shared/CommitHistory.ts",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "acb2e0f4aaefc0c3a552c21079df600f01a8e83d4498ed6cc76a9cc162fc354e",
         "gitContentVerified": true
       },
       {
         "file": "src/components/layout/HelpMenu.tsx",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "2143314b616707f52f4347d6214edfcb1a038ba3db21b4b680044bbb6fa60395",
         "gitContentVerified": true
       },
       {
         "file": "crates/baas-updater/src/environ.rs",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "f08cfe4dcab75881ce7ec5ae8d4d6088f85cee862fd1a087545ce6e1073e7cc8",
         "gitContentVerified": true
       },
       {
         "file": "src-tauri/src/platform/windows/client_update.rs",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "22aa7e503a82e7b2a635a0e529b2c93328cb721365a14881a0c141906c7da09d",
         "gitContentVerified": true
       },
       {
         "file": "src-tauri/src/platform/windows/portable_transaction.rs",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "dc07ebb89c100bd6330617e4df27abb0195076778ae924a10cc9ae5b857efa7a",
         "gitContentVerified": true
       },
       {
         "file": "src/shared/ClientUpdateRestart.ts",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "4acb06930dd76d49492512e0655359ef7a5d0c79dffa1ff4741517318d4bcd34",
         "gitContentVerified": true
       },
       {
         "file": "src/shared/ProfileArchiveImport.ts",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "97efaddd127a201da6cd28d75a43ee35e6fbcf7d2790c74d1f599fd17dbc8323",
         "gitContentVerified": true
       },
       {
         "file": "src/shared/ProfileFolderImport.ts",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "b618b5cc1a223822f0d7bf552dd951d7b6a6bb7ea5f8791d75bc86abbe745c5a",
         "gitContentVerified": true
       },
       {
         "file": "src/context/TauriSelfUpdateProvider.tsx",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "ba0f269df570188f35361ab8663ca861d5bac0b1f4e996021e5461e73c9a938f",
         "gitContentVerified": true
       },
       {
         "file": "src/components/IdleBackendUpdater.tsx",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "cd0c369fd6565da3abc299cfc8eb906191827dcf2b8a579a57cbdf496e1379b4",
         "gitContentVerified": true
       },
       {
         "file": "src/components/layout/Sidebar.tsx",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "b0bc9c932c48977d39e147a24bd2511c54a979008fc54d5ce46e31543fa9c9ac",
         "gitContentVerified": true
       },
       {
         "file": "src/shared/AndroidStartupUpdate.ts",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "d574a4d33bb4295955dcd0d298f562a2851361f38ead252984551e4de836efde",
         "gitContentVerified": true
       },
       {
         "file": "src/shared/AndroidBackendUpdate.ts",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "c081f53af6f33583835dc6a4b865cb2a1083bf3fe0dceca58317297ba19900e2",
         "gitContentVerified": true
       },
       {
         "file": "src/android/StartupBackendUpdate.ts",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "67b52123da3d0387c160d281cdcec6bac7bcc2e0ab2722399934ea672cb5b6f9",
         "gitContentVerified": true
       },
       {
         "file": "src/android/useAndroidResourcesReady.ts",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "7ba2bed518a7ed6415ff15758373e4181803c0f8be62445d07f0099cc2c36a8c",
         "gitContentVerified": true
       },
       {
         "file": "src/store/WebsocketStore.ts",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "0ee89c59f8de1a73b9d01df2c07b78be945e37f12071a3b450a8d6b2637a5805",
         "gitContentVerified": true
       },
       {
         "file": "src-tauri/gen/android/app/src/main/python/android_backend/bootstrap.py",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "f3b625fe08ba9457476e1490c5ffd2bbe4df7711b15cbd4d77b76848c1ee4d34",
         "gitContentVerified": true
       },
       {
         "file": "src-tauri/gen/android/app/src/main/python/android_backend/resource_readiness.py",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "09be4b0ebacd0d780fe8ea0ec5d39b1ca87950d1ddf6feba900c4906365e8b35",
         "gitContentVerified": true
       },
       {
         "file": "src-tauri/gen/android/app/src/main/python/android_backend/profile_resources.py",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "da9994447b0755a38878180cf27037c638717dea881a2999d34b24830fd4feef",
         "gitContentVerified": true
       },
       {
         "file": "src-tauri/gen/android/app/src/main/python/android_backend/ocr_runtime_cache.py",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "d52aaca1a12d523b675fb687080d27e4732118fdd49b4d08b8b24d8059d2e385",
         "gitContentVerified": true
       },
       {
         "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/NativeGameText.kt",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "20182e6b57b6736e59d2ac4c6892453964ec95f3561597ec807e577cde1600e3",
         "gitContentVerified": true
       },
       {
         "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/NativeGamePreview.kt",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "1baf89b93f72b0a1ec9cf0773811bb6b193ad37c72d10311e6edf23bc7668027",
         "gitContentVerified": true
       },
       {
         "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/NativeGameFullscreen.kt",
-        "revision": "33cdfd88b3f8e2947bf84a5aa5900b54f4585238",
+        "revision": "0313b1ecec19e857396acc503fba488b5dd9da25",
         "sha256": "cc46ad2e2c696877adb11b3652a403f5eefc8de52e64920146c0040dcf668f98",
         "gitContentVerified": true
       }
