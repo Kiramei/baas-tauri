@@ -39,6 +39,17 @@ export function cargoLockVersionPattern(name) {
   );
 }
 
+// The legacy Cargo package delegates to the renamed runtime. Both are versioned
+// with the desktop workspace, so their path dependency must advance together.
+export function compatibilityRuntimeDependency(source) {
+  const line = source.match(/^\s*baasx-runtime\s*=\s*\{[^\r\n}]*\}/m)?.[0];
+  if (!line || !/\bpath\s*=\s*"\.\.\/baasx-runtime"/.test(line))
+    throw new Error("Legacy runtime must depend on the local baasx-runtime package");
+  const version = line.match(/\bversion\s*=\s*"([^"]+)"/)?.[1];
+  if (!version) throw new Error("Legacy runtime dependency must specify a version");
+  return { line, version };
+}
+
 export function readReleaseState(root) {
   const metadata = json(root, "package.json");
   const release = releaseVersionFromPackage(metadata);
@@ -70,6 +81,9 @@ export function checkReleaseVersion(root, tag) {
         `${name} version must be ${requested.semver} for release ${tag}; found ${value}`
       );
   }
+  const legacy = packages.find((member) => member.name === "baas-cli-runtime");
+  if (legacy && compatibilityRuntimeDependency(legacy.source).version !== requested.semver)
+    throw new Error(`Legacy runtime dependency version must be ${requested.semver}`);
   const lockPath = path.join(root, "Cargo.lock");
   if (fs.existsSync(lockPath)) {
     const lock = fs.readFileSync(lockPath, "utf8");

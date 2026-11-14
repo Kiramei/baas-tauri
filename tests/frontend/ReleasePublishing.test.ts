@@ -235,6 +235,32 @@ test("future preparation synchronizes every workspace crate and its lock entry",
   );
 });
 
+test("app release versions keep the renamed runtime and legacy path dependency in sync", () => {
+  const root = fixture();
+  fs.writeFileSync(path.join(root, "Cargo.toml"),
+    '[workspace]\nmembers = ["src-tauri", "crates/baasx-runtime", "crates/baas-cli-runtime"]\n');
+  for (const name of ["baasx-runtime", "baas-cli-runtime"]) {
+    fs.mkdirSync(path.join(root, "crates", name), { recursive: true });
+    fs.writeFileSync(path.join(root, "crates", name, "Cargo.toml"),
+      `[package]\nname = "${name}"\nversion = "0.0.9"\n` +
+      (name === "baas-cli-runtime"
+        ? '\n[dependencies]\nbaasx-runtime = { version = "0.0.9", path = "../baasx-runtime" }\n'
+        : ""));
+    fs.appendFileSync(path.join(root, "Cargo.lock"),
+      `\n[[package]]\nname = "${name}"\nversion = "0.0.9"\n`);
+  }
+  fs.mkdirSync(path.join(root, "baasx"));
+  fs.writeFileSync(path.join(root, "baasx/package.json"), '{"version":"0.1.4"}\n');
+  setReleaseVersion(root, "0.0.10");
+  const legacyPath = path.join(root, "crates/baas-cli-runtime/Cargo.toml");
+  const legacy = fs.readFileSync(legacyPath, "utf8");
+  expect(legacy).toContain('baasx-runtime = { version = "0.0.10", path = "../baasx-runtime" }');
+  expect(JSON.parse(fs.readFileSync(path.join(root, "baasx/package.json"), "utf8")).version).toBe("0.1.4");
+  expect(checkReleaseVersion(root, "0.0.10").canonical).toBe("0.0.10");
+  fs.writeFileSync(legacyPath, legacy.replace('version = "0.0.10", path', 'version = "0.0.9", path'));
+  expect(() => checkReleaseVersion(root, "0.0.10")).toThrow("Legacy runtime dependency version");
+});
+
 test("large native counters require explicit platform overrides instead of sorting after final", () => {
   const parsed = parseReleaseVersion("0.0.9.rc500")!;
   expect(() => nativeReleaseVersions(parsed, { BAAS_ANDROID_VERSION_CODE: "9700" })).toThrow(
