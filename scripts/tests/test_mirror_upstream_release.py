@@ -46,6 +46,7 @@ class FakeGitHub:
         self.on_source_list = None
         self.source_lists = 0
         self.hidden_drafts_by_tag = False
+        self.hidden_drafts_by_list = False
         self.target_tag_gets = 0
         self.on_target_tag_get = None
 
@@ -100,7 +101,8 @@ class FakeGitHub:
         if payload and request.get_header("Content-type") == "application/json":
             payload = json.loads(payload)
         event = {"method": method, "repo": repo, "route": relative, "payload": payload,
-                 "authorization": request.get_header("Authorization"), "host": url.netloc}
+                 "authorization": request.get_header("Authorization"), "host": url.netloc,
+                 "cache-control": request.get_header("Cache-control")}
         self.events.append(event)
         expected = "Bearer source-fixture" if repo == self.source else "Bearer target-fixture"
         if event["authorization"] not in (expected, None):
@@ -133,6 +135,8 @@ class FakeGitHub:
         if relative == "/releases" and method == "GET":
             page = int(parse_qs(url.query).get("page", ["1"])[0])
             releases = [self.releases[repo]] if repo in self.releases else []
+            if repo == self.target and self.hidden_drafts_by_list:
+                releases = [release for release in releases if not release["draft"]]
             return self.json(releases[(page - 1) * 100:page * 100])
         if relative == "/releases" and method == "POST":
             if repo in self.releases:
@@ -143,6 +147,11 @@ class FakeGitHub:
         if relative == "/releases/2" and method == "PATCH":
             self.releases[repo].update(payload)
             return self.json(self.releases[repo])
+        if relative == "/releases/2" and method == "GET":
+            release = self.releases.get(repo)
+            if release and release["id"] == 2:
+                return self.json(release)
+            raise HTTPError(request.full_url, 404, "not found", {}, io.BytesIO())
         if len(parts) == 7 and parts[-1] == "assets":
             if method == "GET":
                 if repo == self.source:
@@ -307,6 +316,72 @@ class MirrorTests(unittest.TestCase):
         fake.failures["POST", "/releases/2/assets"] = [lost_response]
         fake.run()
         self.assertEqual([asset["name"] for asset in fake.assets[fake.target]], ["app.zip"])
+
+    def test_successful_create_hidden_by_tag_and_list_uses_known_id_without_another_post(self):
+        fake = FakeGitHub()
+        fake.asset(fake.source, "app.zip", b"new")
+        fake.hidden_drafts_by_tag = fake.hidden_drafts_by_list = True
+        result = fake.run()
+        self.assertEqual(result["uploaded"], 1)
+        self.assertFalse(fake.releases[fake.target]["draft"])
+        self.assertEqual(sum(event["method"] == "POST" and event["route"] == "/releases" for event in fake.events), 1)
+        self.assertEqual(sum(event["method"] == "GET" and event["route"] == "/releases/2" for event in fake.events), 3)
+
+    def test_known_id_temporarily_missing_after_successful_create_retries_only_get(self):
+        fake = FakeGitHub()
+        fake.asset(fake.source, "app.zip", b"new")
+        fake.hidden_drafts_by_tag = fake.hidden_drafts_by_list = True
+        fake.failure("GET", "/releases/2", 404)
+        fake.run()
+        self.assertEqual(fake.sleeps, [5, 1])
+        creates = [index for index, event in enumerate(fake.events) if event["method"] == "POST" and event["route"] == "/releases"]
+        self.assertEqual(len(creates), 1)
+        following = fake.events[creates[0] + 1:]
+        first_write = next(index for index, event in enumerate(following) if event["method"] != "GET")
+        self.assertEqual(sum(event["route"] == "/releases/2" for event in following[:first_write]), 2)
+        self.assertFalse(fake.releases[fake.target]["draft"])
+
+    def test_stale_list_draft_does_not_override_fresh_published_release_by_id(self):
+        fake = FakeGitHub()
+        fake.asset(fake.source, "app.zip", b"new")
+        fake.hidden_drafts_by_tag = True
+        def stale_list(request, event):
+            release = fake.releases.get(fake.target)
+            return fake.json([{**release, "draft": True}] if release else [])
+        fake.failures["GET", "/releases"] = [stale_list] * 4
+        result = fake.run()
+        self.assertEqual(result["uploaded"], 1)
+        self.assertFalse(fake.releases[fake.target]["draft"])
+        self.assertEqual(fake.failures["GET", "/releases"], [])
+
+    def test_known_id_identity_and_marker_changes_fail_before_asset_writes(self):
+        for field, value in (("id", 3), ("tag_name", "unrelated"), ("body", "Marker removed")):
+            with self.subTest(field=field):
+                fake = FakeGitHub()
+                fake.asset(fake.source, "app.zip", b"new")
+                def changed(request, event):
+                    return fake.json({**fake.releases[fake.target], field: value})
+                fake.failures["GET", "/releases/2"] = [changed]
+                with self.assertRaises(mirror.MirrorError):
+                    fake.run()
+                self.assertEqual(sum(event["route"] == "/releases/2" for event in fake.events), 1)
+                self.assertTrue(all(event["method"] == "GET" or event["route"] == "/releases" for event in fake.events))
+                self.assertEqual(fake.assets[fake.target], [])
+
+    def test_different_id_or_duplicate_tag_discovery_fails_before_asset_writes(self):
+        for duplicate in (False, True):
+            with self.subTest(duplicate=duplicate):
+                fake = FakeGitHub()
+                fake.asset(fake.source, "app.zip", b"new")
+                fake.hidden_drafts_by_tag = True
+                def conflicting_list(request, event):
+                    release = fake.releases[fake.target]
+                    return fake.json(([release] if duplicate else []) + [{**release, "id": 3}])
+                fake.failures["GET", "/releases"] = [lambda *_: fake.json([]), conflicting_list]
+                with self.assertRaises(mirror.MirrorError):
+                    fake.run()
+                self.assertTrue(all(event["method"] == "GET" or event["route"] == "/releases" for event in fake.events))
+                self.assertEqual(fake.assets[fake.target], [])
 
     def test_successful_create_with_lost_transport_response_recovers_hidden_draft_without_another_post(self):
         fake = FakeGitHub()
@@ -585,6 +660,48 @@ class InstallerPolicyTests(unittest.TestCase):
 
 
 class HTTPTests(unittest.TestCase):
+    def test_known_release_missing_retries_are_bounded_and_respect_the_deadline(self):
+        fake = FakeGitHub()
+        _, target = fake.clients()
+        for _ in range(target.attempts):
+            fake.failure("GET", "/releases/2", 404)
+        with self.assertRaises(mirror.APIError) as failure:
+            target.release_by_id(2)
+        self.assertEqual(failure.exception.status, 404)
+        self.assertEqual(len(fake.events), target.attempts)
+        self.assertTrue(all(event["method"] == "GET" for event in fake.events))
+        self.assertEqual(fake.sleeps, [1, 2, 4, 8])
+
+        fake = FakeGitHub()
+        target = mirror.GitHub(fake.target, "target-fixture", opener=fake, sleep=fake.sleeps.append,
+                               clock=lambda: 0, deadline=1)
+        fake.failure("GET", "/releases/2", 404)
+        with self.assertRaisesRegex(mirror.MirrorError, "deadline"):
+            target.release_by_id(2)
+        self.assertEqual(len(fake.events), 1)
+        self.assertEqual(fake.sleeps, [])
+
+    def test_known_release_permission_errors_are_not_retried(self):
+        for status in (401, 403):
+            with self.subTest(status=status):
+                fake = FakeGitHub()
+                _, target = fake.clients()
+                fake.failure("GET", "/releases/2", status)
+                with self.assertRaises(mirror.APIError) as failure:
+                    target.release_by_id(2)
+                self.assertEqual(failure.exception.status, status)
+                self.assertEqual(len(fake.events), 1)
+                self.assertEqual(fake.sleeps, [])
+
+    def test_metadata_gets_bypass_cache_and_binary_downloads_keep_existing_headers(self):
+        fake = FakeGitHub()
+        asset = fake.asset(fake.source, "app.zip", b"new")
+        source, _ = fake.clients()
+        source.release("v1.2.3")
+        with tempfile.TemporaryDirectory() as folder:
+            source.download(asset, Path(folder) / "asset")
+        self.assertEqual([event["cache-control"] for event in fake.events], ["no-cache", None])
+
     def test_create_post_transport_failure_has_no_automatic_http_retry(self):
         fake = FakeGitHub()
         _, target = fake.clients()

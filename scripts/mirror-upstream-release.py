@@ -85,11 +85,11 @@ class GitHub:
         self.attempts = attempts
         self.deadline = deadline if deadline is not None else clock() + 3300
 
-    def _pause(self, attempt, headers, status, message):
+    def _pause(self, attempt, headers, status, message, *, missing=False):
         rate_limited = status == 429 or (status == 403 and (
             headers.get("Retry-After") is not None or headers.get("X-RateLimit-Remaining") == "0"
             or "rate limit" in message.lower()))
-        if status and not (rate_limited or 500 <= status < 600):
+        if status and not (rate_limited or 500 <= status < 600 or (missing and status == 404)):
             return False
         delay = min(2 ** attempt, 30)
         retry_after = headers.get("Retry-After")
@@ -123,6 +123,8 @@ class GitHub:
             url += "?" + urlencode({"name": name, "label": label or ""})
         headers = {"Accept": "application/octet-stream" if destination else "application/vnd.github+json",
                    "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "baas-tauri-release-mirror"}
+        if method == "GET" and destination is None:
+            headers["Cache-Control"] = "no-cache"
         if self.token:
             headers["Authorization"] = "Bearer " + self.token
         if payload is not None:
@@ -183,6 +185,17 @@ class GitHub:
             if error.status != 404:
                 raise
             return None
+
+    def release_by_id(self, release_id):
+        """A known release can briefly be missing after creation or publication."""
+        route = f"/releases/{identifier(release_id)}"
+        for attempt in range(self.attempts):
+            try:
+                return self.request("GET", route)
+            except APIError as error:
+                if error.status != 404 or attempt + 1 == self.attempts:
+                    raise
+                self._pause(attempt, error.headers, error.status, error.message, missing=True)
 
     def assets(self, release_id):
         result, page = [], 1
@@ -311,6 +324,18 @@ class Mirror:
     def owned(self, release):
         if release.get("tag_name") != self.target_tag or not str(release.get("body") or "").startswith(self.marker + "\n"):
             raise MirrorError("Existing target release lacks the exact mirror ownership marker")
+
+    def refresh_target(self, release, context):
+        release_id = identifier(release.get("id"))
+        listed = self.target.find_release(self.target_tag)
+        if listed and identifier(listed.get("id")) != release_id:
+            raise MirrorError("Target release changed " + context)
+        # Tag/list results may omit a new draft or retain stale draft metadata.
+        fresh = self.target.release_by_id(release_id)
+        if identifier(fresh.get("id")) != release_id:
+            raise MirrorError("Target release changed " + context)
+        self.owned(fresh)
+        return fresh
 
     def working_label(self, asset, sha):
         return f"baas-tauri-mirror:{self.namespace}:{asset['id']}:{sha}"
@@ -443,11 +468,7 @@ class Mirror:
             nonlocal release, mutating
             if mutating:
                 return
-            fresh = self.target.find_release(self.target_tag)
-            if not fresh or fresh.get("id") != release.get("id"):
-                raise MirrorError("Target release changed during synchronization")
-            self.owned(fresh)
-            release = fresh
+            release = self.refresh_target(release, "during synchronization")
             if release.get("immutable"):
                 raise MirrorError("An immutable target mirror differs; no assets were changed")
             self.unchanged()
@@ -527,11 +548,7 @@ class Mirror:
                 if name not in self.baseline.assets and self.working(asset):
                     begin_changes()
                     self.target.request("DELETE", f"/releases/assets/{asset['id']}")
-            fresh = self.target.find_release(self.target_tag)
-            if not fresh or fresh.get("id") != release["id"]:
-                raise MirrorError("Target release changed before publication")
-            self.owned(fresh)
-            release = fresh
+            release = self.refresh_target(release, "before publication")
             if mutating and (release.get("draft") is not True or release.get("prerelease") is not True or any(release.get(key) != value for key, value in desired.items())):
                 raise MirrorError("Target draft metadata changed before publication; leaving it unpublished")
             if release.get("draft") is not False or release.get("prerelease") is not True or any(release.get(key) != value for key, value in desired.items()):
@@ -540,10 +557,9 @@ class Mirror:
                 self.unchanged()
                 self.target.request("PATCH", f"/releases/{release['id']}", {
                     "draft": False, "prerelease": True, "make_latest": "false"})
-            published = self.target.find_release(self.target_tag)
-            if not published or published.get("draft") is not False or published.get("prerelease") is not True:
+            published = self.refresh_target(release, "after publication")
+            if published.get("draft") is not False or published.get("prerelease") is not True:
                 raise MirrorError("Target was not published as a prerelease")
-            self.owned(published)
             if any(published.get(key) != value for key, value in desired.items()):
                 raise MirrorError("Published target title or notes did not match the source release")
             final = self.inventory(published)
