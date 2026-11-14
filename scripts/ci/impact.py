@@ -36,7 +36,7 @@ RULES = [
     (("baasx/tests/runtime.test.ts", "baasx/tests/*pty*"),
      {"baasx-js:" + name for name in DESKTOP}),
     (("baasx/scripts/check-runtime-alias.mjs",), BAASX_NATIVE),
-    (("baasx/scripts/build.ts", "baasx/bin/*", "baasx/package.json"), JS | REGISTRY),
+    (("baasx/scripts/build.ts", "baasx/scripts/node-runtime.mjs", "baasx/bin/*", "baasx/package.json"), JS | REGISTRY | {"baasx-native:linux:arm"}),
     (("baasx/*",), JS),
     (("crates/baasx-runtime/*", "crates/baas-cli-runtime/*"), BAASX_NATIVE),
     (("crates/baas-updater/src/android*",), ANDROID),
@@ -68,7 +68,7 @@ RULES = [
       "scripts/live-game*", "scripts/webkit*", ".github/actions/*font*/*"), UI),
     (("package.json", "bun.lock", "eslint.config.*"), UI | JS),
     (("scripts/docker/*", "scripts/tests/test_docker*"), {"docker"}),
-    ((".github/actions/setup-linux-arm/*",), {"native:linux:armv7", "native:linux:arm64"}),
+    ((".github/actions/setup-linux-arm/*",), {"native:linux:armv7", "native:linux:arm64", "baasx-native:linux:arm"}),
     ((".github/workflows/baasx-checks.yml", ".github/actions/setup-baasx/*"), JS | REGISTRY | BAASX_NATIVE),
     ((".github/workflows/client-native.yml", ".github/actions/setup-tauri-build-env/*"), NATIVE | ANDROID),
     ((".github/workflows/client-frontend.yml", "scripts/ci/client-frontend.mjs", "scripts/ci/frontend-adapter-inputs.mjs", "scripts/ci/build-frontend-adapter.mjs", "scripts/ci/test_client_frontend.py"), UI | {"ui:" + name for name in DESKTOP}),
@@ -104,8 +104,11 @@ def owners(path):
                     return {"ui:" + ("tauri" if name == "desktop" else os_name) for os_name in systems}
                 if name == "android":
                     return {"android:" + arch, "android-tests"} if arch in ANDROID_TARGETS else ANDROID
-                if arch in (*CPU, "armv7"):
-                    supported = {HOST_OS[row["os"]] + ":" + row["cpu"] for row in DISTRIBUTIONS}
+                if layer.startswith("baasx-") and name == "linux" and arch in ("arm", "armv7", "armv7l", "armhf"):
+                    return {f"{layer}:linux:arm"}
+                if arch in (*CPU, "arm", "armv7", "armv7l", "armhf"):
+                    supported = {HOST_OS[row["os"]] + ":" + row["cpu"] for row in DISTRIBUTIONS
+                                 if layer != "native" or row["cpu"] != "arm"}
                     if layer == "native":
                         supported.update(("windows:x86", "linux:armv7"))
                     if any(system + ":" + arch not in supported for system in systems):
@@ -148,14 +151,14 @@ def classify(paths, full=False, revisions=None):
     for row in DISTRIBUTIONS:
         name, arch, runner = HOST_OS[row["os"]], row["cpu"], row["runner"]
         # Common desktop Rust is tested on a representative host per OS. ABI-specific
-        # code is tested on its actual target. All shipped BAASX helper ABIs run natively.
+        # code is tested on its actual target. ARM32 BAASX runs through QEMU.
         primary = arch == ("arm64" if name == "macos" else "x64")
         if f"native:{name}:{arch}" in scopes or (primary and "native:" + name in scopes):
             native.append(dict(os=runner, target=CPU[arch] + "-" + RUST_SUFFIX[name]))
         rust = "baasx-native:" + name in scopes or f"baasx-native:{name}:{arch}" in scopes
         js = "baasx-js:" + name in scopes or f"baasx-js:{name}:{arch}" in scopes
         if rust or js:
-            baasx.append(dict(os=runner, rust=rust, js=js))
+            baasx.append(dict(os=runner, rust=rust, js=js, **({"target": row["rustTarget"]} if arch == "arm" else {})))
     if "native:linux:armv7" in scopes:
         native.append(dict(os="ubuntu-22.04", target="armv7-unknown-linux-gnueabihf"))
     if "native:windows:x86" in scopes:

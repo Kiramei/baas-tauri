@@ -73,13 +73,28 @@ class Routing(unittest.TestCase):
                          {("windows-11-arm", False, True), ("windows-latest", False, True)})
         self.assertFalse(result["site"] or result["android"] or result["baasx-source"] or result["readme"])
         rust = classify(["crates/baasx-runtime/src/lib.rs"])
-        self.assertEqual(len(rust["baasx-platform"]), 6)
+        self.assertEqual(len(rust["baasx-platform"]), 7)
         self.assertTrue(all(p["rust"] and not p["js"] for p in rust["baasx-platform"]))
         self.assertEqual([k for k, run in jobs(rust).items() if run], ["baasx"])
         arm = classify(["src-tauri/src/platform/android/x86_64/adapter.rs"])
         self.assertEqual([target["abi"] for target in arm["android"]], ["x86_64"])
         self.assertFalse(frontend_inputs(["windows"])["bundles"])
         self.assertEqual(frontend_inputs(["android"])["adapters"]["include"], [])
+
+    def test_arm32_baasx_keeps_its_target_and_owns_cross_build_inputs(self):
+        for path in ["baasx/scripts/node-runtime.mjs", "baasx/scripts/build.ts", ".github/actions/setup-linux-arm/action.yml"]:
+            matrix = classify([path])["baasx-platform"]
+            self.assertTrue(any(row.get("target") == "armv7-unknown-linux-gnueabihf" for row in matrix))
+        matrix = classify(["crates/baasx-runtime/src/lib.rs"])["baasx-platform"]
+        self.assertEqual(sum(row.get("target") == "armv7-unknown-linux-gnueabihf" for row in matrix), 1)
+
+    def test_arm32_platform_directory_aliases_have_one_baasx_owner(self):
+        for arch in ["arm", "armv7", "armv7l", "armhf"]:
+            for prefix, layer in [("baasx/src", "js"), ("baasx/tests", "js"), ("baasx/scripts", "native")]:
+                self.assertEqual(owners(f"{prefix}/platform/linux/{arch}/fixture.ts"), {f"baasx-{layer}:linux:arm"})
+            self.assertEqual(owners(f"crates/baasx-runtime/src/platform/linux/{arch}/fixture.rs"), {"baasx-native:linux:arm"})
+        with self.assertRaisesRegex(ValueError, "No native target"):
+            owners("src-tauri/src/platform/linux/arm/fixture.rs")
 
     def test_gate_enforces_exact_results(self):
         for paths in [["docs/content/example.mdx"], ["src/android/App.tsx"], ["crates/baas-cli-runtime/src/lib.rs"]]:

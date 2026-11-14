@@ -98,14 +98,19 @@ try {
     pack(
       {
         name: platform.name,
-        description: `BAASX local runtime for ${platform.os}/${platform.cpu}`,
+        description: platform.os === "linux" && platform.cpu === "arm"
+          ? "BAASX native helper for Linux ARMv7 hard-float (glibc 2.35+)"
+          : `BAASX native runtime helper for ${platform.os}/${platform.cpu}`,
         os: [platform.os],
         cpu: [platform.cpu],
         exports: { "./helper": `./runtime/${platform.helper}` },
         files: ["runtime", "LICENSE"],
       },
       (stage) => {
-        const archive = path.join(assets, `baasx-${version}-${platform.asset}-bun.tgz`);
+        const archive = path.join(
+          assets,
+          `baasx-${version}-${platform.asset}${platform.packageExtension}`
+        );
         const members = [platform.helper, platform.legacyHelper].map(
           (name) => `package/runtime/${name}`
         );

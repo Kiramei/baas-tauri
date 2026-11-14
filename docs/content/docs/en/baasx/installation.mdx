@@ -11,7 +11,8 @@ import { PackageManagerInstall } from "@/components/PackageManagerInstall";
 | ------------------------ | --------------------------------------------- | -------------------------------------------------- |
 | npm registry package     | Node.js 20.3+ or Deno                         | Installing the `baasx` command globally           |
 | Native `.tar.gz` release | Matching OS and architecture; no Bun or Rust  | Extracting and running directly                    |
-| Bun `-bun.tgz` release   | Bun 1.4.4+; no Rust                           | Existing Bun users                                 |
+| Bun `-bun.tgz` release   | Bun 1.4.4+ and Node.js 20.3+; no Rust         | Existing Bun users on x64 or ARM64                 |
+| ARM32 `-node.tgz` release | ARMv7 hard-float Linux and Node.js 20.3+     | Installing a downloaded ARMv7l / armhf package      |
 | Source checkout          | Bun 1.4.4+, Rust 1.95+, and C/C++ build tools | Development builds or when no release is available |
 
 ## Install from npm
@@ -28,7 +29,9 @@ cnpm uses an npm mirror by default. A new version may take time to appear there.
 
 Deno's `-A` grants all permissions to the launcher. Ensure Deno and its global executable directory (by default `~/.deno/bin`) are on PATH. Deno 2.9 and newer wait 24 hours after publication by default. To install immediately, add `--min-dep-age=0` to the command on Deno 2.9 or newer.
 
-The scoped package installs the JavaScript CLI. The package manager selects an exact-version optional runtime for your OS and CPU. Linux, macOS and Windows each have x64 and ARM64 CLI builds. Local OCR currently supports Linux x64, macOS ARM64 and Windows x64. Other builds support demo mode and remote servers. GitHub Packages publishes the scoped names.
+The scoped package installs the JavaScript CLI. The package manager selects an exact-version optional runtime for your OS and CPU. Linux, macOS and Windows each have x64 and ARM64 CLI builds; Linux also supports ARMv7 hard-float from v0.1.5. `armv7l` and Debian `armhf` use the same `@kiramei/baasx-linux-arm` package and npm's `arm` CPU value, so only one matching helper is downloaded. GitHub Packages publishes the scoped names. The unscoped `baasx` package remains on hold.
+
+On Linux ARM32, use npm, pnpm, Yarn, or cnpm with an ARM32 Node.js installation, or choose the standalone archive below. Bun does not support ARM32. ARM32 supports the terminal workbench, demo mode, remote configuration, task and scheduler control, logs, and existing services reached with `--server` or `--pipe`. Managed local installation and local recognition are unavailable: upstream has no ARM32 OCR prebuild, and the backend's Python/dependency/OCR stack has not been validated for ARM32. Local OCR currently supports Linux x64, macOS ARM64 and Windows x64.
 
 When a standalone release is published, download its archives from `baasx-v<version>` on [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-v). The desktop client's Latest installers are a separate release.
 
@@ -43,6 +46,7 @@ Once published, choose the appropriate asset and replace `<version>` with its ac
 | Apple Silicon Mac | `baasx-<version>-macOS-ARM64.tar.gz` |
 | Windows ARM64 | `baasx-<version>-Windows-ARM64.tar.gz` |
 | Linux ARM64 | `baasx-<version>-Linux-ARM64.tar.gz` |
+| Linux ARMv7l / armhf | `baasx-<version>-Linux-ARMV7L.tar.gz` |
 | Intel Mac | `baasx-<version>-macOS-X64.tar.gz` |
 
 ### Windows PowerShell
@@ -84,11 +88,15 @@ baasx/                   # Your extraction directory
 
 **Keep `runtime/` beside the main executable.** Add the whole extracted directory to PATH or create a launcher pointing to the original executable. Compare downloaded archives against the release's `SHA256SUMS`. On Linux, use `sha256sum --check --ignore-missing SHA256SUMS` in the download directory. In PowerShell, compare `Get-FileHash -Algorithm SHA256 <filename>` with the manifest.
 
+The Linux ARMv7l / armhf standalone archive bundles Node.js 22.23.5 and a real ARMv7 hard-float Rust helper. It requires no installed Node.js, Bun, or Rust. Its `baasx` launcher also needs `dist/baasx-node.mjs`, `runtime/node`, and `runtime/NODE_LICENSE`; preserve those files and the rest of the extracted layout. On systems meeting these CPU and ABI requirements, both labels select this distribution. BAASX archives and release attachments contain no `.sig` files; use `SHA256SUMS` for integrity.
+
+ARM32 distributions require GNU/Linux ARMv7 hard-float with glibc 2.35+, `libstdc++6`, and `libatomic1`. On a compatible Debian/Ubuntu system, install missing libraries with `sudo apt install libstdc++6 libatomic1`. The `armhf` label alone does not establish the CPU minimum; some distributions use it for ARMv6. ARMv6, soft-float `armel`, and musl Linux are unsupported.
+
 New releases use `runtime/baasx-runtime` (`baasx-runtime.exe` on Windows). Existing installations may still contain `runtime/baas-cli-runtime` (`baas-cli-runtime.exe` on Windows); the current launcher also recognizes that legacy name. To override the helper location, set `BAASX_RUNTIME_HELPER`; the older `BAAS_RUNTIME_HELPER` remains supported as a fallback.
 
 ## Bun release packages
 
-Check that `bun --version` is 1.4.4 or newer, then install the matching local attachment:
+On x64 or ARM64, check that `bun --version` is 1.4.4 or newer and Node.js 20.3+ is installed, then install the matching local attachment:
 
 ```sh
 bun add -g ./baasx-<version>-Linux-X64-bun.tgz
@@ -97,6 +105,15 @@ baasx --demo
 ```
 
 Use the Windows or macOS package on those platforms. If the command is missing after installation, check that Bun's global bin directory is on PATH. Release packages already contain JavaScript and the installer helper; they do not need to invoke Cargo.
+
+For Linux ARMv7l / armhf, install the Node.js attachment instead:
+
+```sh
+npm install -g ./baasx-<version>-Linux-ARMV7L-node.tgz
+baasx --demo --lang en
+```
+
+This attachment uses your installed ARM32 Node.js 20.3+ and includes the native helper. The standalone `.tar.gz` bundles Node.js when you want to extract and run directly.
 
 ## Run from source
 
@@ -124,7 +141,11 @@ Use `.\baasx\dist\baasx.exe` on Windows. Builds target the current OS and archit
 npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary --no-trim
 ```
 
+ARM32 source builds run on a Bun-supported Linux x64 or ARM64 host. Prepare the `armv7-unknown-linux-gnueabihf` Rust target and its hard-float C/C++ cross toolchain, then run `bun run baasx:binary --target=linux-arm`. `--target=linux-armv7l` and `--target=linux-armhf` are aliases. The build cross-compiles the Rust helper and bundles the pinned, checksum-verified Node.js ARMv7 runtime; it does not use a Bun ARM32 compile target.
+
 ## Install a local runtime
+
+Managed local installation requires a supported backend/OCR platform. Linux ARM32 should connect an existing service with the instructions below.
 
 1. Launch without `--demo` and choose your language.
 2. Select local installation, review the destination, and confirm.
@@ -189,5 +210,7 @@ On Windows, use the named-pipe path actually created by the backend. Do not reus
 | `/quit`                           | Exit BAASX                                                                                                     |
 
 Before applying an update, every profile in the CLI-owned backend must be free of running tasks, active scheduling, and queued work. Other CLI instances holding runtime leases also prevent replacement. External services connected with `--server` or `--pipe` are not updated here.
+
+Upgrade the terminal program with `npm update -g @kiramei/baasx` after a registry installation. For a downloaded archive, replace the entire extracted directory, including `runtime/` and ARM32's `dist/`. The local backend `/update` command and workbench `/reload` do not install a new BAASX release.
 
 Exiting closes the local backend started by that CLI instance. External services and their accepted tasks continue running. For a persistent backend, start the service separately and connect with `--server` or `--pipe`; closing the terminal is not a way to stop remote work.

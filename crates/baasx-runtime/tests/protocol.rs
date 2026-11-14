@@ -53,7 +53,7 @@ fn unmanaged_install_is_rejected_without_changing_existing_files() {
     assert!(!success);
     assert_eq!(messages.len(), 1);
     assert_eq!(messages[0]["type"], "error");
-    match baas_updater::repo::cpp_branch_for(std::env::consts::OS, std::env::consts::ARCH) {
+    match baasx_runtime::validate_managed_platform(std::env::consts::OS, std::env::consts::ARCH) {
         Ok(_) => {
             assert_eq!(messages[0]["code"], "config");
             assert!(
@@ -64,7 +64,10 @@ fn unmanaged_install_is_rejected_without_changing_existing_files() {
             );
         }
         Err(error) => {
-            assert_eq!(messages[0]["code"], "git");
+            assert!(matches!(
+                messages[0]["code"].as_str(),
+                Some("git" | "environment")
+            ));
             assert_eq!(messages[0]["message"], error.message());
         }
     }
@@ -75,7 +78,7 @@ fn unmanaged_install_is_rejected_without_changing_existing_files() {
 #[test]
 fn missing_ocr_prebuild_cannot_create_installation_state() {
     let Err(error) =
-        baas_updater::repo::cpp_branch_for(std::env::consts::OS, std::env::consts::ARCH)
+        baasx_runtime::validate_managed_platform(std::env::consts::OS, std::env::consts::ARCH)
     else {
         return;
     };
