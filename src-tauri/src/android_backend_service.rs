@@ -350,3 +350,41 @@ pub fn launch_package_on_shizuku_display<R: Runtime>(
         .map(|_| ())
         .map_err(|error| format!("failed to launch game on Shizuku display: {error}"))
 }
+
+#[derive(serde::Deserialize)]
+struct ProfileFolderSelection {
+    uri: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileFolderRequest<'a> {
+    uri: &'a str,
+}
+
+#[derive(serde::Deserialize)]
+struct ProfileFolderEntries {
+    entries: Vec<serde_json::Value>,
+}
+
+pub async fn pick_profile_folder<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>, String> {
+    app.state::<AndroidBackendService<R>>()
+        .0
+        .run_mobile_plugin_async::<ProfileFolderSelection>("pickProfileFolder", ())
+        .await
+        .map(|selection| selection.uri)
+        .map_err(|error| error.to_string())
+}
+
+pub fn list_profile_folder<R: Runtime>(
+    app: &AppHandle<R>,
+    uri: &str,
+) -> Result<Vec<serde_json::Value>, String> {
+    app.state::<AndroidBackendService<R>>()
+        .0
+        .run_mobile_plugin::<ProfileFolderEntries>(
+            "listProfileFolder",
+            ProfileFolderRequest { uri },
+        )
+        .map(|result| result.entries)
+        .map_err(|error| error.to_string())
+}

@@ -45,7 +45,7 @@ The image contains the WebUI and Python dependencies. An in-app backend Git upda
 
 On first use, follow the page to set a **Key**. Later, sign in with that Key or a remembered session. This is the backend login credential, separate from a MirrorChyan key or game account password.
 
-While signed in, open **Settings → General → Login / Key → Reset Key**, enter the new value twice, and confirm. Success invalidates all sessions and remembered logins; profiles remain. Reset requires `/health` to advertise `auth.key_reset_supported: true`. Update an older backend if that capability is missing.
+While signed in, open **Preferences → General → Login / Key → Reset Key**, enter the new value twice, and confirm. Success invalidates all sessions and remembered logins; profiles remain. Reset requires `/health` to advertise `auth.key_reset_supported: true`. Update an older backend if that capability is missing.
 
 Never post Keys, cookies, Telegram tokens, or logs containing them in public issues.
 
@@ -71,7 +71,7 @@ Forward WebSocket `Upgrade`, `Connection`, and the correct Host. Overwrite untru
 
 ## Backend and OCR Preparation
 
-The default backend is `Kiramei/baas-dev` on `master`; `BRANCH` selects another branch. Existing Git checkouts update by fast-forward only, without automatically discarding or stashing local changes. Complete OCR installations are retained; missing files trigger repair according to startup configuration while preserving configuration and output.
+New installations clone the stable backend from `pur1fying/blue_archive_auto_script` on `master`. To install the development backend, pass `https://github.com/Kiramei/baas-dev.git` as the container command. Existing volumes keep their Git origin. Use `BRANCH` to select the branch. Existing Git checkouts update by fast-forward only, without automatically discarding or stashing local changes. Complete OCR installations are retained; missing files trigger repair according to startup configuration while preserving configuration and output.
 
 For a fully offline deployment, set `/app/setup.toml`:
 

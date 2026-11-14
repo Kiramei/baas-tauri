@@ -2,7 +2,6 @@ import { execFileSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -13,101 +12,132 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { npmCommand } from "./host-npm.mjs";
+import { platforms } from "./distribution-platforms.mjs";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// Git Bash's GNU tar interprets "D:" as a remote host. Windows bsdtar
+// takes native drive paths for both input archives and extraction directories.
+const tar =
+  process.platform === "win32" ? path.join(process.env.SystemRoot, "System32", "tar.exe") : "tar";
+
+const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const { values } = parseArgs({
   options: {
     assets: { type: "string" },
     bundle: { type: "string" },
     output: { type: "string" },
     scope: { type: "string" },
+    "host-only": { type: "boolean", default: false },
   },
 });
 if (!values.assets || !values.bundle || !values.output || values.scope !== "kiramei") {
-  throw new Error("Provide --assets <release directory> --bundle <Node bundle> --output <directory> --scope kiramei");
+  throw new Error(
+    "Provide --assets <release directory> --bundle <Node bundle> --output <directory> --scope kiramei"
+  );
 }
 const assets = path.resolve(values.assets);
 const output = path.resolve(values.output);
-const manifest = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
-const platforms = [
-  { asset: "Linux-X64", directory: "linux-x64", helper: "baas-cli-runtime" },
-  {
-    asset: "macOS-ARM64",
-    directory: "darwin-arm64",
-    helper: "baas-cli-runtime",
+const { version, license, description } = JSON.parse(
+  readFileSync(path.join(project, "package.json"), "utf8")
+);
+const base = {
+  version,
+  license,
+  repository: {
+    type: "git",
+    url: "git+https://github.com/Kiramei/baas-tauri.git",
+    directory: "baasx",
   },
-  {
-    asset: "Windows-X64",
-    directory: "win32-x64",
-    helper: "baas-cli-runtime.exe",
-  },
-];
-const temporary = mkdtempSync(path.join(tmpdir(), "baasx-registry-"));
-try {
-  const stage = path.join(temporary, "package");
-  mkdirSync(path.join(stage, "bin"), { recursive: true });
-  mkdirSync(path.join(stage, "dist"), { recursive: true });
-  copyFileSync(path.join(root, "registry/baasx.mjs"), path.join(stage, "bin/baasx.mjs"));
-  copyFileSync(path.resolve(values.bundle), path.join(stage, "dist/baasx-node.mjs"));
-  for (const file of ["README.md", "README_zh.md", "LICENSE"])
-    copyFileSync(path.join(root, file), path.join(stage, file));
-  for (const platform of platforms) {
-    const archive = path.join(assets, `baasx-${manifest.version}-${platform.asset}-bun.tgz`);
-    if (!existsSync(archive)) throw new Error(`Missing verified release archive: ${archive}`);
-    const entries = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).split("\n");
-    for (const required of [`package/runtime/${platform.helper}`]) {
-      if (!entries.includes(required) && !entries.includes(`./${required}`))
-        throw new Error(`${archive} is missing ${required}`);
-    }
-    const destination = path.join(stage, "platforms", platform.directory);
-    mkdirSync(destination, { recursive: true });
-    execFileSync("tar", [
-      "-xzf",
-      archive,
-      "-C",
-      destination,
-      "--strip-components=1",
-      `package/runtime/${platform.helper}`,
-    ]);
-    if (platform.directory !== "win32-x64") {
-      chmodSync(path.join(destination, "runtime", platform.helper), 0o755);
-    }
-  }
-  const published = {
-    name: `@${values.scope}/baasx`,
-    version: manifest.version,
-    description: manifest.description,
-    license: manifest.license,
-    repository: {
-      type: "git",
-      url: "git+https://github.com/Kiramei/baas-tauri.git",
-      directory: "baasx",
-    },
-    homepage: "https://github.com/Kiramei/baas-tauri/tree/dev/baasx#readme",
-    bugs: { url: "https://github.com/Kiramei/baas-tauri/issues" },
-    bin: { baasx: "bin/baasx.mjs" },
-    engines: { node: ">=20.3.0" },
-    os: ["darwin", "linux", "win32"],
-    cpu: ["arm64", "x64"],
-    files: ["bin", "dist", "platforms", "README.md", "README_zh.md", "LICENSE"],
-  };
-  writeFileSync(path.join(stage, "package.json"), `${JSON.stringify(published, null, 2)}\n`);
-  mkdirSync(output, { recursive: true });
-  const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-  const packed = execFileSync(
-    npm,
-    ["pack", "--ignore-scripts", "--json", "--pack-destination", output],
-    { cwd: stage, encoding: "utf8" }
+  homepage: "https://github.com/Kiramei/baas-tauri/tree/dev/baasx#readme",
+  bugs: { url: "https://github.com/Kiramei/baas-tauri/issues" },
+};
+const temp = mkdtempSync(path.join(tmpdir(), "baasx-registry-"));
+mkdirSync(output, { recursive: true });
+const packages = [];
+function pack(manifest, populate) {
+  const stage = path.join(temp, manifest.name.replace("@", "").replace("/", "-"));
+  mkdirSync(stage);
+  populate(stage);
+  copyFileSync(path.join(project, "LICENSE"), path.join(stage, "LICENSE"));
+  writeFileSync(
+    path.join(stage, "package.json"),
+    JSON.stringify({ ...base, ...manifest }, null, 2) + "\n"
   );
-  const result = JSON.parse(packed)[0];
-  console.log(
-    JSON.stringify({
-      name: published.name,
-      version: published.version,
-      archive: path.join(output, result.filename),
-      integrity: result.integrity,
+  const [npm, ...args] = npmCommand([
+    "pack",
+    "--ignore-scripts",
+    "--json",
+    "--pack-destination",
+    output,
+  ]);
+  const [result] = JSON.parse(
+    execFileSync(npm, args, {
+      cwd: stage,
+      encoding: "utf8",
     })
   );
+  packages.push({
+    name: manifest.name,
+    version,
+    archive: path.join(output, result.filename),
+    integrity: result.integrity,
+  });
+}
+function bin(stage, filename) {
+  mkdirSync(path.join(stage, "bin"));
+  const dest = path.join(stage, "bin/baasx.mjs");
+  copyFileSync(path.join(project, "registry", filename), dest);
+  chmodSync(dest, 0o755);
+}
+
+try {
+  const targets = values["host-only"]
+    ? platforms.filter((p) => p.os === process.platform && p.cpu === process.arch)
+    : platforms;
+  for (const platform of targets) {
+    pack(
+      {
+        name: platform.name,
+        description: `BAASX local runtime for ${platform.os}/${platform.cpu}`,
+        os: [platform.os],
+        cpu: [platform.cpu],
+        exports: { "./helper": `./runtime/${platform.helper}` },
+        files: ["runtime", "LICENSE"],
+      },
+      (stage) => {
+        const archive = path.join(assets, `baasx-${version}-${platform.asset}-bun.tgz`);
+        const members = [platform.helper, platform.legacyHelper].map(
+          (name) => `package/runtime/${name}`
+        );
+        const entries = execFileSync(tar, ["-tzf", archive], { encoding: "utf8" }).split(/\r?\n/);
+        for (const member of members) {
+          if (!entries.includes(member)) throw new Error(`${platform.asset} missing ${member}`);
+        }
+        execFileSync(tar, ["-xzf", archive, "-C", stage, "--strip-components=1", ...members]);
+        for (const name of [platform.helper, platform.legacyHelper])
+          chmodSync(path.join(stage, "runtime", name), 0o755);
+      }
+    );
+  }
+  const binManifest = { bin: { baasx: "bin/baasx.mjs" }, engines: { node: ">=20.3.0" } };
+  pack(
+    {
+      name: "@kiramei/baasx",
+      description,
+      ...binManifest,
+      exports: { "./cli": "./bin/baasx.mjs" },
+      optionalDependencies: Object.fromEntries(platforms.map((p) => [p.name, version])),
+      files: ["bin", "dist", "README.md", "README_zh.md", "LICENSE"],
+    },
+    (stage) => {
+      bin(stage, "baasx.mjs");
+      mkdirSync(path.join(stage, "dist"));
+      copyFileSync(path.resolve(values.bundle), path.join(stage, "dist/baasx-node.mjs"));
+      for (const file of ["README.md", "README_zh.md"])
+        copyFileSync(path.join(project, file), path.join(stage, file));
+    }
+  );
+  console.log(JSON.stringify(packages));
 } finally {
-  rmSync(temporary, { recursive: true, force: true });
+  rmSync(temp, { recursive: true, force: true });
 }

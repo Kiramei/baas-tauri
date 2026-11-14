@@ -61,13 +61,16 @@ test.skipIf(process.platform === "win32" || typeof Bun.Terminal !== "function")(
     };
     const command = async (value: string) => {
       await key(value);
+      await until("❯ " + value);
       await key("\r");
     };
     try {
       await until("已连接");
       await until("输入 /");
       await command("/config");
+      await until("配置分类");
       await key("screenshot_method");
+      await until("screenshot_method");
       await key("\r");
       await until("保存");
       await key("\x1b[B");
@@ -82,17 +85,22 @@ test.skipIf(process.platform === "win32" || typeof Bun.Terminal !== "function")(
       await key("\r");
       await until("配置已保存");
       await command("/scheduler");
+      await until("调度设置");
       await key("cafe");
+      await until("cafe");
       await key("\r");
       await key("priority");
+      await until("priority");
       await key("\r");
       await until("数字");
       await key("42");
+      await until("42");
       await key("\r");
       await until("确认修改调度");
       await key("\r");
       await until("调度已保存");
       await key("priority");
+      await until("priority");
       await key("\r");
       await until("42");
       await key("\x1b");

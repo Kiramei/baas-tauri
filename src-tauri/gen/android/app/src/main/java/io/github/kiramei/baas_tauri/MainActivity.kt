@@ -141,7 +141,7 @@ class MainActivity : TauriActivity() {
   }
 
   private fun handleAppBack() {
-    if (NativeGamePreview.forActivity(this)?.consumeFullscreenBack() == true) return
+    if (NativeGamePreview.forActivity(this)?.consumeBack() == true) return
     if (backRequestInFlight) return
     val webView = findWebView(window?.decorView)
     if (webView == null) {

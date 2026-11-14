@@ -25,7 +25,7 @@ BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_arch
 | ▶️ 主页     | 启动/停止调度，查看执行中任务、下一个任务、队列、日志、资产和远程画面。                                      |
 | 🗓️ 调度     | 启用任务、编辑下次执行时间、搜索、排序、设置间隔、每日重置、前置任务和后置任务。                             |
 | 🧩 功能配置 | 配置服务器、模拟器、脚本、推图、扫荡、编队、咖啡厅、日程、商店、制造、战斗、维护和推送。                     |
-| 🎛️ 设置     | 调整主题、语言、背景图、UI 缩放、远程解码器、安全流、低性能模式、更新通道、更新源、MirrorC CDK 和 SHA 测试。 |
+| 🎛️ 偏好     | 调整主题、语言、背景图、UI 缩放、远程解码器、安全流、低性能模式、更新通道、更新源、MirrorC CDK 和 SHA 测试。 |
 | 📚 文档     | 通过标题栏“帮助 → 文档”，使用系统默认浏览器打开文档站。                                                      |
 
 ## 🖼️ 截图
@@ -94,7 +94,7 @@ bun run baasx:build        # Bun 可执行包
 bun run baasx:binary       # 本机独立可执行程序
 ```
 
-连接服务、配置编辑、自定义指令包和打包方式见 [baasx 中文说明](baasx/README_zh.md)（[English](baasx/README.md)）。共用协议位于 `baasx/packages/baas-client`，CLI 配置和指令集独立于桌面端。
+本机程序需要保留同目录的 `runtime/`。新版组件为 `runtime/baasx-runtime`，启动器也兼容旧的 `runtime/baas-cli-runtime` 名称。连接服务、配置编辑、自定义指令包和打包方式见 [baasx 中文说明](baasx/README_zh.md)（[English](baasx/README.md)）。共用协议位于 `baasx/packages/baas-client`，BAASX 配置和指令集独立于桌面端。
 
 前置条件：
 

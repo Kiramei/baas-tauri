@@ -39,7 +39,10 @@ __pycache__/
 *.sln
 *.sw?
 *.br
+.secret
 .secrets
+.secret
+.secret.*
 
 # Local-only internal documentation
 docs/superpowers/

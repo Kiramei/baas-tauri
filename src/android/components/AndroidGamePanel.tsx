@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Play } from "lucide-react";
-import { toast } from "sonner";
+import { useProfileNotice } from "@/shared/ProfileNotice";
 import { invoke } from "@/shared/TauriInvoke";
 import { AndroidNativePreviewOwnership } from "@/shared/AndroidNativePreviewOwnership";
 import { useAppTranslation } from "@/shared/useAppTranslation";
@@ -30,16 +30,18 @@ const updateNativePreview = <T,>(request: Record<string, unknown>): Promise<T> =
 };
 
 interface AndroidGamePanelProps {
+  profileId?: string;
   active: boolean;
   configuredPackage?: string;
   virtualDisplayActive: boolean;
   virtualDisplayBusy: boolean;
-  onToggleVirtualDisplay: (active: boolean, packageName?: string) => Promise<void>;
+  onToggleVirtualDisplay: (active: boolean, packageName?: string) => Promise<boolean>;
   onBeforeManualControl: () => Promise<void>;
 }
 
 /** Read-only live game preview backed by the privileged Android virtual display. */
 const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
+  profileId,
   active,
   configuredPackage,
   virtualDisplayActive,
@@ -48,6 +50,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
   onBeforeManualControl,
 }) => {
   const { t, language } = useAppTranslation();
+  const notice = useProfileNotice(profileId);
   const [games, setGames] = useState<AndroidInstalledGame[]>([]);
   const [shizukuGranted, setShizukuGranted] = useState(false);
   const [previewReady, setPreviewReady] = useState(false);
@@ -66,9 +69,9 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       setGames(report.games);
       setShizukuGranted(report.shizukuGranted);
     } catch (error) {
-      toast.error(t("android.game.inspectFailed"), { description: String(error) });
+      notice.error(t("android.game.inspectFailed"), { description: String(error) });
     }
-  }, [t]);
+  }, [notice, t]);
 
   useEffect(() => {
     if (!active) return;
@@ -258,8 +261,8 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
   const takeOverGame = async () => {
     if (!selectedGame || !virtualDisplayActive || takingOver || virtualDisplayBusy) return;
     if (!androidManualControl.begin()) {
-      toast.error(t("android.game.takeoverFailed"), {
-        description: "The game is already in manual control or a backend update is in progress",
+      notice.error(t("android.game.takeoverFailed"), {
+        description: t("android.game.takeoverBusy"),
       });
       return;
     }
@@ -271,7 +274,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
         !previewRef.current?.getClientRects().length ||
         previewRef.current.closest("[hidden], [aria-hidden='true']")
       ) {
-        throw new Error("The game preview is no longer visible");
+        throw new Error(t("android.game.previewHidden"));
       }
       const report = await invoke<{ active: boolean }>("android_game_fullscreen", {
         request: {
@@ -284,7 +287,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       if (!report.active) throw new Error("Fullscreen game control was not enabled");
     } catch (error) {
       androidManualControl.setActive(false);
-      toast.error(t("android.game.takeoverFailed"), { description: String(error) });
+      notice.error(t("android.game.takeoverFailed"), { description: String(error) });
     } finally {
       setTakingOver(false);
     }
@@ -294,11 +297,10 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
     if (!selectedGame || restarting || virtualDisplayBusy) return;
     setRestarting(true);
     try {
-      await onToggleVirtualDisplay(false, selectedGame.packageName);
-      await new Promise((resolve) => window.setTimeout(resolve, 200));
+      if (!(await onToggleVirtualDisplay(false, selectedGame.packageName))) return;
       await onToggleVirtualDisplay(true, selectedGame.packageName);
     } catch (error) {
-      toast.error(t("android.game.restartFailed"), { description: String(error) });
+      notice.error(t("android.game.restartFailed"), { description: String(error) });
     } finally {
       setRestarting(false);
     }
@@ -334,53 +336,56 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
   });
 
   return (
-    <section
-      ref={previewRef}
-      className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-black shadow-sm ring-1 ring-border"
-    >
-      {virtualDisplayActive && (
-        <div
-          aria-label={t("android.game.liveDisplay", {
-            game: selectedGame?.label ?? t("android.game.fallbackName"),
-          })}
-          className="absolute inset-0 block h-full w-full select-none object-cover"
-        />
-      )}
-
-      <button
-        type="button"
-        aria-label={
-          virtualDisplayActive ? t("android.game.showControls") : t("android.game.startBackground")
-        }
-        disabled={virtualDisplayBusy}
-        onClick={() => {
-          if (!virtualDisplayActive) void startBackgroundDisplay();
-        }}
-        className="absolute inset-0 z-10 grid h-full w-full place-items-center disabled:cursor-not-allowed"
+    <>
+      <section
+        ref={previewRef}
+        className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-black shadow-sm ring-1 ring-border"
       >
-        {!virtualDisplayActive && (
-          <span className="grid h-16 w-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-black/35 transition active:scale-95 disabled:opacity-50">
-            {virtualDisplayBusy ? (
-              <Loader2 className="h-7 w-7 animate-spin" />
-            ) : (
-              <Play className="ml-1 h-7 w-7 fill-current" />
-            )}
-          </span>
-        )}
-        {virtualDisplayActive && !previewReady && (
-          <Loader2 className="h-7 w-7 animate-spin text-white/80" />
-        )}
-      </button>
-
-      {virtualDisplayActive && (
-        <div className="pointer-events-none absolute right-2 top-2 z-30 flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-semibold text-white">
-          <span
-            className={`h-2 w-2 rounded-full ${previewReady ? "bg-emerald-400" : "bg-slate-400"}`}
+        {virtualDisplayActive && (
+          <div
+            aria-label={t("android.game.liveDisplay", {
+              game: selectedGame?.label ?? t("android.game.fallbackName"),
+            })}
+            className="absolute inset-0 block h-full w-full select-none object-cover"
           />
-          {previewReady ? t("android.game.live") : t("android.start.displayNotReady")}
-        </div>
-      )}
-    </section>
+        )}
+
+        <button
+          type="button"
+          aria-label={
+            virtualDisplayActive ? t("view.fullscreen") : t("android.game.startBackground")
+          }
+          disabled={virtualDisplayBusy}
+          onClick={() => {
+            if (virtualDisplayActive) void takeOverGame();
+            else void startBackgroundDisplay();
+          }}
+          className="absolute inset-0 z-10 grid h-full w-full place-items-center disabled:cursor-not-allowed"
+        >
+          {!virtualDisplayActive && (
+            <span className="grid h-16 w-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-black/35 transition active:scale-95 disabled:opacity-50">
+              {virtualDisplayBusy ? (
+                <Loader2 className="h-7 w-7 animate-spin" />
+              ) : (
+                <Play className="ml-1 h-7 w-7 fill-current" />
+              )}
+            </span>
+          )}
+          {virtualDisplayActive && !previewReady && (
+            <Loader2 className="h-7 w-7 animate-spin text-white/80" />
+          )}
+        </button>
+
+        {virtualDisplayActive && (
+          <div className="pointer-events-none absolute right-2 top-2 z-30 flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-semibold text-white">
+            <span
+              className={`h-2 w-2 rounded-full ${previewReady ? "bg-emerald-400" : "bg-slate-400"}`}
+            />
+            {previewReady ? t("android.game.live") : t("android.start.displayNotReady")}
+          </div>
+        )}
+      </section>
+    </>
   );
 };
 

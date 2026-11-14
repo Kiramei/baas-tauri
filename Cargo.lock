@@ -265,17 +265,9 @@ dependencies = [
 name = "baas-cli-runtime"
 version = "0.0.9"
 dependencies = [
- "baas-term",
- "baas-updater",
- "cap-fs-ext",
- "cap-std",
- "ctrlc",
- "git2",
- "reqwest",
- "serde",
+ "baasx-runtime",
  "serde_json",
  "tempfile",
- "uuid",
 ]
 
 [[package]]
@@ -286,10 +278,10 @@ version = "0.0.10-0.post.1"
 name = "baas-notifier"
 version = "0.0.10-0.post.1"
 dependencies = [
- "notify-rust",
  "serde",
  "tauri",
  "tauri-plugin-notification",
+ "windows 0.61.3",
  "windows-registry",
 ]
 
@@ -340,6 +332,8 @@ dependencies = [
  "url",
  "uuid",
  "windows 0.62.2",
+ "windows-registry",
+ "zip 8.6.0",
 ]
 
 [[package]]
@@ -361,6 +355,7 @@ dependencies = [
  "baas-term",
  "flate2",
  "git2",
+ "minreq",
  "portable-pty",
  "reqwest",
  "serde",
@@ -370,8 +365,26 @@ dependencies = [
  "tauri",
  "tempfile",
  "toml 1.1.2+spec-1.1.0",
+ "url",
  "uuid",
  "zip 8.6.0",
+]
+
+[[package]]
+name = "baasx-runtime"
+version = "0.0.9"
+dependencies = [
+ "baas-term",
+ "baas-updater",
+ "cap-fs-ext",
+ "cap-std",
+ "ctrlc",
+ "git2",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "uuid",
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useLayoutEffect, useMemo } from "react";
 import { invoke } from "@/shared/TauriInvoke";
 
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
@@ -59,6 +59,15 @@ const contrastText = (hex: string) => {
 
 /** Renders the global appearance effects component. */
 const GlobalAppearanceEffects: React.FC = () => {
+  const enableBACursors = useUISetting((settings) => settings.enableBACursors ?? true);
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute(
+      "data-ba-cursors",
+      __WITH_ANDROID__ || enableBACursors ? "enabled" : "disabled"
+    );
+    return () => root.removeAttribute("data-ba-cursors");
+  }, [enableBACursors]);
   const minimizeToTray = useUISetting((settings) => settings.minimizeToTray ?? false);
   useEffect(() => {
     if (__WITH_TAURI__ && !__WITH_ANDROID__) {
@@ -75,7 +84,7 @@ const GlobalAppearanceEffects: React.FC = () => {
   // The standard palette is defined in CSS so it follows light/dark mode. A
   // custom accent affects actions only; it never tints neutral app surfaces.
   const primaryScale = useMemo(
-    () => themeColor.toLowerCase() === DEFAULT_THEME_COLOR ? null : buildPrimaryScale(themeColor),
+    () => (themeColor.toLowerCase() === DEFAULT_THEME_COLOR ? null : buildPrimaryScale(themeColor)),
     [themeColor]
   );
 

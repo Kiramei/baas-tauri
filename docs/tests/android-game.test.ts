@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import report from "../evidence/android-game-validation.json";
@@ -33,6 +34,57 @@ test("Android game evidence retains failure, source and cleanup boundaries", () 
     expect(report[key as keyof typeof report]).toBe(false);
   expect(report.diagnosis.status).toContain("hypothesis");
   expect(JSON.stringify(report)).not.toMatch(/WorkSpace|\.codex_tmp|[A-Z]:\\|pngBase64|accountId|accessToken/);
+});
+
+test("physical-device supplement separates APK failures, measured progress and manual side effects", () => {
+  const current = report.currentReviewSupplement;
+  expect(current.apkKind).toBe("debug-review");
+  expect(current.applicationId).toBe("io.github.kiramei.baas_tauri.review");
+  expect(current.environment.sdk).toBe(31);
+  expect(current.runs).toHaveLength(4);
+  expect(new Set(current.runs.map(run => run.apkSha256)).size).toBe(4);
+  expect(new Set(current.runs.map(run => run.sourceRevision)).size).toBe(4);
+  for (const run of current.runs) {
+    expect(run.apkSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(run.sourceRevision).toMatch(/^[a-f0-9]{40}$/);
+  }
+  expect(current.runs[1].sustainedQueueFrameProgress).toBe("failed");
+  expect(current.runs[2].embeddedFocusRecovery).toBe("failed");
+  expect(current.runs[2].ocrRepeated).toBe(false);
+  expect(current.runs[2].restartTaskRepeated).toBe(false);
+  const observations = current.runs[3].observations!;
+  expect(observations.embeddedFocus.safetyGuardBypassed).toBe(false);
+  expect(observations.embeddedFocus.actualDispatcherAfterShieldRemoval).toBe(observations.embeddedFocus.ownedDisplayId);
+  for (const progress of [observations.embeddedFocus.postRemovalProgress, observations.queueProgress, observations.logSelection.liveProgress]) {
+    expect(progress.allLiveWithOwnedFocusAndNoShield).toBe(true);
+    expect(progress.samples).toBeGreaterThan(1);
+    for (const counter of ["capturedFrames", "presentedFrames", "displayedFrames"] as const)
+      expect(progress.lastCounters[counter]).toBeGreaterThan(progress.firstCounters[counter]);
+  }
+  expect(observations.queueProgress.elapsedSeconds).toBeGreaterThan(8);
+  expect(observations.ocr.recognizedExpectedStaticChineseLabels).toEqual(["通知", "点击任意区域进入游戏", "菜单"]);
+  expect(observations.runner.task).toBe("restart");
+  expect(observations.runner.schedulerOrResourceTasksStarted).toBe(false);
+  expect(observations.logSelection.imeShown).toBe(false);
+  expect(observations.logSelection.clipboardReadbackVerified).toBe(false);
+  expect(observations.unintendedInteraction.manualGameTapCount).toBe(1);
+  expect(observations.unintendedInteraction.gameHomeAnnouncementEntered).toBe(true);
+  expect(observations.unintendedInteraction.automatedGameplayCompletion).toBe(false);
+  expect(observations.cleanup.ownedDisplayReleased).toBe(true);
+  expect(observations.cleanup.temporaryFocusSurfaceCount).toBe(0);
+  expect(observations.cleanup.remainingTestHostForwards).toBe(0);
+  expect(current.sources).toHaveLength(4);
+  for (const source of current.sources) {
+    expect(source.revision).toBe(current.runs[3].sourceRevision);
+    expect(source.gitContentVerified).toBe(true);
+    // Each physical observation belongs to its tested APK, not later source edits.
+    const pinned = execFileSync("git", ["show", `${source.revision}:${source.file}`], {
+      cwd: new URL("../../", import.meta.url), encoding: "utf8",
+    }).replaceAll("\r\n", "\n");
+    expect(hash(pinned)).toBe(source.sha256);
+  }
+  expect(current.limitations.join(" ")).toContain("No complete pre-install configuration-byte baseline");
+  expect(current.limitations.join(" ")).toContain("preservation is not claimed");
 });
 
 test("Android troubleshooting removes obsolete controls and preserves localized failure diagnostics", () => {

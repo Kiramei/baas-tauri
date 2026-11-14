@@ -42,7 +42,7 @@ cnpm uses an npm mirror by default. A new version may take time to appear there.
 
 Deno's `-A` grants all permissions to the launcher. Ensure Deno and its global executable directory (by default `~/.deno/bin`) are on PATH. Deno 2.9 and newer wait 24 hours after publication by default. To install immediately, add `--min-dep-age=0` to the command on Deno 2.9 or newer.
 
-The registry package contains the JavaScript application and installation helpers for Windows x64, Linux x64, and Apple Silicon Mac. Rust is not required.
+The scoped package installs the JavaScript CLI. The package manager selects an exact-version optional runtime for your OS and CPU. Linux, macOS and Windows each have x64 and ARM64 CLI builds. Local OCR currently supports Linux x64, macOS ARM64 and Windows x64. Other builds support demo mode and remote servers. GitHub Packages publishes the scoped names.
 
 ## Getting started from source
 
@@ -70,7 +70,7 @@ Interactive confirmations select Yes by default. Enter confirms; `n` or the arro
 
 First launch lets you choose a language and a connection mode: install a local BAAS service environment or connect to an existing service. In the workbench, `/install` and `/local` manage the local environment, while `/connect` connects to an existing service. Use `/uninstall` to remove the local backend while keeping settings and user data. `/clear` clears displayed activity and logs without disconnecting or deleting backend data.
 
-Local installation reuses the desktop installation core and installs the `dev` service channel from `Kiramei/baas-dev`, which supports `main.service.py` and local pipes. The environment defaults to `<CLI config directory>/runtime` and includes a private Python runtime, the BAAS backend, OCR, and runtime dependencies. The CLI requires this service protocol and rejects the legacy `blue_archive_auto_script` GUI `stable` channel before installation. The desktop app keeps its own stable-channel default, installation directory, and settings.
+Local installation reuses the desktop installation core. New installations use the `stable` service backend by default. Run `/install dev` to choose the development channel. Reinstalling or updating an existing runtime keeps its selected channel. The environment defaults to `<CLI config directory>/runtime` and includes a private Python runtime, the BAAS backend, OCR, and runtime dependencies.
 
 Installation requires confirmation in the interface, even with `--yes`. Local prebuilt OCR currently supports Windows x64, Linux x64, and macOS ARM64.
 
@@ -116,14 +116,14 @@ bun run baasx --yes update
 bun run baasx --dry-run update
 ```
 
-Updates target a fully installed local `dev` environment managed by the CLI. Before updating, baasx checks every profile in the backend owned by this CLI instance. Any active task, scheduler, or waiting queue prevents the update. Once idle, the private backend stops, dependencies update, and the installation is checked again. If the workbench was connected to the local backend, it restarts and reconnects afterward. The installation lock also prevents replacement while another CLI instance holds a runtime lease.
+Updates target a fully installed local environment managed by the CLI. Before updating, baasx checks every profile in the backend owned by this CLI instance. Any active task, scheduler, or waiting queue prevents the update. Once idle, the private backend stops, dependencies update, and the installation is checked again. If the workbench was connected to the local backend, it restarts and reconnects afterward. The installation lock also prevents replacement while another CLI instance holds a runtime lease.
 
 External services selected by `--server` / `--pipe` are outside the local update target and are neither stopped nor modified. `check-update` only checks, `--dry-run update` only previews, and `--read-only` rejects applying updates.
 
 ## Connecting to an existing service
 
 ```bash
-# Start a service from a baas-dev checkout that supports Service mode.
+# Start a service from a backend checkout that supports Service mode.
 python main.service.py --host 127.0.0.1 --port 8190
 
 # Use /connect in the workbench to enter the service login key in a hidden prompt.
@@ -227,7 +227,7 @@ The complete plan is checked before execution. An already active run, a rejected
 
 baasx keeps the existing CLI configuration directory and `BAAS_*` environment variables, so existing settings and local environments do not need migration. Preferences are separate from the desktop app and default to `$XDG_CONFIG_HOME/baas/settings.json` or `~/.config/baas/settings.json`. Override the directory with `BAAS_CLI_HOME` / `--config-home`. Preferences support the server address, pipe, profile, language, connection mode, and command-pack directory; they do not store the key.
 
-Environment variables are `BAAS_SERVER`, `BAAS_PIPE`, `BAAS_PROFILE`, `BAAS_KEY`, `BAAS_SERVER_SIGN_PUBLIC_KEY`, `BAAS_LANG`, and `BAAS_CLI_HOME`. Connection precedence is command-line arguments, environment variables, then preferences. `use` saves the current profile; `--profile` affects only the current invocation. `BAAS_RUNTIME_HELPER` explicitly selects a built installation-helper path. Distributed packages do not invoke Cargo automatically.
+Environment variables are `BAAS_SERVER`, `BAAS_PIPE`, `BAAS_PROFILE`, `BAAS_KEY`, `BAAS_SERVER_SIGN_PUBLIC_KEY`, `BAAS_LANG`, and `BAAS_CLI_HOME`. Connection precedence is command-line arguments, environment variables, then preferences. `use` saves the current profile; `--profile` affects only the current invocation. `BAASX_RUNTIME_HELPER` (or the legacy `BAAS_RUNTIME_HELPER`) explicitly selects a built installation-helper path. Distributed packages do not invoke Cargo automatically.
 
 Replace `<version>` below with the version in `baasx/package.json`.
 
@@ -250,8 +250,8 @@ The JS bundle is minified, and executables use ESM with a shallow bytecode cache
 
 Both distribution formats must include the installation helper:
 
-- The Bun package contains `bin/baasx.mjs`, `dist/baasx.js`, `runtime/baas-cli-runtime` (with `.exe` on Windows), command packs, and license files. `bun run baasx:pack` first runs the `prepack` build, then invokes `bun pm pack --ignore-scripts` to generate the `.tgz`.
-- Native executable distributions keep `baasx` / `baasx.exe` beside `runtime/baas-cli-runtime` / `runtime/baas-cli-runtime.exe`. Keep the `runtime` directory when copying the executable. The build script copies the helper into both `baasx/runtime` and `baasx/dist/runtime` for the two distribution formats.
+- The Bun package contains `bin/baasx.mjs`, `dist/baasx.js`, `runtime/baasx-runtime` (with `.exe` on Windows), command packs, and license files. `bun run baasx:pack` first runs the `prepack` build, then invokes `bun pm pack --ignore-scripts` to generate the `.tgz`.
+- Native executable distributions keep `baasx` / `baasx.exe` beside `runtime/baasx-runtime` / `runtime/baasx-runtime.exe`. The older executable name `baas-cli-runtime` remains available in new packages. BAASX also recognizes that name in existing installs. Keep the `runtime` directory when copying the executable. The build script copies the helper into both `baasx/runtime` and `baasx/dist/runtime` for the two distribution formats.
 
 CI checks and builds on Windows, Linux, and macOS. Uploaded build artifacts contain the Bun `.tgz` package and native `.tar.gz` distribution, each with its platform's installation helper, both README languages, and the license. Extract the appropriate archive and preserve its directory structure and executable permissions. Users of these packages do not need a Rust toolchain to install the BAAS environment on first launch.
 

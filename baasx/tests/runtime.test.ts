@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import distributionPlatforms from "../scripts/distribution-platforms.json";
 import { RuntimeManager, type RuntimeEvent } from "../src/runtime";
 import { prepareExecutableFixtures, writeExecutableFixture } from "./executable-fixture";
 
@@ -57,7 +58,8 @@ async function fixture(mode: Record<string, unknown> = {}) {
     backend,
     `
     import { createServer } from 'node:net';
-    import { readFile, writeFile, appendFile } from 'node:fs/promises';
+    import { readFile, writeFile } from 'node:fs/promises';
+    import { appendFileSync } from 'node:fs';
     import { encodePipeFrame, PipeFrameDecoder } from ${JSON.stringify(protocol)};
     const mode = JSON.parse(await readFile(${JSON.stringify(modeFile)}, 'utf8'));
     await writeFile(${JSON.stringify(pidFile)}, String(process.pid));
@@ -73,7 +75,7 @@ async function fixture(mode: Record<string, unknown> = {}) {
         for (const frame of decoder.feed(chunk)) {
           const message = JSON.parse(frame.payload.toString('utf8'));
           if (message.type === 'open') {
-            void appendFile(${JSON.stringify(opens)}, JSON.stringify(message) + '\\n');
+            appendFileSync(${JSON.stringify(opens)}, JSON.stringify(message) + '\\n');
             socket.write(encodePipeFrame(1, Buffer.from(JSON.stringify({type:'open_ok',channel:message.channel}))));
           } else if (message.command === 'status') {
             void (async () => {
@@ -101,12 +103,13 @@ async function fixture(mode: Record<string, unknown> = {}) {
     const mode = JSON.parse(await readFile(${JSON.stringify(modeFile)}, 'utf8'));
     await appendFile(${JSON.stringify(callsFile)}, JSON.stringify({command,args}) + '\\n');
     const output = value => console.log(JSON.stringify(value));
+    const channel = value('--channel') || await readFile(join(root,'.installed'), 'utf8').catch(() => 'stable');
     const state = async () => ({
       installed: mode.installed ?? await access(join(root,'.installed')).then(()=>true,()=>false),
       managed: mode.managed ?? await access(join(root,'.installed')).then(()=>true,()=>false),
       root: mode.wrongRoot ? root + '-other' : root,
       backendPath:${JSON.stringify(backend)},pythonPath:${JSON.stringify(process.execPath)},cppPath:join(root,'ocr'),
-      channel:value('--channel') || 'dev',missing:mode.missing || [],
+      channel,missing:mode.missing || [],
     });
     if (mode.malformed) { console.log('not JSON'); process.exit(0); }
     if (mode.large) { console.log('x'.repeat(70000)); process.exit(0); }
@@ -127,7 +130,7 @@ async function fixture(mode: Record<string, unknown> = {}) {
       if (mode.progress) output({type:'progress',stage:'uv',message:'download 50%',...mode.progress});
       if (mode.stderrCR) process.stderr.write('download 10%\\rdownload 20%\\rready\\n');
       await mkdir(root,{recursive:true});
-      await writeFile(join(root,'.installed'),'ready');
+      await writeFile(join(root,'.installed'),channel);
     }
     if (command === 'uninstall' && (mode.failUninstall || mode.stallUninstall)) {
       await writeFile(join(root, 'uninstall-partial-fixture'), 'partial');
@@ -145,7 +148,7 @@ async function fixture(mode: Record<string, unknown> = {}) {
       process.stderr.write('credential\\n');
     }
     const data = command === 'uninstall' ? { ...await state(), installed:false, managed:true, missing:['backend'] } : command === 'check-update' ? mode.checkResult || {
-      root,channel:'dev',available:true,repositories:[
+      root,channel,available:true,repositories:[
         {name:'backend',localVersion:'a'.repeat(40),remoteVersion:'b'.repeat(40),available:true},
         {name:'ocr',localVersion:'c'.repeat(40),remoteVersion:'c'.repeat(40),available:false},
       ]
@@ -220,7 +223,7 @@ describe("local runtime installation", () => {
       expect((await stat(join(target.directory, "runtime.json"))).mode & 0o777).toBe(0o600);
     const resumed = new RuntimeManager({ directory: target.directory, helperPath: target.helper });
     try {
-      expect(await resumed.inspect()).toMatchObject({ root, installed: true });
+      expect(await resumed.install()).toMatchObject({ root, installed: true, channel: "dev" });
     } finally {
       resumed.close();
     }
@@ -357,7 +360,7 @@ describe("managed runtime uninstall", () => {
     await expect(target.manager.uninstall(confirmed)).rejects.toMatchObject({ code: "runtime_config" });
     expect((await target.calls()).some((call) => call.command === "uninstall")).toBe(false);
     expect(await readFile(join(confirmed.root, "user-data.txt"), "utf8")).toBe("new directory");
-    expect(await readFile(join(oldRoot, ".installed"), "utf8")).toBe("ready");
+    expect(await readFile(join(oldRoot, ".installed"), "utf8")).toBe("stable");
   });
 
   test("failed partial uninstall retains metadata and user files", async () => {
@@ -395,7 +398,7 @@ describe("owned local backend", () => {
   const actualHelper = join(
     import.meta.dir,
     "../../target/debug",
-    process.platform === "win32" ? "baas-cli-runtime.exe" : "baas-cli-runtime"
+    process.platform === "win32" ? "baasx-runtime.exe" : "baasx-runtime"
   );
   test.skipIf(process.platform === "win32" || !existsSync(actualHelper))(
     "the built Rust helper and Bun manager agree on inspect and launch-spec without downloads",
@@ -449,7 +452,11 @@ describe("owned local backend", () => {
         });
         const competingOutput = await new Response(competing.stdout).text();
         expect(await competing.exited).toBe(1);
-        expect(JSON.parse(competingOutput).message).toContain("another installer");
+        const supportsOcr = distributionPlatforms.some(
+          (p) => p.os === process.platform && p.cpu === process.arch && p.localRuntime
+        );
+        const expectedError = supportsOcr ? "another installer" : "unsupported Cpp repository platform";
+        expect(JSON.parse(competingOutput).message).toContain(expectedError);
         expect(await readFile(join(root, ".baas-cli-runtime.json"), "utf8")).toBe(marker);
         await manager.stopWhenIdle();
 
@@ -481,9 +488,7 @@ describe("owned local backend", () => {
             stdout: "pipe",
             stderr: "pipe",
           });
-          expect(JSON.parse(await new Response(blocked.stdout).text()).message).toContain(
-            "another installer"
-          );
+          expect(JSON.parse(await new Response(blocked.stdout).text()).message).toContain(expectedError);
           expect(await blocked.exited).toBe(1);
           detachedBackend.kill();
           await detachedBackend.exited;
@@ -651,7 +656,7 @@ describe("managed runtime updates and structured progress", () => {
     const metadata = await readFile(join(target.directory, "runtime.json"), "utf8");
     const result = await target.manager.checkUpdates();
     expect(result).toMatchObject({
-      channel: "dev",
+      channel: "stable",
       available: true,
       repositories: [
         { name: "backend", available: true },

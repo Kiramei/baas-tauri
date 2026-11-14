@@ -9,7 +9,12 @@ test("profile menus and confirmation dialogs suspend only the native preview", (
   );
   expect(header).toContain('role="menu"');
   expect(header).toContain("data-native-preview-blocker");
-  expect(header).toContain('role="dialog"');
+  expect(header).toContain("ProfileEditorModal");
+  const editor = readFileSync(
+    new URL("../../src/components/profiles/ProfileEditorModal.tsx", import.meta.url),
+    "utf8"
+  );
+  expect(editor).toContain('role="dialog"');
   expect(header).toContain('role="alertdialog"');
 
   const panel = readFileSync(

@@ -27,10 +27,6 @@
 
 ---
 
-## 🚀 Overview
-
-BAAS Tauri is a Windows, macOS and Linux desktop client for [Blue Archive Auto Script](https://github.com/pur1fying/blue_archive_auto_script). It manages profiles, scheduling, feature settings, logs, updates and remote device display. The BAAS backend handles device connections, recognition and task execution.
-
 ## 🧩 What It Controls
 
 | Area             | What You Can Do                                                                                                                                    |
@@ -39,7 +35,7 @@ BAAS Tauri is a Windows, macOS and Linux desktop client for [Blue Archive Auto S
 | ▶️ Home          | Start or stop scheduling, inspect the running task, next task, queue, logs, assets, and remote display.                                            |
 | 🗓️ Scheduler     | Enable tasks, edit next run time, search, sort, set intervals, daily reset windows, pre-tasks, and post-tasks.                                     |
 | 🧩 Configuration | Configure server, emulator, script, stages, sweeps, teams, cafe, lessons, shop, crafting, combat, maintenance, push, and more.                     |
-| 🎛️ Settings      | Tune theme, language, background, UI scale, remote decoder, safe stream, low performance mode, update channel, source, MirrorC CDK, and SHA tests. |
+| 🎛️ Preferences      | Tune theme, language, background, UI scale, remote decoder, safe stream, low performance mode, update channel, source, MirrorC CDK, and SHA tests. |
 | 📚 Docs          | Open the documentation site in your system's default browser from Help → Documentation.                                                            |
 
 ## 🖼️ Screenshots
@@ -48,7 +44,7 @@ BAAS Tauri is a Windows, macOS and Linux desktop client for [Blue Archive Auto S
 | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
 | <img src="docs/public/media/desktop/en/dark/scheduler-workflow.webp" alt="Task dependency workflow" /> | <img src="docs/public/media/desktop/en/dark/config-cafe.webp" alt="Cafe feature configuration" /> |
 
-| Runtime and Transport                                                                                       | Settings and Updates                                                                        |
+| Runtime and Transport                                                                                       | Preferences and Updates                                                                        |
 | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | <img src="docs/public/media/desktop/en/dark/settings-runtime.webp" alt="Runtime and connection settings" /> | <img src="docs/public/media/desktop/en/dark/settings-updates.webp" alt="Update settings" /> |
 
@@ -177,7 +173,7 @@ bun run baasx:binary
 bun run baasx:pack
 ```
 
-Keep the native executable together with its `runtime/` directory. baasx continues to use the existing `baas` configuration directory and `BAAS_*` environment variables, so existing CLI settings and local installations need no migration. See [CLI setup and packaging](baasx/README.md) for platform archives and Bun package installation.
+Keep the native executable together with its `runtime/` directory. New packages use `runtime/baasx-runtime`; the launcher also recognizes the legacy `runtime/baas-cli-runtime` name. Existing `baas` configuration and `BAAS_*` environment variables remain supported. See [BAASX setup and packaging](baasx/README.md) for platform archives and Bun package installation.
 
 ## 🧱 Project Layout
 

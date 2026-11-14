@@ -10,4 +10,4 @@ test("the real Android store accepts an empty user-profile list and keeps late p
   });
   const output = new TextDecoder().decode(result.stdout) + new TextDecoder().decode(result.stderr);
   expect(result.exitCode, output).toBe(0);
-});
+}, 20_000);

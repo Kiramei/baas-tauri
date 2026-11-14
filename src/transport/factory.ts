@@ -1,3 +1,4 @@
+import { macTransportMode } from "@/platform/macos/transport";
 import { SecureWebSocket } from "@/shared/SecureWebSocket";
 import { TauriPipeConnection } from "@/transport/pipe/TauriPipeConnection";
 import { TauriSharedMemoryConnection } from "@/transport/shm/TauriSharedMemoryConnection";
@@ -24,7 +25,7 @@ export function resolveTransportMode(
   environment: { android: boolean; tauri: boolean; sharedMemory?: boolean; macos?: boolean }
 ): BackendTransportMode {
   if (!environment.tauri) return "websocket";
-  if (environment.macos && !environment.android) return value === "websocket" ? "websocket" : "shm";
+  if (environment.macos && !environment.android) return macTransportMode(value);
   if (value === "websocket" || value === "pipe") return value;
   const sharedMemory = !environment.android && environment.sharedMemory === true;
   if (value === "shm") return sharedMemory ? "shm" : "pipe";

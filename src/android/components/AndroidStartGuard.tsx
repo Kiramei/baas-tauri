@@ -9,13 +9,15 @@ import {
   type AndroidStartAccess,
 } from "@/shared/AndroidStartPrecondition";
 import { useAppTranslation } from "@/shared/useAppTranslation";
+import { useProfileNotice } from "@/shared/ProfileNotice";
 
 type GuardState = AndroidStartAccess | "error" | null;
 const readStatus = () => invoke<AndroidShizukuStatus>("android_shizuku_status");
 
 /** Both preview and scheduler starts pass through this live, explicit permission gate. */
-export const useAndroidStartGuard = (active: boolean) => {
+export const useAndroidStartGuard = (active: boolean, profileId?: string) => {
   const { t } = useAppTranslation();
+  const notice = useProfileNotice(profileId);
   const [state, setState] = useState<GuardState>(null);
   const [busy, setBusy] = useState(false);
   const [actionFailed, setActionFailed] = useState(false);
@@ -46,6 +48,7 @@ export const useAndroidStartGuard = (active: boolean) => {
         return await runAndroidStartAction({ operation, readStatus, onBlocked: setState, action });
       } catch (error) {
         console.warn("Shizuku startup check failed", error);
+        notice.error(t("android.start.scriptFailed"), { description: String(error) });
         setState("error");
         return false;
       } finally {
@@ -53,7 +56,7 @@ export const useAndroidStartGuard = (active: boolean) => {
         setBusy(false);
       }
     },
-    []
+    [notice, t]
   );
 
   useEffect(() => {

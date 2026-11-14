@@ -25,6 +25,10 @@ inputs:
     description: Bun version passed to oven-sh/setup-bun.
     required: false
     default: "1.3.14"
+  cache-variant:
+    description: Cargo profile and build features (release, fixed-webview2, workspace-tests, android-debug).
+    default: release
+    required: false
   save-cache:
     description: Whether to save a new Rust cache entry.
     required: false
@@ -51,7 +55,8 @@ runs:
       with:
         save-if: ${{ inputs.save-cache == 'true' }}
         prefix-key: "v1-rust"
-        key: "rust-shared-stable-${{ runner.os }}-${{ inputs.target }}"
+        shared-key: tauri
+        key: "${{ runner.os }}-${{ runner.arch }}-${{ inputs.target }}-${{ inputs.rust-toolchain }}-${{ inputs.cache-variant }}"
         workspaces: |
           . -> target
         cache-all-crates: true

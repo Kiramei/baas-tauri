@@ -10,7 +10,7 @@ import { useTheme } from "@/context/ThemeProvider";
 import { useWindowLayout } from "@/context/WindowLayoutProvider";
 import { useNavigationHistory } from "@/context/NavigationHistoryProvider";
 import TitlebarMenus from "@/components/layout/TitlebarMenus";
-import { useNativeWindowControls } from "@/shared/useNativeWindowControls";
+import { useNativeWindowControls } from "@/platform/linux/useNativeWindowControls";
 
 const macOS = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
 const linuxDesktop = typeof navigator !== "undefined" && navigator.platform.startsWith("Linux");

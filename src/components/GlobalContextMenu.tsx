@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 
-import { reloadWithoutPrompt } from "@/shared/reload";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 type MenuState = {
@@ -94,17 +93,6 @@ const insertText = (target: EventTarget | null, text: string, range?: Range) => 
   document.execCommand("insertText", false, text);
 };
 
-const openInspector = async (webuiHint: string) => {
-  if (__WITH_TAURI__) {
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("open_main_devtools");
-    return;
-  }
-
-  console.info("Use the browser developer tools to inspect this WebUI page.");
-  toast.info(webuiHint);
-};
-
 const GlobalContextMenu: React.FC = () => {
   const { t } = useTranslation();
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
@@ -115,11 +103,16 @@ const GlobalContextMenu: React.FC = () => {
   const close = React.useCallback(() => setMenu(null), []);
 
   React.useEffect(() => {
+    if (__WITH_ANDROID__) return;
     const onContextMenu = (event: MouseEvent) => {
       if (event.defaultPrevented) return;
       event.preventDefault();
       if (event.target instanceof Element && event.target.closest("[data-context-menu]")) return;
       const selectedText = getSelectedText(event.target);
+      if (!selectedText && !getEditableElement(event.target)) {
+        close();
+        return;
+      }
       const selection = window.getSelection();
       focusBeforeMenu.current =
         document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -198,21 +191,13 @@ const GlobalContextMenu: React.FC = () => {
     close();
   };
 
-  const reloadPage = () => {
-    close();
-    reloadWithoutPrompt();
-  };
-
-  const inspectPage = () => {
-    close();
-    void openInspector(t("contextMenu.inspectWebuiHint"));
-  };
-
   const canPaste = Boolean(menu && getEditableElement(menu.target));
+
+  if (__WITH_ANDROID__) return null;
 
   return createPortal(
     <AnimatePresence>
-      {menu && (
+      {menu && (!!menu.selectedText || canPaste) && (
         <motion.div
           data-context-menu
           ref={menuRef}
@@ -247,15 +232,6 @@ const GlobalContextMenu: React.FC = () => {
               <span className="text-[12px] text-muted-foreground">Ctrl+V</span>
             </button>
           )}
-          {(!!menu.selectedText || canPaste) && (
-            <div role="separator" className="-mx-[6px] my-[6px] h-px bg-[var(--menu-border)]" />
-          )}
-          <button type="button" role="menuitem" className={itemClass} onClick={reloadPage}>
-            {t("contextMenu.reload")}
-          </button>
-          <button type="button" role="menuitem" className={itemClass} onClick={inspectPage}>
-            {t("contextMenu.inspect")}
-          </button>
         </motion.div>
       )}
     </AnimatePresence>,

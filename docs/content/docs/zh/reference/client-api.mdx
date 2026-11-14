@@ -49,18 +49,19 @@ snapshot.entries;
 | 命令 | 业务参数 | 行为 |
 | ---- | -------- | ---- |
 | `updater_get_storage_state` | 无 | 存储路径与便携模式状态。 |
-| `updater_get_startup_state` | 无 | 安装配置与启动状态。 |
+| `updater_get_startup_state` | 无 | 安装配置与启动状态。Mirror 酱配置状态为 `config.general.mirrorc_cdk_configured`。 |
 | `updater_path_exists_non_empty` | `{ path }` | 桌面文件系统检查，Android 返回 `false`。 |
 | `updater_update_config` | `{ request }` | 部分更新安装配置，字段包括 `baasRootPath`、`channel`、`runtimePath`、`noUpdate`、`gitBackend`、`transport`。 |
-| `updater_validate_mirrorc_cdk` | `{ request: { cdk, channel? } }` | 验证报告，Android 返回不支持报告。 |
+| `updater_validate_mirrorc_cdk` | `{ request: { cdk?, channel? } }` | 验证稳定版主仓的 CDK。省略 `cdk` 时使用本机保存的凭证，返回状态码和有效期。 |
 | `tauri_client_check_update` | `{ request?: { currentVersion? } }` | 桌面更新器元数据或 Android 安装包更新元数据。 |
 | `tauri_client_download_and_install` | `{ onEvent }` | 通过 Tauri 事件通道报告下载安装过程，各平台的返回处理不同。 |
+| `tauri_client_update_ready` | 无 | 仅桌面。确认 Windows 便携更新后的首个 React 根提交，供更新 helper 完成恢复事务；其他桌面平台返回 `acknowledged: false`，不等待后端安装。 |
 | `updater_check_version` | `{ request: { channel? } }` | 后端本地与远端版本报告。 |
 | `updater_get_commit_history` | `{ request: { channel?, limit?, refresh? } }` | 在桌面和 Android 读取后端提交元数据。通道缺省使用当前配置，条数缺省为 100，并限制在 1–500。 |
 | `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | 探测一个远端版本来源。 |
 | `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | 探测多个来源，报告可能按完成顺序返回。 |
 | `updater_start_workflow` | `{ request: { installPath?, launch? } }` | 启动更新器终端会话。 |
-| `updater_select_channel` | `{ channel }` | 仅 Android 注册。保存首次选择的 `dev` 通道并解除引导程序等待，拒绝 `stable`；返回 `channel`、`channelSelected: true`。 |
+| `updater_select_channel` | `{ channel }` | 仅 Android 注册。保存首次选择的后端通道（默认 `stable`，可选 `dev`），让引导程序继续安装。返回 `channel`、`channelSelected: true`。 |
 | `updater_restart_backend` | 无 | 仅 Android 注册。请求引导程序重启并确保 Android 后端服务已启动；`restartScheduled` 只表示重启请求是否被接受，不代表安装或重连已完成。 |
 | `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | 请求取消，仍需检查取消报告与清理限制。 |
 | `updater_terminal_snapshot` | 无 | 返回用于恢复终端显示的结构化数据。 |
@@ -123,6 +124,8 @@ const mode: BackendTransportMode = "shm";
 | `android_prepare_scrcpy_virtual_display` | `{ request }`，桌面走 ADB，Android 走原生显示服务；请求结构不同。 |
 | `android_cleanup_scrcpy_virtual_display` | 通过平台实现清理选定显示。 |
 | `android_scrcpy_virtual_display_status` | 返回显示准备状态，不能证明画面持续更新。 |
+| `android_pick_profile_folder` | 仅 Android，无参数。打开系统文件夹选择器，返回所选 URI，取消时返回 `null`。 |
+| `android_list_profile_folder` | 仅 Android，`{ uri }`。返回 `{ name, uri, isDirectory, isFile, isSymlink }` 条目；仅限用户选中的目录与已通过此桥枚举出的子目录。 |
 | `android_list_games` | 列出 Android 游戏包。 |
 | `android_launch_game` | 启动选定包。 |
 | `android_game_preview` | 经 Android 实现获取预览状态或数据。 |

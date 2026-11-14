@@ -64,9 +64,9 @@ const USAGE: Record<string, CommandUsage> = {
     explanation: "不带参数连接已保存的服务；指定地址则切换服务，登录 Key 按提示输入。",
   },
   install: {
-    syntax: "/install [dev]",
-    example: "/install dev",
-    explanation: "安装本地 Python、BAAS 服务版后端和依赖；当前使用 dev 通道。",
+    syntax: "/install [stable|dev]",
+    example: "/install",
+    explanation: "安装本地 Python、BAAS 服务版后端和依赖。首次安装默认使用 stable 通道。",
   },
   uninstall: {
     explanation: "卸载本地后端程序，保留配置和用户数据。",

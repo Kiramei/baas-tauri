@@ -3,6 +3,7 @@ import "@xterm/xterm/css/xterm.css";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
+import { attachAndroidReadOnlyTerminal } from "@/shared/AndroidReadOnlyTerminal";
 
 interface AndroidStartupTerminalProps {
   text: string;
@@ -37,6 +38,7 @@ const AndroidStartupTerminal: React.FC<AndroidStartupTerminalProps> = ({ text })
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(hostRef.current);
+    const detachReadOnlyLog = attachAndroidReadOnlyTerminal(term, hostRef.current);
 
     termRef.current = term;
     fitRef.current = fit;
@@ -53,6 +55,7 @@ const AndroidStartupTerminal: React.FC<AndroidStartupTerminalProps> = ({ text })
 
     return () => {
       stopObserving();
+      detachReadOnlyLog();
       fit.dispose();
       term.dispose();
       termRef.current = null;

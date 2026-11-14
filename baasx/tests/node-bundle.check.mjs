@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -13,9 +13,9 @@ import { fileURLToPath, URL } from "node:url";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const bundle = path.join(project, "dist", "baasx-node.mjs");
-const helper = process.platform === "win32" ? "baas-cli-runtime.exe" : "baas-cli-runtime";
+const helper = process.platform === "win32" ? "baasx-runtime.exe" : "baasx-runtime";
 const cleanEnv = { ...process.env };
-for (const key of ["BAAS_KEY", "BAAS_PIPE", "BAAS_PROFILE", "BAAS_RUNTIME_HELPER", "BAAS_SERVER"])
+for (const key of ["BAAS_KEY", "BAAS_PIPE", "BAAS_PROFILE", "BAAS_RUNTIME_HELPER", "BAASX_RUNTIME_HELPER", "BAAS_SERVER"])
   delete cleanEnv[key];
 
 test("Node bundle executes demo commands without a Bun executable", (t) => {
@@ -34,20 +34,43 @@ test("Node bundle finds the matching platform helper inside a registry package",
   const directory = mkdtempSync(path.join(tmpdir(), "baasx-node-helper-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const dist = path.join(directory, "package", "dist");
-  const runtime = path.join(directory, "package", "platforms", `${process.platform}-${process.arch}`, "runtime");
+  const platformName = `@kiramei/baasx-${process.platform}-${process.arch}`;
+  const platform = path.join(directory, "package", "node_modules", platformName);
+  const runtime = path.join(platform, "runtime");
+  const bin = path.join(directory, "package", "bin");
+  mkdirSync(bin, { recursive: true });
+  copyFileSync(path.join(project, "registry", "baasx.mjs"), path.join(bin, "baasx.mjs"));
   mkdirSync(dist, { recursive: true });
   mkdirSync(runtime, { recursive: true });
+  writeFileSync(
+    path.join(platform, "package.json"),
+    JSON.stringify({ name: platformName, exports: { "./helper": "./runtime/" + helper } })
+  );
   copyFileSync(bundle, path.join(dist, "baasx-node.mjs"));
   copyFileSync(path.join(project, "dist", "runtime", helper), path.join(runtime, helper));
   // An empty config has no managed runtime, so the real helper exits before
   // any update network request. Its error shows that the helper was located.
-  const result = spawnSync(process.execPath, [path.join(dist, "baasx-node.mjs"), "--config-home", path.join(directory, "config"), "--json", "check-update"], {
+  const result = spawnSync(process.execPath, [path.join(bin, "baasx.mjs"), "--config-home", path.join(directory, "config"), "--json", "check-update"], {
     env: cleanEnv,
     encoding: "utf8",
     timeout: 15_000,
   });
   assert.equal(result.status, 1, result.stderr);
-  assert.match(JSON.parse(result.stdout).error, /updates require a complete CLI-managed dev runtime/);
+  assert.match(JSON.parse(result.stdout).error, /updates require a complete CLI-managed (?:dev )?runtime/);
+});
+
+test("new bundles find older unpacked runtime filenames", (t) => {
+  const directory = mkdtempSync(path.join(tmpdir(), "baasx-legacy-bundle-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const dist = path.join(directory, "dist");
+  const runtime = path.join(directory, "runtime");
+  mkdirSync(dist);
+  mkdirSync(runtime);
+  copyFileSync(bundle, path.join(dist, "baasx-node.mjs"));
+  copyFileSync(path.join(project, "dist", "runtime", helper), path.join(runtime, helper.replace("baasx", "baas-cli")));
+  const status = spawnSync(process.execPath, [path.join(dist, "baasx-node.mjs"), "--config-home", directory, "--json", "check-update"], { env: cleanEnv, encoding: "utf8" });
+  assert.equal(status.status, 1);
+  assert.match(JSON.parse(status.stdout).error, /updates require a complete CLI-managed (?:dev )?runtime/);
 });
 
 test("Node 20 WebSocket fallback sends the BAAS control handshake", { timeout: 20_000 }, async (t) => {

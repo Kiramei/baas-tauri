@@ -28,7 +28,7 @@ cnpm 默认使用 npm 镜像，新版本可能需要等待镜像同步。若暂�
 
 Deno 的 `-A` 为启动器授予全部权限。安装后需将 Deno 和其全局可执行目录（默认 `~/.deno/bin`）加入 PATH。Deno 2.9 起默认等待版本发布满 24 小时；如需立即安装，可在 Deno 2.9 或更新版本的命令中加入 `--min-dep-age=0`。
 
-注册表包包含 JavaScript 程序和 Windows x64、Linux x64、Apple Silicon Mac 的安装组件，无需安装 Rust。
+带作用域的包安装 JavaScript CLI。包管理器根据系统和 CPU 自动选择同版本的运行时。Linux、macOS 和 Windows 各提供 x64、ARM64 CLI。本地 OCR 当前支持 Linux x64、macOS ARM64 和 Windows x64，其他平台可连接远程服务或使用演示模式。GitHub Packages 发布带作用域的包。
 
 独立版本发布后，可从 [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-v) 的 `baasx-v<版本>` 下载归档。桌面客户端的 Latest 安装包为另一发行物。
 
@@ -41,8 +41,9 @@ Deno 的 `-A` 为启动器授予全部权限。安装后需将 Deno 和其全局
 | Windows x64       | `baasx-<版本>-Windows-X64.tar.gz` |
 | Linux x64         | `baasx-<版本>-Linux-X64.tar.gz`   |
 | Apple Silicon Mac | `baasx-<版本>-macOS-ARM64.tar.gz` |
-
-不支持把其他平台的 helper 混入当前平台。Intel Mac、Linux ARM 等未列出的原生发行包不能从上述名称推导为已提供。
+| Windows ARM64 | `baasx-<版本>-Windows-ARM64.tar.gz` |
+| Linux ARM64 | `baasx-<版本>-Linux-ARM64.tar.gz` |
+| Intel Mac | `baasx-<版本>-macOS-X64.tar.gz` |
 
 ### Windows PowerShell
 
@@ -65,7 +66,7 @@ Set-Location .\baasx
 mkdir -p baasx
 tar -xzf baasx-<版本>-Linux-X64.tar.gz -C baasx
 cd baasx
-chmod +x baasx runtime/baas-cli-runtime
+chmod +x baasx runtime/baasx-runtime
 ./baasx --demo --lang zh
 ```
 
@@ -75,13 +76,15 @@ chmod +x baasx runtime/baas-cli-runtime
 baasx/                   # 解压目录，可自行改名
 ├── baasx                # Windows 为 baasx.exe
 ├── runtime/
-│   └── baas-cli-runtime # Windows 带 .exe
+│   └── baasx-runtime     # Windows 带 .exe
 ├── README.md
 ├── README_zh.md
 └── LICENSE
 ```
 
 **不要只复制主程序而丢弃 `runtime/`。** 加入 PATH 时指向整个解压目录，或创建指向原程序的启动方式。Release 中的 `SHA256SUMS` 用于与下载归档的 SHA-256 对照；Linux 可在归档目录运行 `sha256sum --check --ignore-missing SHA256SUMS`，PowerShell 用 `Get-FileHash -Algorithm SHA256 <文件名>` 与清单比对。
+
+新版发行包使用 `runtime/baasx-runtime`（Windows 为 `baasx-runtime.exe`）。旧安装中可能仍是 `runtime/baas-cli-runtime`（Windows 为 `baas-cli-runtime.exe`），当前启动器也会识别旧名称。需要指定组件路径时可设置 `BAASX_RUNTIME_HELPER`；旧变量 `BAAS_RUNTIME_HELPER` 仍作为回退支持。
 
 ## Bun 发行包
 
@@ -133,7 +136,7 @@ npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary --n
 
 使用 `/uninstall` 卸载本地后端程序，确认时会显示目录；配置和用户数据会保留。命令行也可使用 `baasx uninstall`，非交互执行需加 `--yes`。
 
-本地环境默认在 `<CLI配置目录>/runtime`，使用支持 `main.service.py` 的 **Kiramei/baas-dev 服务版 dev 通道**。旧 GUI 稳定版不具备这里要求的协议，选择 `stable` 会被拒绝。首次安装必须明确确认，`--yes` 不绕过这一步。
+本地环境默认在 `<CLI配置目录>/runtime`。首次安装默认使用 `stable` 服务版后端，可用 `/install dev` 选择开发通道。更新沿用已有环境的通道。首次安装必须明确确认，`--yes` 不绕过这一步。
 
 CLI 配置目录默认是 `$XDG_CONFIG_HOME/baas` 或 `~/.config/baas`。使用 `--config-home <目录>` / `BAAS_CLI_HOME` 可以隔离不同安装：
 
@@ -145,7 +148,7 @@ baasx --config-home ./baasx-lab --demo
 
 ### WebSocket 服务
 
-在兼容的 `baas-dev` 后端目录启动服务：
+在兼容的后端目录启动服务：
 
 ```sh
 python main.service.py --host 127.0.0.1 --port 8190

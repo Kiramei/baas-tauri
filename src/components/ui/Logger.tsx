@@ -62,16 +62,34 @@ const Row = ({ index, logs, style }: RowComponentProps<{ logs: LogItem[] }>) => 
 const Logger: React.FC<LoggerProps> = ({ logs = [], scrollToEnd = false }) => {
   const { t } = useTranslation();
   const listRef = useRef<ListImperativeAPI | null>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
   const rowHeight = useDynamicRowHeight({ defaultRowHeight: LOG_ROW_LINE_HEIGHT });
 
   useLayoutEffect(() => {
     if (!scrollToEnd || logs.length === 0) return;
+    if (__WITH_ANDROID__) {
+      const selection = document.getSelection();
+      if (
+        selection &&
+        !selection.isCollapsed &&
+        (hostRef.current?.contains(selection.anchorNode) ||
+          hostRef.current?.contains(selection.focusNode))
+      )
+        return;
+    }
 
     listRef.current?.scrollToRow({ index: logs.length - 1, align: "end" });
   }, [scrollToEnd, logs.length, rowHeight]);
 
   return (
-    <div className="allow-select-text relative h-full min-h-0 w-full overflow-hidden text-foreground">
+    <div
+      ref={hostRef}
+      className="allow-select-text relative h-full min-h-0 w-full overflow-hidden text-foreground"
+      data-android-profile-log={__WITH_ANDROID__ ? "" : undefined}
+      contentEditable={__WITH_ANDROID__ ? false : undefined}
+      inputMode={__WITH_ANDROID__ ? "none" : undefined}
+      style={__WITH_ANDROID__ ? { userSelect: "text", WebkitUserSelect: "text" } : undefined}
+    >
       {logs.length > 0 ? (
         <List
           style={{ overflowX: "auto" }}

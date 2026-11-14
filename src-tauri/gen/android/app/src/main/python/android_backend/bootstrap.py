@@ -29,9 +29,9 @@ GIT_INSTALL_WAIT_SECONDS = 900
 GIT_INSTALL_POLL_SECONDS = 0.2
 INSTALL_HEARTBEAT_SECONDS = 5
 PACKAGE_NAME = "io.github.kiramei.baas_tauri"
-DEFAULT_CHANNEL = "dev"
+DEFAULT_CHANNEL = "stable"
 CHANNEL_OPTIONS = (
-    {"id": "stable", "available": False},
+    {"id": "stable", "available": True},
     {"id": "dev", "available": True},
 )
 # The first install waits for a real channel decision, but a timeout keeps a
@@ -44,7 +44,7 @@ ARCHIVE_MAGIC = b"PK\x03\x04"
 SOURCE_ATTEMPTS = 2
 SOURCE_TIMEOUT_SECONDS = 45
 DOWNLOAD_DEADLINE_SECONDS = 900
-STEP_IDS = ("storage", "channel", "download", "extract", "adapt", "service")
+STEP_IDS = ("storage", "channel", "download", "extract", "adapt", "service", "ocr", "resources")
 _ATX_PROCESSES = []
 _BACKEND_MODULE_ROOTS = (
     "android_runtime_injection",
@@ -232,6 +232,7 @@ def _start_once(files_dir, storage_root_or_port, port=None, native_library_dir=N
         "startedAt": time.time(),
         "steps": _initial_steps(),
         "updatedAt": time.time(),
+        "resourcesReady": False,
     }
     _BOOTSTRAP_STATUS = status
 
@@ -243,7 +244,6 @@ def _start_once(files_dir, storage_root_or_port, port=None, native_library_dir=N
         installed = _ensure_backend_files(root, status)
         status["backendInstalled"] = True
         status["installedThisRun"] = installed
-        status["ok"] = True
         _write_status(root, status)
         status["stage"] = "service"
         status["installMessage"] = "Starting local backend service."
@@ -262,6 +262,7 @@ def _start_once(files_dir, storage_root_or_port, port=None, native_library_dir=N
             {
                 "ok": False,
                 "stage": "failed",
+                "resourcesReady": False,
                 "backendInstalled": _service_path(root).exists(),
                 "error": str(error),
                 "traceback": traceback.format_exc(),
@@ -300,7 +301,8 @@ def _configure_environment(files_dir, storage_root_or_port, port=None, native_li
     os.environ.setdefault("BAAS_UPDATE_CHECK_INTERVAL_SECONDS", "86400")
     os.environ["BAAS_ANDROID"] = "1"
     os.environ["BAAS_ANDROID_NATIVE_CAPTURE"] = "1"
-    os.environ.setdefault("BAAS_ALLOW_MISSING_OCR", "1")
+    # A reachable transport must never make missing OCR appear script-ready.
+    os.environ["BAAS_ALLOW_MISSING_OCR"] = "0"
     os.environ["BAAS_ANDROID_INTERNAL_FILES_DIR"] = str(files_dir)
     os.environ["BAAS_ANDROID_LOCAL_TOKEN_FILE"] = str(Path(files_dir) / "android-local-device-token")
     os.environ["BAAS_PIPE_NAME"] = str(Path(files_dir) / "baas-service.sock")
@@ -329,6 +331,8 @@ def _initial_steps(channel=None):
         "extract": "Install backend files",
         "adapt": "Apply Android compatibility patches",
         "service": "Start local service",
+        "ocr": "Prepare OCR runtime and models",
+        "resources": "Prepare script resources",
     }
     steps = [
         {"id": step_id, "title": titles[step_id], "state": "pending", "detail": ""}
@@ -343,23 +347,25 @@ def _initial_steps(channel=None):
 
 
 # Updates one step and persists the status document so the UI never guesses.
-def _set_step(root, status, step_id, state, detail=""):
-    steps = status.setdefault("steps", _initial_steps(status.get("channel")))
-    found = False
-    for step in steps:
-        if step.get("id") == step_id:
-            step["state"] = state
-            step["detail"] = detail
-            step["updatedAt"] = time.time()
-            found = True
-            break
-    if not found:
-        steps.append(
-            {"id": step_id, "title": step_id.title(), "state": state, "detail": detail, "updatedAt": time.time()}
-        )
-    status["currentStep"] = step_id
-    status["updatedAt"] = time.time()
-    _write_status(root, status)
+def _set_step(root, status, step_id, state, detail="", make_current=True):
+    with _STATUS_WRITE_LOCK:
+        steps = status.setdefault("steps", _initial_steps(status.get("channel")))
+        found = False
+        for step in steps:
+            if step.get("id") == step_id:
+                step["state"] = state
+                step["detail"] = detail
+                step["updatedAt"] = time.time()
+                found = True
+                break
+        if not found:
+            steps.append(
+                {"id": step_id, "title": step_id.title(), "state": state, "detail": detail, "updatedAt": time.time()}
+            )
+        if make_current:
+            status["currentStep"] = step_id
+        status["updatedAt"] = time.time()
+        _write_status(root, status)
 
 
 # Reads the explicit channel choice written by the app, if the user made one.
@@ -384,7 +390,7 @@ def _await_channel_selection(root, status):
     status["stage"] = "channel"
     status["awaitingChannel"] = True
     status["channelOptions"] = [dict(option) for option in CHANNEL_OPTIONS]
-    status["installMessage"] = "Waiting for you to confirm the Development channel for Android."
+    status["installMessage"] = "Waiting for you to confirm the backend update channel."
     _set_step(root, status, "channel", "running", "Waiting for the update channel chosen in the app.")
     print(
         "[channel] Awaiting your Continue installation confirmation; no download has started.",
@@ -426,14 +432,6 @@ def _await_channel_selection(root, status):
 
 # Records the chosen channel in the status document and the setup file.
 def _record_channel(root, status, channel):
-    if channel == "stable":
-        error = (
-            "The Stable channel lacks the Android service (main.service.py). "
-            "Choose Development (Dev) to install BAAS on Android."
-        )
-        _set_step(root, status, "storage", "done", f"Private directory: {root}")
-        _set_step(root, status, "channel", "failed", error)
-        raise RuntimeError(error)
     status["channel"] = channel
     status["awaitingChannel"] = False
     status["stage"] = "runtime"
@@ -508,13 +506,13 @@ def _ensure_backend_files(root, status):
     tmp_root = root / ".baas-next"
     shutil.rmtree(tmp_root, ignore_errors=True)
     status["installing"] = True
-    status["installMessage"] = f"Installing the {channel} backend with Rust git2."
-    _set_step(root, status, "download", "running", "Requesting Rust git2 mirror speed tests.")
+    status["installMessage"] = f"Installing the {channel} backend from the configured source."
+    _set_step(root, status, "download", "running", "Requesting the backend from the native updater.")
     remote_sha = _await_git2_backend_install(root, status, channel)
     if not _service_path(tmp_root).is_file():
         raise RuntimeError("Rust git2 completed without main.service.py; refusing an incomplete backend checkout.")
-    _set_step(root, status, "download", "done", f"Git2 transfer completed from {status.get('downloadSource') or 'the selected mirror'}.")
-    _set_step(root, status, "extract", "done", "Git2 checkout verified; ready for Android compatibility patches.")
+    _set_step(root, status, "download", "done", f"Backend transfer completed from {status.get('downloadSource') or 'the selected mirror'}.")
+    _set_step(root, status, "extract", "done", "Backend verified; ready for Android compatibility patches.")
     _set_step(root, status, "adapt", "running", "Applying Android compatibility patches.")
     print("[adapt] Applying Android compatibility patches to the verified git2 checkout.", flush=True)
     _ensure_android_support_files(tmp_root)
@@ -573,13 +571,12 @@ def _await_git2_backend_install(root, status, channel):
     }
     status["gitInstallRequestId"] = request_id
     status["installPhase"] = "native-start"
-    _set_step(root, status, "download", "running", "Waiting for the Rust git2 installer to acknowledge the request.")
+    _set_step(root, status, "download", "running", "Waiting for the native installer to acknowledge the request.")
     temporary_request = request_path.with_suffix(".json.tmp")
     temporary_request.write_text(json.dumps(request), encoding="utf-8")
     os.replace(str(temporary_request), str(request_path))
     print(
-        f"[git2] Requested native installation {request_id}; mirror tests, transfer and checkout "
-        "will report progress below. No ZIP archive will be downloaded.",
+        f"[install] Requested native installation {request_id}; download and verification progress follows.",
         flush=True,
     )
 
@@ -623,7 +620,7 @@ def _await_git2_backend_install(root, status, channel):
                     raise RuntimeError("Rust git2 reported success without a valid repository commit SHA.")
                 if result.get("source"):
                     status["downloadSource"] = str(result["source"])
-                status["installPhase"] = "git2-complete"
+                status["installPhase"] = "mirrorc-complete" if result.get("source") == "MirrorChyan" else "git2-complete"
                 print(f"[git2] Verified native checkout at commit {sha} from {status.get('downloadSource', 'the selected mirror')}.", flush=True)
                 return sha
 
@@ -1301,6 +1298,8 @@ def _android_support_fingerprint(root):
                     value.co_cellvars, value.co_flags, stable_code(value.co_consts)]
         if isinstance(value, bytes):
             return {"bytes": value.hex()}
+        if isinstance(value, slice):
+            return {"slice": stable_code((value.start, value.stop, value.step))}
         if isinstance(value, (tuple, list)):
             return [stable_code(item) for item in value]
         if isinstance(value, frozenset):
@@ -1430,6 +1429,15 @@ def _patch_android_ocr_module_injection(root):
         "    from service import android_ocr_client, android_ocr_installer\n\n"
         "    sys.modules[\"core.ocr.baas_ocr_client.Client\"] = android_ocr_client\n"
         "    sys.modules[\"core.ocr.baas_ocr_client.server_installer\"] = android_ocr_installer\n",
+    )
+    _replace_once(
+        injection,
+        "BAAS_ANDROID_OCR_CACHE_GUARDS_V1",
+        "    sys.modules[\"core.ocr.baas_ocr_client.server_installer\"] = android_ocr_installer\n",
+        "    sys.modules[\"core.ocr.baas_ocr_client.server_installer\"] = android_ocr_installer\n"
+        "    # BAAS_ANDROID_OCR_CACHE_GUARDS_V1\n"
+        "    from android_backend.ocr_runtime_cache import install_ocr_cache_guards\n"
+        "    install_ocr_cache_guards(android_ocr_client, android_ocr_installer)\n",
     )
     # New backends keep the installer in core and expose the old service module
     # as an alias. Use its actual target folder instead of the client's __file__.
@@ -3585,6 +3593,8 @@ def _write_uiautomator2_stub(root):
         "            self._jsonrpc('deviceInfo', [], timeout=2)\n"
         "            return True\n"
         "        except Exception:\n"
+        "            if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
+        "                raise\n"
         "            return False\n\n"
         "    def _jsonrpc(self, method, params=None, timeout=60):\n"
         "        body = json.dumps({\n"
@@ -3685,6 +3695,8 @@ def _write_uiautomator2_stub(root):
         "    def app_start(self, package_name, activity=None, wait=False, stop=False):\n"
         "        if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
         "            result = self._jsonrpc('appStart', [package_name], timeout=20)\n"
+        "            if result is not True:\n"
+        "                raise RuntimeError(f'Android could not launch {package_name} on the game display')\n"
         "            if wait:\n"
         "                time.sleep(1)\n"
         "            return result\n"
@@ -3761,14 +3773,14 @@ def _service_path(root):
 
 # Confirms the service really accepts connections before reporting the step done.
 def _report_service_ready(root, port):
-    status = _read_status(root, {})
+    status = _BOOTSTRAP_STATUS if _BOOTSTRAP_STATUS is not None else _read_status(root, {})
 
     def probe():
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             try:
                 with socket.create_connection(("127.0.0.1", int(port)), timeout=0.5):
-                    _set_step(root, status, "service", "done", f"Listening on 127.0.0.1:{port}")
+                    _set_step(root, status, "service", "done", f"Listening on 127.0.0.1:{port}", make_current=False)
                     print(f"[service] Backend listening on 127.0.0.1:{port}", flush=True)
                     return
             except OSError:
@@ -3776,6 +3788,23 @@ def _report_service_ready(root, port):
         _set_step(root, status, "service", "failed", f"Port {port} did not accept connections within 60s")
 
     threading.Thread(target=probe, name="baas-service-ready", daemon=True).start()
+
+
+def _report_resource_readiness(root, step, state, detail, trace=""):
+    """Persist real initializer results independently of transport availability."""
+    with _STATUS_WRITE_LOCK:
+        status = _BOOTSTRAP_STATUS if _BOOTSTRAP_STATUS is not None else _read_status(root, {})
+        if state == "failed":
+            status.update(ok=False, stage="failed", resourcesReady=False, error=detail, traceback=trace)
+            for item in status.get("steps", []):
+                if item.get("id") in {"ocr", "resources"} and item.get("state") == "running":
+                    item.update(state="failed", detail=detail)
+        elif step == "resources" and state == "done":
+            status.update(ok=True, stage="ready", resourcesReady=True)
+        else:
+            status.update(stage="resources", resourcesReady=False)
+        _set_step(root, status, step, state, detail)
+    print(f"[{step}] {detail}", flush=True)
 
 
 # Handles the run baas service workflow.
@@ -3958,6 +3987,15 @@ async def _handle_android_reset_auth(scope, receive, send):
 
 # Builds the ASGI app and reserves a bootstrap-owned restart endpoint.
 def _build_baas_asgi_app(root, port):
+    from android_backend.profile_resources import install_profile_isolation
+    from android_backend.resource_readiness import install_runtime_readiness
+    from service.runtime import ServiceRuntime
+
+    install_profile_isolation(ServiceRuntime)
+    install_runtime_readiness(
+        ServiceRuntime,
+        lambda step, state, detail, trace: _report_resource_readiness(root, step, state, detail, trace),
+    )
     from service.app import app as service_app
 
     # Wiki is intentionally unavailable in the Android client. Remove its API

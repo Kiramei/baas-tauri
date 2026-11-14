@@ -90,7 +90,7 @@
     },
     "update.mirrorCdk": {
       "page": "features/update",
-      "mention": "mirrorcCdk"
+      "mention": "CDK"
     },
     "update.method": {
       "page": "features/update",
@@ -103,6 +103,10 @@
     "log.scroll.detail": {
       "page": "features/system",
       "mention": "scrollToEnd"
+    },
+    "settings.ui.enableBACursors": {
+      "page": "features/system",
+      "mention": "enableBACursors"
     }
   },
   "additionalSettings": [
@@ -147,5 +151,23 @@
     "saving or exercising new global OS hotkey bindings; the actual recorder temporarily suspends/restores existing bindings",
     "backend/client update installation",
     "remote power/clipboard/game-input commands"
-  ]
+  ],
+  "coverageSupplement": {
+    "revision": "68458eba9f6a256f5fdfff4a3b796962d730bce9",
+    "scope": "BACursors is a desktop/WebUI preference with bilingual guidance; Android has no dead-end control.",
+    "sources": [
+      {
+        "file": "src/pages/SettingsPage.tsx",
+        "revision": "68458eba9f6a256f5fdfff4a3b796962d730bce9",
+        "sha256": "fe80c2232f1ab2f76296bb1b020d8223905002e6616bc8717588ddc6c0d89954",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src/shared/SettingsSections.ts",
+        "revision": "68458eba9f6a256f5fdfff4a3b796962d730bce9",
+        "sha256": "28e3518b70c8bd6f3645fdc8e3719c88a8788852cfed1f9fc178c570dc2aac54",
+        "gitContentVerified": true
+      }
+    ]
+  }
 }

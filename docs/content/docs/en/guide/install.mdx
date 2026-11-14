@@ -70,7 +70,7 @@ On the initial form, **Cancel Installation exits the app**; **Start Installation
 | Data transport                         | WebSocket, native pipe, plus shared memory on supported Windows/Linux desktop builds. This is client/backend transport, not ADB or screenshot method        |
 | Skip updates                           | `general.no_update`; keep existing main/Cpp files instead of repository synchronization. It does not supply missing code or guarantee offline startup       |
 | Enter automatically after installation | Client-wide `autoEnterAfterInstall`, default on. When off, keep completion logs until Open Home is clicked; not OS login autostart or scheduler Start       |
-| MirrorC CDK                            | Optional distribution credential; Verify CDK checks it for the selected channel. A successful check stages the trimmed key; rejected/failed checks clear it |
+| MirrorC CDK                            | Optional distribution credential; Verify CDK checks it for the selected channel. A successful check stages the trimmed key; a failed check leaves the saved key intact |
 | Confirm                                | Persist the supported updater options for the selected root and close                                                                                       |
 | Cancel / close / outside / Escape      | Dismiss the dialog; this is **not a full rollback**, as described below                                                                                     |
 

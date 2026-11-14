@@ -12,8 +12,6 @@ services:
       BRANCH: "${BRANCH:-master}"
     restart: unless-stopped
     stop_grace_period: 20s
-    command:
-      - https://github.com/Kiramei/baas-dev.git
 
 # Run: docker compose -f scripts/docker/docker-compose.yml up -d
 # Data is stored beside this file in scripts/docker/app; back it up before updates.

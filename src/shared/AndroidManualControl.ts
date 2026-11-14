@@ -47,12 +47,15 @@ type SchedulerStore = Pick<
 /** Viewing/playing the owned game must never stop or restart its scheduler. */
 export async function verifyAndroidManualControlOwnership(
   getState: () => SchedulerStore,
-  profileId: string,
+  allowedRunningProfile?: string,
   timeoutMs = 15_000
 ): Promise<void> {
   const state = getState();
-  if (otherRunningAndroidProfiles(state.statusStore, profileId).length) {
-    throw new Error("Another profile owns the Android game session");
+  const ownershipError = allowedRunningProfile
+    ? "Another profile owns the Android game session"
+    : "Stop running scripts before opening the game on the device";
+  if (otherRunningAndroidProfiles(state.statusStore, allowedRunningProfile).length) {
+    throw new Error(ownershipError);
   }
   if (state.connections.trigger?.readyState !== 1)
     throw new Error("Backend command channel is unavailable");
@@ -93,10 +96,10 @@ export async function verifyAndroidManualControlOwnership(
   }
   if (
     Object.entries(statuses).some(
-      ([id, item]: [string, any]) => item.running && id !== profileId
+      ([id, item]: [string, any]) => item.running && id !== allowedRunningProfile
     ) ||
-    otherRunningAndroidProfiles(getState().statusStore, profileId).length
+    otherRunningAndroidProfiles(getState().statusStore, allowedRunningProfile).length
   ) {
-    throw new Error("Another profile owns the Android game session");
+    throw new Error(ownershipError);
   }
 }

@@ -1,3 +1,48 @@
+## 0.0.10
+
+> Release in preparation. Android updates, stable backend defaults, local MirrorChyan credentials, and platform-specific client improvements.
+
+### New Features
+
+1. Added Android client update downloads with signed APK verification and handoff to the system installer.
+2. Added native MirrorChyan CDK verification and device-local credential storage for desktop and Android. Stable backend packages are checked against SHA-256 before application.
+3. Added a dedicated profile import pane with ZIP import and batch folder import, Android system folder selection and per-item results. Imports accept `default_config`, preserve existing profiles by allocating unique names, and assign fresh profile IDs.
+4. Moved macOS application actions into the native system menu bar, with synchronized shortcuts, action availability and standard window actions.
+5. Added a persistent, soft coral failure indicator beside affected profiles. A new run clears it; normal stops and historical error logs do not create a failure.
+6. Added a BACursors preference above BAComet in desktop and WebUI appearance settings, enabled by default.
+
+### Improvements
+
+1. New backend installations default to Stable across desktop, Android, WebUI/Docker and BAASX. Existing installations keep their saved channel; Development remains selectable.
+2. Moved Android backend update checking, OCR/model verification and shared-resource preparation into startup, with explicit retry or verified-local continuation before any update has begun.
+3. Improved Android game package detection, virtual-display ownership and restart handling, including Global Teen and ONE store variants. Home retains preview state while hiding the separate device-launch action.
+4. Separated frontend, native backend, platform adapters, BAASX and documentation CI. README-only changes use lightweight documentation checks.
+5. Prepared six-target BAASX distributions and optional platform npm runtime packages. The scoped `@kiramei/baasx` entry remains available; unscoped `baasx` publication is on hold. The native helper is now `baasx-runtime`, with legacy-name compatibility.
+6. Gave the wide-screen plugin list and settings pane independent scrolling.
+7. Grouped desktop run notifications and improved failure reporting, replacement and expiry. Android Home action messages use the selected profile's log; its long-press profile/global menus and add/ellipsis controls are hidden on Home while queue inspection and log copying remain available.
+8. Renamed global client Settings to **Preferences** across desktop, Android and WebUI, including navigation, search and menu shortcuts.
+9. Added an optional release job to mirror platform installers to the upstream repository under isolated `tauri-` prereleases, using explicit platform filenames and resumable verification.
+
+### Fixes
+
+1. Avoided relaunching an active Android game when Home reconnects, and coordinated display cleanup before restart.
+2. Kept Windows portable installations portable during client updates, with verified payloads, transactional file replacement and recovery before the updated UI acknowledges startup.
+3. Isolated invalid Android profiles from shared initialization and preserved the original error, avoiding misleading OCR-failure reports.
+4. Restored managed UV cache cleanup after successful dependency installation, including unchanged-requirements startup. Installed environments, custom Python installations and external/shared caches are preserved.
+5. Corrected signed update feed selection for the matching OS, architecture and Linux package format.
+6. Kept MirrorChyan credentials out of synchronized frontend configuration and sanitized credential-bearing download diagnostics.
+7. Prevented Android log viewing from opening the keyboard; completed missing translations across all seven interface languages and added UI-literal and interpolation checks.
+8. Corrected BAASX packaging, Windows archive handling, runtime compatibility and native release version alignment; moved Renovate to the repository root.
+
+### Upgrade Notes
+
+- Export important profiles before upgrading. Existing backend installations keep their saved channel.
+- Android APK installation requires system confirmation and may require permission to install packages. Background game capture and execution still depend on device support; a live preview alone does not establish successful task execution.
+- Enter a personal MirrorChyan CDK on each device. Do not include credentials in screenshots or exported configuration.
+- Use `@kiramei/baasx` for npm installations while the unscoped name is pending appeal.
+- Linux ARM64, Intel macOS and Windows ARM64 BAASX support remote connections and demo mode. Local OCR prebuilds currently cover Linux x64, Apple Silicon macOS and Windows x64.
+- Winget publication remains disabled for 0.x releases. This version has not been pushed or published.
+
 ## 0.0.9.post1
 
 > Stable maintenance release focused on Android first-run setup, plugin execution, and release version handling.

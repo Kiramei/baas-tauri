@@ -3,6 +3,8 @@
     "back": "戻る",
     "close": "閉じる",
     "collapseSidebar": "サイドバーを閉じる",
+    "devServerHint": "この開発セッションでは BAAS Tauri のデスクトップウィンドウを使用してください。ブラウザーの URL は Tauri WebView に Vite のリソースを提供します。",
+    "devServerTitle": "BAAS Tauri 開発サーバーが実行中です",
     "expandSidebar": "サイドバーを開く",
     "forward": "進む",
     "maximize": "最大化",
@@ -19,10 +21,12 @@
     "mobileConfiguration": "設定",
     "mobilePlugins": "拡張",
     "mobileScheduler": "タスク",
-    "mobileSettings": "アプリ設定",
+    "mobileSettings": "環境設定",
     "plugins": "プラグイン",
     "scheduler": "スケジュール",
-    "settings": "アプリ設定"
+    "scrollLeft": "左にスクロール",
+    "scrollRight": "右にスクロール",
+    "settings": "環境設定"
   },
   "common": {
     "add": "追加",
@@ -34,6 +38,7 @@
     "delete": "削除",
     "edit": "編集",
     "execute": "実行",
+    "loading": "読み込み中…",
     "save": "保存",
     "start": "開始",
     "stop": "停止",
@@ -56,6 +61,7 @@
   },
   "log": {
     "$self": "ログ",
+    "copied": "ログをクリップボードにコピーしました",
     "empty": {
       "description": "タスクを開始すると、進行状況がここに表示されます。",
       "title": "実行履歴はまだありません"
@@ -71,10 +77,20 @@
     "noneQueued": "キューにタスクはありません",
     "noneRunning": "実行中のタスクはありません",
     "overview": "タスク概要",
-    "running": "実行中のタスク"
+    "running": "実行中のタスク",
+    "status": {
+      "failed": "失敗",
+      "idle": "待機中",
+      "pending": "開始待ち",
+      "running": "実行中",
+      "skipped": "スキップ済み",
+      "stopped": "停止済み",
+      "success": "成功"
+    }
   },
   "notification": {
     "script": {
+      "batchBody": "新しい実行通知が {{count}} 件あります。{{latest}}",
       "completedBody": "{{task}} が完了しました。",
       "completedTitle": "BAAS タスク完了",
       "failedBody": "{{task}} が異常終了しました。終了コード: {{exitCode}}。",
@@ -88,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "設定カテゴリ",
+    "categories": "環境設定のカテゴリ",
     "descriptions": {
       "assets": "ホーム画面にゲーム内リソースを表示します。",
       "idleAutoUpdate": "すべてのプロファイルが待機中の場合にスクリプトを自動更新します。",
@@ -106,8 +122,8 @@
       "display": "表示と効果",
       "preferences": "基本設定"
     },
-    "noResults": "一致する設定がありません",
-    "search": "設定を検索",
+    "noResults": "一致する環境設定がありません",
+    "search": "環境設定を検索",
     "sections": {
       "appearance": "外観",
       "general": "一般",
@@ -177,11 +193,13 @@
       "backgroundImageSelected": "背景画像を設定しました",
       "backgroundImageTooLarge": "背景画像は 5MB 以下にしてください。",
       "enableBAComet": "BAComet有効",
+      "enableBACursors": "BACursors を有効にする",
       "enableSafeStream": "リモート映像を暗号化",
       "enableSystemNotifications": "システム通知を有効化",
       "idleAutoUpdate": "待機中にスクリプトを自動更新",
       "lowPerformanceMode": "軽量モード",
       "player": "映像デコーダー",
+      "reloadInterface": "画面を再読み込み",
       "storageFailed": "このブラウザーに設定を保存できません。サイトの保存領域を空けるか、より小さい背景画像を選んでください。",
       "themeColor": "テーマカラー",
       "themeColorInvalid": "#RRGGBB 形式でテーマカラーを入力してください。",
@@ -190,11 +208,12 @@
     "updateSuccess": "設定の更新に成功しました"
   },
   "update": {
+    "androidInstallerOpened": "Android のインストーラーで更新を確定してください。",
+    "androidPackageUnavailable": "このリリースには、この端末に対応する APK がありません。",
     "backendAction": "BAAS を更新",
     "backendStarted": "BAAS の更新を開始しました",
     "backendStartFailed": "BAAS の更新を開始できませんでした",
     "channel": "更新チャンネル",
-    "dueDate": "有効期限",
     "enterCdk": "CDKを入力",
     "method": "更新元",
     "mirrorCdk": "MirrorC CDK (任意)",
@@ -204,6 +223,7 @@
     "tauriAction": "クライアント",
     "tauriAvailable": "クライアント更新あり",
     "tauriChecking": "クライアント更新を確認中...",
+    "tauriDisabled": "setup.toml でクライアントの更新が無効になっています。",
     "tauriDownloading": "{{version}} をダウンロード中...",
     "tauriFailed": "クライアント更新失敗",
     "tauriInstalling": "インストールして再起動中...",
@@ -224,6 +244,7 @@
     "copy": "プロファイルをコピー",
     "copyFailed": "プロファイルのコピーに失敗しました",
     "create": "プロファイルを作成",
+    "createElsewhere": "「{{tasks}}」または「{{configuration}}」からプロファイルを作成してください。",
     "deleteConfirmMessage": "プロファイル「{{name}}」を削除してもよろしいですか？この操作は元に戻せません！",
     "deleteConfirmTitle": "削除の確認",
     "dropAuthRequired": "プロファイルアーカイブをインポートする前に接続して認証してください。",
@@ -238,10 +259,19 @@
     "exportFailed": "プロファイルのエクスポートに失敗しました",
     "import": "プロファイルアーカイブをインポート",
     "importArchive": "プロファイルアーカイブを選択",
+    "importEntry": "設定をインポート",
     "importFailed": "プロファイルのインポートに失敗しました",
+    "importFolder": "フォルダーから設定を一括インポート",
+    "importFolderEmpty": "config.json を含む設定のサブフォルダーが見つかりません。",
+    "importFolderProgress": "設定をインポート中：{{completed}} / {{total}}",
+    "importFolderResult": "{{imported}} 件をインポートしました。{{failed}} 件が失敗しました。",
+    "importFolderUnsupported": "このブラウザーではフォルダーを選択できません。ZIP ファイルからインポートしてください。",
+    "importRefreshFailed": "設定はインポートされましたが、一覧の更新に失敗しました。再接続して確認してください。",
     "list": "プロファイル",
     "name": "プロファイル名",
-    "nameExists": "名前は既に存在します"
+    "nameExists": "名前は既に存在します",
+    "runFailed": "実行失敗",
+    "running": "実行中"
   },
   "description": {
     "arena": "対戦相手と挑戦回数",
@@ -283,20 +313,31 @@
     "advancedHint": "言語、外観、更新チャンネル、接続方式。",
     "autoEnter": "インストール完了後に自動で開く",
     "autoEnterHint": "オフにすると完了後もインストールログを表示し、「ホームを開く」をクリックして進みます。",
+    "autoLoginFailed": "自動ログインに失敗しました。既存のバックエンドのキーが異なる可能性があります。",
+    "backendNotReady": "バックエンドの認証サービスの準備ができていません。",
+    "backToSetup": "セットアップに戻る",
     "completed": "インストール完了",
     "directoryHint": "ランタイムとスクリプトファイルはこのフォルダーにインストールされます。",
+    "duration": "所要時間",
     "enter": "ホームを開く",
     "entering": "開いています…",
+    "errorHint": "セットアップに戻ってインストール先を変更するか、再試行してください。問題を報告する前にログをコピーしてください。",
+    "errorTitle": "セットアップエラー",
     "exit": "キャンセル",
+    "finished": "終了時刻",
     "logs": "インストールログ",
     "noOutput": "ターミナル出力はまだありません。",
+    "noStructuredLogs": "構造化ログはまだ記録されていません。",
     "portableHint": "ポータブルモードではアプリと同じフォルダーを使用します。",
     "preparing": "ターミナルを準備中…",
     "setting": "インストール設定",
     "start": "インストール開始",
+    "started": "開始時刻",
+    "stepProgress": "ステップ {{index}}/{{total}}",
     "title": {
       "wizard": "セットアップウィザード"
-    }
+    },
+    "workflowFailed": "インストールまたは更新が正常に完了しませんでした。"
   },
   "auth": {
     "authenticationFailed": "認証できません。Key とサーバーへの接続を確認してください。",
@@ -611,6 +652,8 @@
     "switch": {
       "start": "開始/停止"
     },
+    "triggerFailed": "ショートカットの実行に失敗しました",
+    "triggerNotReady": "BAAS の制御接続の準備ができていません。",
     "usage": "組み合わせ例"
   },
   "property": {
@@ -699,7 +742,11 @@
   },
   "mirrorc": {
     "cdk": {
-      "noInput": "MirrorC CDKを入力してください！",
+      "blocked": "この CDK はブロックされています。",
+      "configured": "この端末に CDK を保存済み",
+      "mismatch": "この CDK は選択したリソースに対応していません。",
+      "quota": "本日のダウンロード上限に達しました。",
+      "requestFailed": "ローカル CDK の検証または保存に失敗しました。再試行してください。",
       "testOk": "CDK有効"
     },
     "message": {
@@ -710,8 +757,6 @@
   },
   "contextMenu": {
     "copy": "コピー",
-    "inspect": "検査",
-    "inspectWebuiHint": "F12で開発者ツールを開きます。",
     "paste": "貼り付け",
     "pasteFailed": "クリップボードを使用できません。",
     "reload": "再読み込み"
@@ -742,9 +787,12 @@
       "inspectFailed": "インストール済みゲームを読み込めません",
       "live": "ライブ",
       "liveDisplay": "{{game}}のライブ画面",
+      "previewAlt": "仮想画面のゲーム映像",
+      "previewConnecting": "ゲーム画面に接続中…",
+      "previewHidden": "ゲームのプレビューが表示されていません。",
       "restartFailed": "ゲームを再起動できません",
-      "showControls": "ゲーム操作を表示",
       "startBackground": "バックグラウンドでゲームを起動",
+      "takeoverBusy": "ゲームはすでに手動操作中か、バックエンドの更新中です。",
       "takeoverFailed": "全画面ゲームモードを開始できません"
     },
     "start": {
@@ -777,16 +825,19 @@
     }
   },
   "androidSetup": {
+    "authStatus": "認証：{{status}}",
     "awaitingConfirmation": "確認待ち",
+    "backendStatus": "Python バックエンド：{{status}}",
     "channelDev": "Development",
     "channelStable": "Stable",
     "channelTitle": "Choose the update channel",
-    "channelUnavailable": "安定版は現在 Android では利用できません。",
     "clientAuth": "Authenticate session",
     "clientConnect": "Connect to local service",
     "clientSync": "Sync configuration",
     "clientTitle": "App connection",
+    "configStatus": "設定の同期：{{status}}",
     "confirmInstall": "確認してインストール",
+    "continueLocal": "検証済みのローカルリソースで続行",
     "copied": "Copied",
     "copyLogs": "Copy logs",
     "errorTitle": "Installation stopped",
@@ -794,6 +845,7 @@
     "noLogs": "Waiting for backend output…",
     "progress": "Installation progress",
     "retry": "Retry installation",
+    "startup": "Android の起動",
     "stateDone": "Done",
     "stateFailed": "Failed",
     "statePending": "Waiting",
@@ -802,9 +854,17 @@
     "stepChannel": "Choose update channel",
     "stepDownload": "Download backend",
     "stepExtract": "Install backend files",
+    "stepOcr": "OCR ランタイムとモデルを準備",
+    "stepResources": "スクリプトのリソースを準備",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
+    "stepUpdate": "バックエンドの更新を確認",
     "title": "Set up BAAS",
+    "updateApplying": "バックエンドのファイルを更新中…",
+    "updateChecking": "選択したバックエンドのチャンネルを確認中…",
+    "updateRestarting": "バックエンドを再起動してリソースを準備中…",
+    "updateRestoring": "前回のスクリプト状態を復元中…",
+    "updateWaitingIdle": "スクリプトと手動操作の停止を待機中…",
     "waiting": "Working…"
   },
   "applicationShortcutHelp": {
@@ -813,8 +873,8 @@
     "fullscreen": "全画面表示を切り替えます。",
     "redo": "元に戻した設定変更をやり直します。",
     "resetZoom": "表示倍率を 100% に戻します。",
-    "settings": "アプリの設定を開きます。",
-    "sidebar": "プロファイル欄を切り替えます。設定ページでは常に開きます。",
+    "settings": "環境設定を開きます。",
+    "sidebar": "プロファイル欄を切り替えます。環境設定では常に開きます。",
     "undo": "直前の設定変更を戻します。検索欄ではテキストを元に戻します。",
     "zoomIn": "画面を拡大します。",
     "zoomOut": "画面を縮小します。"
@@ -835,6 +895,21 @@
     "unavailable": "GitHub に接続できません。利用可能なノートを表示しています。",
     "version": "バージョン"
   },
+  "colorPicker": {
+    "alpha": "アルファ透明度（%）",
+    "blue": "青成分（0～255）",
+    "brightness": "明るさ（0～100%）",
+    "currentColor": "現在の色：{{color}}",
+    "eyeDropper": "画面から色を取得",
+    "format": "カラー形式",
+    "green": "緑成分（0～255）",
+    "hex": "16 進数カラー値",
+    "hue": "色相角度（0～360）",
+    "lightness": "明度（0～100%）",
+    "noSelection": "色が選択されていません",
+    "red": "赤成分（0～255）",
+    "saturation": "彩度（0～100%）"
+  },
   "commitHistory": {
     "author": "作成者",
     "current": "インストール済み",
@@ -842,6 +917,7 @@
     "empty": "表示できるコミット履歴はありません。",
     "emptyMessage": "（メッセージなし）",
     "failed": "履歴を取得できません。再接続またはバックエンドを更新して再試行してください。",
+    "hash": "コミット ID",
     "issue": {
       "offline": "履歴の取得先に接続できません。",
       "rateLimited": "GitHub API の制限に達しました。後でもう一度お試しください。",
@@ -1004,6 +1080,19 @@
     "uiautomator2Control": "端末の uiautomator2 サービスで操作します。",
     "uiautomator2Screenshot": "端末の uiautomator2 サービスで撮影します。"
   },
+  "connection": {
+    "authenticated": "セッション認証済み",
+    "authenticating": "セッションを認証中…",
+    "connecting": "バックエンドに接続中…",
+    "initializing": "BAAS キーを初期化中…",
+    "interrupted": "バックエンドとの接続が切断されました",
+    "opening": "安全な制御接続を確立中…",
+    "reconnecting": "バックエンドに再接続中…",
+    "resuming": "暗号化セッションを復元中…",
+    "serverVerified": "サーバーを検証しました。認証を待機中…",
+    "synchronizing": "接続状態を同期中…",
+    "waitingPassword": "続行するには認証が必要です。"
+  },
   "edit": {
     "actionFailed": "編集操作に失敗しました。クリップボードの権限を確認して再試行してください。",
     "cut": "切り取り",
@@ -1090,7 +1179,8 @@
     "bar": "アプリメニュー",
     "edit": "編集",
     "file": "ファイル",
-    "view": "表示"
+    "view": "表示",
+    "window": "ウィンドウ"
   },
   "placeholder": {
     "config": {
@@ -1387,7 +1477,7 @@
     "websocket": "WebSocket（互換）"
   },
   "ui": {
-    "zoom": "UIズーム設定"
+    "zoom": "画面の表示倍率"
   },
   "updateChannel": {
     "dev": "開発版",

@@ -1,5 +1,5 @@
 /* Default pointer. */
-* {
+:root:not([data-ba-cursors="disabled"]) * {
   cursor: url("/cursors/normal.cur"), auto;
 }
 
@@ -17,43 +17,43 @@ input[type="text"],
 }
 
 /* Link and button pointer. */
-a,
-a *,
-button,
-button *,
-select,
-select *,
-.cursor-link,
-.cursor-link *,
-[role="button"],
-[role="button"] *,
-.cursor-pointer,
-.cursor-pointer *,
-input[type="button"],
-input[type="button"] * {
+:root:not([data-ba-cursors="disabled"]) a,
+:root:not([data-ba-cursors="disabled"]) a *,
+:root:not([data-ba-cursors="disabled"]) button,
+:root:not([data-ba-cursors="disabled"]) button *,
+:root:not([data-ba-cursors="disabled"]) select,
+:root:not([data-ba-cursors="disabled"]) select *,
+:root:not([data-ba-cursors="disabled"]) .cursor-link,
+:root:not([data-ba-cursors="disabled"]) .cursor-link *,
+:root:not([data-ba-cursors="disabled"]) [role="button"],
+:root:not([data-ba-cursors="disabled"]) [role="button"] *,
+:root:not([data-ba-cursors="disabled"]) .cursor-pointer,
+:root:not([data-ba-cursors="disabled"]) .cursor-pointer *,
+:root:not([data-ba-cursors="disabled"]) input[type="button"],
+:root:not([data-ba-cursors="disabled"]) input[type="button"] * {
   cursor: url("/cursors/link.cur"), pointer !important;
 }
 
-input[type="text"],
-input[type="text"] *,
-input[type="password"],
-input[type="password"] *,
-input[type="number"],
-input[type="number"] *,
-input[type="time"],
-input[type="time"] *,
-textarea,
-textarea *,
-[contenteditable="true"],
-[contenteditable="true"] *,
-.cursor-text,
-.cursor-text * {
+:root:not([data-ba-cursors="disabled"]) input[type="text"],
+:root:not([data-ba-cursors="disabled"]) input[type="text"] *,
+:root:not([data-ba-cursors="disabled"]) input[type="password"],
+:root:not([data-ba-cursors="disabled"]) input[type="password"] *,
+:root:not([data-ba-cursors="disabled"]) input[type="number"],
+:root:not([data-ba-cursors="disabled"]) input[type="number"] *,
+:root:not([data-ba-cursors="disabled"]) input[type="time"],
+:root:not([data-ba-cursors="disabled"]) input[type="time"] *,
+:root:not([data-ba-cursors="disabled"]) textarea,
+:root:not([data-ba-cursors="disabled"]) textarea *,
+:root:not([data-ba-cursors="disabled"]) [contenteditable="true"],
+:root:not([data-ba-cursors="disabled"]) [contenteditable="true"] *,
+:root:not([data-ba-cursors="disabled"]) .cursor-text,
+:root:not([data-ba-cursors="disabled"]) .cursor-text * {
   cursor:
     url("/cursors/text_static_white.cur") 7 16,
     text;
 }
 
-.cursor-grab,
-.cursor-grab * {
+:root:not([data-ba-cursors="disabled"]) .cursor-grab,
+:root:not([data-ba-cursors="disabled"]) .cursor-grab * {
   cursor: url("/cursors/move.cur"), grab;
 }
