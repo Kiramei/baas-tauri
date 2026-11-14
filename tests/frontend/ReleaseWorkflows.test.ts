@@ -42,18 +42,23 @@ const evaluate = (expression: string | undefined, ref: string): unknown => {
     throw new Error(`Unsupported workflow expression: ${expression}`);
   return new Function(
     "github",
+    "needs",
+    "always",
+    "cancelled",
     "startsWith",
     "contains",
-    `"use strict"; return (${expression.slice(3, -2).trim()});`
+    `"use strict"; return (${expression.slice(3, -2).trim().replace(/\bneeds\.([\w-]+)/g, 'needs["$1"]')});`
   )(
     { ref, ref_name: ref.replace(/^refs\/(tags|heads)\//, "") },
+    Object.fromEntries(["update_tag", "sync-to-cnb-release"].map(id => [id, { result: "success", outputs: { tag: ref.replace(/^refs\/(tags|heads)\//, "") } }])),
+    () => true,
+    () => false,
     (value: string, prefix: string) => value.startsWith(prefix),
     (value: string, part: string) => value.includes(part)
   );
 };
 
 test("release gates classify optional-v rc/post tags and keep every major-zero release out of Winget", () => {
-  const publish = step(app, "update_tag", "Publish Release");
   const fixed = step(app, "release-update", "Publish fixed WebView2 updater manifest");
   for (const prefix of ["", "v"]) {
     for (const [version, winget, stable] of [
@@ -67,7 +72,6 @@ test("release gates classify optional-v rc/post tags and keep every major-zero r
       const ref = `refs/tags/${prefix}${version}`;
       expect(evaluate(app.jobs["submit-to-winget"].if, ref), ref).toBe(winget);
       expect(evaluate(fixed.if, ref), ref).toBe(stable);
-      expect(evaluate(publish.env!.MAKE_LATEST, ref), ref).toBe(String(stable));
       expect(evaluate(app.jobs["release-update"].if, ref), ref).toBe(true);
     }
   }
@@ -75,7 +79,7 @@ test("release gates classify optional-v rc/post tags and keep every major-zero r
 
 test("Winget keeps the real release tag separate from the public version", () => {
   const winget = step(app, "submit-to-winget", "Submit to Winget");
-  expect(winget.with!["release-tag"]).toBe("${{ github.ref_name }}");
+  expect(winget.with!["release-tag"]).toBe("${{ needs.sync-to-cnb-release.outputs.tag }}");
   expect(winget.with!.version).toBe("${{ env.VERSION }}");
 });
 
@@ -285,7 +289,7 @@ const mirrorWorkflow = app as unknown as {
 function releaseJobAllowed(
   condition: string | undefined,
   github: Record<string, unknown>,
-  needs: Record<string, { result: string }>,
+  needs: Record<string, { result: string; outputs?: Record<string, string> }>,
   inputs: Record<string, unknown> = {},
   cancelled = false
 ): boolean {
@@ -344,6 +348,58 @@ test("manual mirror dispatch skips every build, updater and existing distributor
   }
 });
 
+test("publication recovery requires an explicit main write request and resumes only successful publication", () => {
+  expect(mirrorWorkflow.on.workflow_dispatch.inputs["publish-existing"].default).toBe(false);
+  const simulate = (tag: string, publish = true, dryRun = false, ref = "refs/heads/main", failed = "") => {
+    const results: Record<string, { result: string; outputs: Record<string, string> }> = {};
+    for (const [id, job] of Object.entries(mirrorWorkflow.jobs)) {
+      const needs = Object.fromEntries([job.needs ?? []].flat().map(key => [key, results[key]]));
+      const allowed = releaseJobAllowed(job.if, { event_name: "workflow_dispatch", repository: "Kiramei/baas-tauri", ref, ref_name: ref.split("/").pop() }, needs, { "mirror-tag": tag, "publish-existing": publish, "dry-run": dryRun });
+      results[id] = { result: allowed ? (id === failed ? "failure" : "success") : "skipped", outputs: { tag, "source-sha": "a".repeat(40) } };
+    }
+    return results;
+  };
+  const success = simulate("0.0.10");
+  for (const id of ["check_tag_version", "create_release", "generate_fonts", "release", "release-for-linux-arm", "release-android", "release-for-fixed-webview2"]) expect(success[id].result).toBe("skipped");
+  for (const id of ["update_tag", "release-update", "sync-to-cnb-release", "mirrorchyan-uploading", "mirrorchyan-release-note", "notify-qq"]) expect(success[id].result, id).toBe("success");
+  expect(success["submit-to-winget"].result).toBe("skipped");
+  expect(simulate("1.0.0")["submit-to-winget"].result).toBe("success");
+  const rc = simulate("v0.0.10.rc1");
+  expect(rc.update_tag.result).toBe("success");
+  expect(rc["release-update"].result).toBe("success");
+  for (const id of ["sync-to-cnb-release", "submit-to-winget", "notify-qq", "mirror-to-upstream"]) expect(rc[id].result).toBe("skipped");
+  for (const results of [simulate("0.0.10", true, true), simulate("0.0.10", true, false, "refs/heads/dev"), simulate("0.0.10", true, false, "refs/heads/main", "update_tag")]) {
+    for (const id of ["release-update", "sync-to-cnb-release", "mirrorchyan-uploading", "mirrorchyan-release-note", "notify-qq", "mirror-to-upstream"]) expect(results[id].result, id).toBe("skipped");
+  }
+  const builds = ["release", "release-for-linux-arm", "release-android", "release-for-fixed-webview2"];
+  const automatic = (failed: string, result: string) => releaseJobAllowed(mirrorWorkflow.jobs.update_tag.if, { event_name: "push", ref: "refs/tags/0.0.10" }, Object.fromEntries(builds.map(id => [id, { result: id === failed ? result : "success" }])));
+  expect(automatic("", "success")).toBe(true);
+  for (const id of builds) for (const result of ["failure", "skipped", "cancelled"]) expect(automatic(id, result)).toBe(false);
+});
+
+test("publication and distributors use trusted tooling with explicit selected source tags", () => {
+  const update = app.jobs.update_tag;
+  expect(update["runs-on"]).toBe("ubuntu-24.04");
+  expect(step(app, "update_tag", "Set up Node for release publication").with!["node-version"]).toBe("22");
+  const source = step(app, "update_tag", "Resolve verified publication source").run!;
+  expect(source).toContain("parseAppReleaseTag(tag)");
+  expect(source).toContain("'merge-base', '--is-ancestor'");
+  expect(source).toContain("checkReleaseVersion(source, tag)");
+  expect(source).toContain("'worktree', 'add', '--detach'");
+  expect(step(app, "update_tag", "Fetch UPDATE logs").run).toContain('GITHUB_REF_NAME="$RELEASE_TAG"');
+  expect(step(app, "update_tag", "Publish Release").run).not.toContain("|");
+  expect(step(app, "update_tag", "Publish Release").run).toContain("scripts/release-publication.mjs");
+  expect(step(app, "release-update", "Checkout repository").with!.ref).toBe("${{ github.workflow_sha }}");
+  expect(step(app, "sync-to-cnb-release", "Determine CNB Latest from published app versions").run).not.toMatch(/\|\s*node/);
+  expect(step(app, "sync-to-cnb-release", "Sync CNB release").with!["tag-name"]).toBe("${{ needs.release-update.outputs.tag }}");
+  const qq = app.jobs["notify-qq"].steps;
+  expect(qq[0].with!.ref).toBe("${{ github.workflow_sha }}");
+  expect(qq[1].with!["tag-name"]).toBe("${{ needs.sync-to-cnb-release.outputs.tag }}");
+  const notification = Bun.YAML.parse(fs.readFileSync(new URL("../../.github/actions/notify-qq/action.yml", import.meta.url), "utf8"));
+  expect(notification.inputs["tag-name"].default).toBe("${{ github.ref_name }}");
+  expect(notification.runs.steps[0].env.RELEASE_TAG).toBe("${{ inputs.tag-name }}");
+});
+
 test("mirroring is isolated from CNB, Winget and QQ and requires successful stable publication", () => {
   const mirror = mirrorWorkflow.jobs["mirror-to-upstream"];
   expect(mirror.needs).toEqual(["release-update"]);
@@ -362,7 +418,7 @@ test("mirroring is isolated from CNB, Winget and QQ and requires successful stab
       releaseJobAllowed(
         mirror.if,
         { event_name: event, ref_name: tag, repository },
-        { "release-update": { result } }
+        { "release-update": { result, outputs: { tag } } }
       )
     ).toBe(allowed);
   }
@@ -399,13 +455,14 @@ test("mirroring is isolated from CNB, Winget and QQ and requires successful stab
 
 test("manual backfills do not hold the source release publication queue", () => {
   const group = mirrorWorkflow.concurrency.group.slice(3, -2).trim();
-  const resolve = new Function("github", "format", `return (${group});`);
+  const resolve = new Function("github", "format", "inputs", `return (${group});`);
   const format = (pattern: string, value: string) => pattern.replace("{0}", value);
-  expect(resolve({ event_name: "push", run_id: "101" }, format)).toBe("release-app-publication");
-  expect(resolve({ event_name: "workflow_dispatch", run_id: "102" }, format)).toBe(
+  expect(resolve({ event_name: "push", run_id: "101" }, format, {})).toBe("release-app-publication");
+  expect(resolve({ event_name: "workflow_dispatch", run_id: "102" }, format, {})).toBe(
     "release-app-mirror-102"
   );
-  expect(resolve({ event_name: "workflow_dispatch", run_id: "103" }, format)).toBe(
+  expect(resolve({ event_name: "workflow_dispatch", run_id: "103" }, format, {})).toBe(
     "release-app-mirror-103"
   );
+  expect(resolve({ event_name: "workflow_dispatch", run_id: "104" }, format, { "publish-existing": true })).toBe("release-app-publication");
 });
