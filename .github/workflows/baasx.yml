@@ -170,9 +170,9 @@ jobs:
           packages=(baasx/dist/*.tgz)
           test "${#packages[@]}" -eq 1
           mv "${packages[0]}" "baasx/dist/release/${asset}${{ matrix.packageExtension }}"
-          extra=()
-          if [[ "${{ matrix.cpu }}" == arm ]]; then extra=(dist); fi
-          tar -czf "baasx/dist/release/${asset}.tar.gz" -C baasx/dist "${{ matrix.executable }}" runtime "${extra[@]}" -C .. README.md README_zh.md LICENSE
+          members=("${{ matrix.executable }}" runtime)
+          if [[ "${{ matrix.cpu }}" == arm ]]; then members+=(dist); fi
+          tar -czf "baasx/dist/release/${asset}.tar.gz" -C baasx/dist "${members[@]}" -C .. README.md README_zh.md LICENSE
 
           smoke=$(mktemp -d)
           mkdir -p "$smoke/native" "$smoke/package"
