@@ -15,12 +15,92 @@ import {
 } from "../../scripts/release-version-files.mjs";
 import { parseReleaseVersion } from "../../src/shared/ReleaseVersion.mjs";
 import { validateAssets } from "../../scripts/ci/release-contract.mjs";
+import { existingRelease, parseAppReleaseTag, publishExistingRelease, uploadedAssets } from "../../scripts/release-publication.mjs";
 
 const temporary: string[] = [];
 afterEach(() =>
   temporary.splice(0).forEach((root) => fs.rmSync(root, { recursive: true, force: true }))
 );
 const release = (tag_name: string, draft = false) => ({ tag_name, draft, assets: [] });
+
+function publicationFixture(tag = "0.0.10", options: { published?: boolean; newer?: boolean; mutate?: string } = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "baas-publish-existing-"));
+  temporary.push(root);
+  const notes = path.join(root, "notes.md");
+  fs.writeFileSync(notes, "Original version notes\n\nWindows, macOS, Linux and Android downloads.\n");
+  const suffixes = ["amd64.deb", "arm64.deb", "armhf.deb", "x86_64.rpm", "aarch64.rpm", "armv7hl.rpm", "android_arm64-v8a.apk", "aarch64.app.tar.gz", "x64.app.tar.gz", "arm64-setup.exe", "x64-setup.exe", "arm64_fixed_webview2-setup.exe", "x64_fixed_webview2-setup.exe", "x64_portable.exe", "arm64_portable.exe", "x64_fixed_webview2_portable.zip", "arm64_fixed_webview2_portable.zip"];
+  const names = [...suffixes.flatMap(name => [name, name + ".sig"]), "aarch64.dmg", "x64.dmg"];
+  const assets = names.map((name, i) => ({ id: i + 1, name: `BAAS.Tauri_${tag.replace(/^v/, "")}_${name}`, state: "uploaded", size: 100 + i, digest: "sha256:" + "a".repeat(64), updated_at: "stable" }));
+  const source = { id: 500, tag_name: tag, draft: !options.published, prerelease: tag.includes(".rc"), body: "Original published text", name: "Original title" };
+  const writes: Record<string, unknown>[] = [];
+  const calls: string[][] = [];
+  let lists = 0, assetReads = 0;
+  const run = (_command: string, args: string[], processOptions: { stdio: unknown[] }) => {
+    calls.push(args);
+    const endpoint = args[1];
+    let value: unknown;
+    if (args.includes("PATCH")) {
+      const payload = JSON.parse(fs.readFileSync(args[args.indexOf("--input") + 1], "utf8"));
+      writes.push(payload);
+      value = { ...source, ...payload };
+    } else if (endpoint.endsWith("releases?per_page=100")) {
+      lists++;
+      expect(args).toContain("--paginate");
+      expect(args).toContain("--slurp");
+      const selected = options.mutate === "duplicate" ? [source, source] : options.mutate === "missing" ? [] : [source];
+      value = [selected, options.newer ? [{ id: 501, tag_name: "1.0.0", draft: false }] : []];
+      if (lists === 2 && options.mutate === "published-during-check") value = [[{ ...source, draft: false }]];
+    } else if (endpoint.includes("/assets?per_page=100")) {
+      assetReads++;
+      expect(args).toContain("--paginate");
+      expect(args).toContain("--slurp");
+      const rows = structuredClone(assets);
+      if (options.mutate === "starter") rows[0].state = "starter";
+      if (options.mutate === "empty") rows[0].size = 0;
+      if (options.mutate === "signature") rows.splice(1, 1);
+      if (options.mutate === "asset-id") rows[1].id = rows[0].id;
+      if (options.mutate === "asset-name") rows[1].name = rows[0].name;
+      if (assetReads === 2 && options.mutate === "changed") rows[0].digest = "sha256:" + "b".repeat(64);
+      value = [rows.slice(0, 30), rows.slice(30)];
+    } else if (endpoint.endsWith("/500")) value = source;
+    else throw new Error("Unexpected API request: " + args.join(" "));
+    fs.writeFileSync(processOptions.stdio[1] as number, JSON.stringify(value));
+    return Buffer.alloc(0);
+  };
+  return { assets, source, writes, calls, publish: () => publishExistingRelease({ tag, repository: "owner/repo", notesPath: notes, tempRoot: root, run: run as never }) };
+}
+
+test("existing-release publication verifies all paginated signed assets and only patches the verified draft", () => {
+  const fixture = publicationFixture();
+  expect(uploadedAssets("0.0.10", [fixture.assets.slice(0, 30), fixture.assets.slice(30)])).toHaveLength(36);
+  expect(fixture.publish()).toMatchObject({ tag: "0.0.10", id: 500, assets: 36, changed: true, makeLatest: true });
+  expect(fixture.writes).toEqual([{ name: "BAAS Tauri App 0.0.10", body: "Original version notes\n\nWindows, macOS, Linux and Android downloads.\n", draft: false, prerelease: false, make_latest: "true" }]);
+  expect(fixture.calls.filter(args => args.includes("PATCH"))).toHaveLength(1);
+  expect(fixture.calls.some(args => args.some(value => ["POST", "DELETE", "PUT"].includes(value)))).toBe(false);
+});
+
+test("publication recovery rejects malformed tags, missing/duplicate releases and incomplete or changing assets without writing", () => {
+  for (const tag of ["main", "baasx-v0.0.10", "refs/tags/0.0.10", "0.0.10-rc1", "0.0.10;touch injected", "0.0.10\n"]) expect(() => parseAppReleaseTag(tag)).toThrow();
+  expect(() => existingRelease("0.0.10", [])).toThrow();
+  for (const mutate of ["missing", "duplicate", "starter", "empty", "signature", "asset-id", "asset-name", "changed", "published-during-check"]) {
+    const fixture = publicationFixture("0.0.10", { mutate });
+    expect(() => fixture.publish(), mutate).toThrow();
+    expect(fixture.writes).toEqual([]);
+  }
+});
+
+test("publication recovery preserves a published release and never promotes older stable versions or RCs", () => {
+  const published = publicationFixture("0.0.10", { published: true });
+  expect(published.publish()).toMatchObject({ changed: false, assets: 36 });
+  expect(published.writes).toEqual([]);
+  expect(published.source.body).toBe("Original published text");
+  for (const tag of ["v0.0.10", "0.0.10.post1", "0.0.10.rc1"]) {
+    const fixture = publicationFixture(tag, { newer: true });
+    expect(fixture.publish()).toMatchObject({ changed: true, makeLatest: false });
+    expect(fixture.writes[0].prerelease).toBe(tag.includes(".rc"));
+    expect(fixture.writes[0].make_latest).toBe("false");
+  }
+});
 
 test("release feeds sort numeric public versions instead of GitHub creation order", () => {
   const rows = [
