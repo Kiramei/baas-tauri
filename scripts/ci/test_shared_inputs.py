@@ -42,11 +42,13 @@ class BunOwnership(unittest.TestCase):
         for key, expected in (("ink", JS), ("vite", UI), ("libsodium-wrappers-sumo", UI | JS),
                               ("@baas/baasx/react", JS)):
             with self.subTest(package=key):
-                after = copy.deepcopy(self.lock)
+                baseline = copy.deepcopy(self.lock)
+                baseline.pop('patchedDependencies', None)
+                after = copy.deepcopy(baseline)
                 identity = after['packages'][key][0]
                 after['patchedDependencies'] = {identity: 'baasx/patches/dependency.patch'}
-                self.assertEqual(bun_owners(json.dumps(self.lock), json.dumps(after)), expected)
-                self.assertEqual(bun_owners(json.dumps(after), json.dumps(self.lock)), expected)
+                self.assertEqual(bun_owners(json.dumps(baseline), json.dumps(after)), expected)
+                self.assertEqual(bun_owners(json.dumps(after), json.dumps(baseline)), expected)
                 before = copy.deepcopy(after)
                 after['patchedDependencies'][identity] = 'baasx/patches/new.patch'
                 self.assertEqual(bun_owners(json.dumps(before), json.dumps(after)), expected)
