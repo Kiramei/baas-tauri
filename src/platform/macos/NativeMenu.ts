@@ -209,7 +209,7 @@ export function mountMacNativeMenu(
       const groups = new Map<string, Submenu>();
       for (const group of model.groups) {
         const items = [];
-        // Settings belongs to the application menu on macOS.
+        // Preferences belongs to the application menu on macOS.
         const entries = group.entries.filter(
           (value) => value.id !== "settings" && value.id !== "settings-separator"
         );

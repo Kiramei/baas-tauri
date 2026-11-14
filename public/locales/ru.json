@@ -21,12 +21,12 @@
     "mobileConfiguration": "Конфиг.",
     "mobilePlugins": "Плагины",
     "mobileScheduler": "Задачи",
-    "mobileSettings": "Настройки",
+    "mobileSettings": "Предпочтения",
     "plugins": "Плагины",
     "scheduler": "Планировщик",
     "scrollLeft": "Прокрутить влево",
     "scrollRight": "Прокрутить вправо",
-    "settings": "Настройки"
+    "settings": "Предпочтения"
   },
   "common": {
     "add": "Добавить",
@@ -104,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "Категории настроек",
+    "categories": "Категории предпочтений",
     "descriptions": {
       "assets": "Показывать игровые ресурсы на главной странице.",
       "idleAutoUpdate": "Автоматически обновлять скрипты, когда все профили простаивают.",
@@ -122,8 +122,8 @@
       "display": "Отображение и эффекты",
       "preferences": "Предпочтения"
     },
-    "noResults": "Подходящие настройки не найдены",
-    "search": "Поиск настроек",
+    "noResults": "Подходящие предпочтения не найдены",
+    "search": "Поиск предпочтений",
     "sections": {
       "appearance": "Внешний вид",
       "general": "Общие",
@@ -853,6 +853,8 @@
     "stepChannel": "Choose update channel",
     "stepDownload": "Download backend",
     "stepExtract": "Install backend files",
+    "stepOcr": "Подготовка среды OCR и моделей",
+    "stepResources": "Подготовка ресурсов скрипта",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
     "title": "Set up BAAS",
@@ -864,8 +866,8 @@
     "fullscreen": "Включить или выключить полный экран.",
     "redo": "Повторить отменённое изменение настроек.",
     "resetZoom": "Вернуть масштаб интерфейса к 100%.",
-    "settings": "Открыть настройки приложения.",
-    "sidebar": "Свернуть или развернуть список профилей; в настройках он всегда открыт.",
+    "settings": "Открыть предпочтения.",
+    "sidebar": "Свернуть или развернуть список профилей; в предпочтениях он всегда открыт.",
     "undo": "Отменить последнее изменение; в поиске отменяется ввод текста.",
     "zoomIn": "Увеличить интерфейс.",
     "zoomOut": "Уменьшить интерфейс."
@@ -1468,7 +1470,7 @@
     "websocket": "WebSocket (совместимый)"
   },
   "ui": {
-    "zoom": "Настройки масштабирования интерфейса"
+    "zoom": "Масштаб интерфейса"
   },
   "updateChannel": {
     "dev": "Для разработки",

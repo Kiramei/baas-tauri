@@ -21,12 +21,12 @@
     "mobileConfiguration": "Config",
     "mobilePlugins": "Ext.",
     "mobileScheduler": "Tâches",
-    "mobileSettings": "Réglages",
+    "mobileSettings": "Préférences",
     "plugins": "Extensions",
     "scheduler": "Planificateur",
     "scrollLeft": "Défiler vers la gauche",
     "scrollRight": "Défiler vers la droite",
-    "settings": "Paramètres"
+    "settings": "Préférences"
   },
   "common": {
     "add": "Ajouter",
@@ -104,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "Catégories des paramètres",
+    "categories": "Catégories des préférences",
     "descriptions": {
       "assets": "Afficher les ressources du jeu sur la page d’accueil.",
       "idleAutoUpdate": "Mettre les scripts à jour automatiquement lorsque tous les profils sont inactifs.",
@@ -122,8 +122,8 @@
       "display": "Affichage et effets",
       "preferences": "Préférences"
     },
-    "noResults": "Aucun réglage correspondant",
-    "search": "Rechercher un réglage",
+    "noResults": "Aucune préférence correspondante",
+    "search": "Rechercher des préférences",
     "sections": {
       "appearance": "Apparence",
       "general": "Général",
@@ -853,6 +853,8 @@
     "stepChannel": "Choose update channel",
     "stepDownload": "Download backend",
     "stepExtract": "Install backend files",
+    "stepOcr": "Préparer le moteur OCR et les modèles",
+    "stepResources": "Préparer les ressources du script",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
     "title": "Set up BAAS",
@@ -864,8 +866,8 @@
     "fullscreen": "Activez ou quittez le plein écran.",
     "redo": "Rétablissez une modification annulée.",
     "resetZoom": "Rétablissez l'échelle de l'interface à 100 %.",
-    "settings": "Ouvrez les paramètres de l'application.",
-    "sidebar": "Basculez la barre des profils ; elle reste ouverte dans les paramètres.",
+    "settings": "Ouvrir les préférences.",
+    "sidebar": "Afficher ou masquer la barre des profils ; elle reste ouverte dans les préférences.",
     "undo": "Annulez la dernière modification ; les champs de recherche gardent l'annulation de texte.",
     "zoomIn": "Agrandissez l'interface.",
     "zoomOut": "Réduisez l'interface."
@@ -1468,7 +1470,7 @@
     "websocket": "WebSocket (compatible)"
   },
   "ui": {
-    "zoom": "Paramètres de zoom de l'interface"
+    "zoom": "Échelle de l’interface"
   },
   "updateChannel": {
     "dev": "Développement",

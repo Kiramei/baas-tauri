@@ -21,12 +21,12 @@
     "mobileConfiguration": "設定",
     "mobilePlugins": "拡張",
     "mobileScheduler": "タスク",
-    "mobileSettings": "アプリ設定",
+    "mobileSettings": "環境設定",
     "plugins": "プラグイン",
     "scheduler": "スケジュール",
     "scrollLeft": "左にスクロール",
     "scrollRight": "右にスクロール",
-    "settings": "アプリ設定"
+    "settings": "環境設定"
   },
   "common": {
     "add": "追加",
@@ -104,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "設定カテゴリ",
+    "categories": "環境設定のカテゴリ",
     "descriptions": {
       "assets": "ホーム画面にゲーム内リソースを表示します。",
       "idleAutoUpdate": "すべてのプロファイルが待機中の場合にスクリプトを自動更新します。",
@@ -122,8 +122,8 @@
       "display": "表示と効果",
       "preferences": "基本設定"
     },
-    "noResults": "一致する設定がありません",
-    "search": "設定を検索",
+    "noResults": "一致する環境設定がありません",
+    "search": "環境設定を検索",
     "sections": {
       "appearance": "外観",
       "general": "一般",
@@ -853,6 +853,8 @@
     "stepChannel": "Choose update channel",
     "stepDownload": "Download backend",
     "stepExtract": "Install backend files",
+    "stepOcr": "OCR ランタイムとモデルを準備",
+    "stepResources": "スクリプトのリソースを準備",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
     "title": "Set up BAAS",
@@ -864,8 +866,8 @@
     "fullscreen": "全画面表示を切り替えます。",
     "redo": "元に戻した設定変更をやり直します。",
     "resetZoom": "表示倍率を 100% に戻します。",
-    "settings": "アプリの設定を開きます。",
-    "sidebar": "プロファイル欄を切り替えます。設定ページでは常に開きます。",
+    "settings": "環境設定を開きます。",
+    "sidebar": "プロファイル欄を切り替えます。環境設定では常に開きます。",
     "undo": "直前の設定変更を戻します。検索欄ではテキストを元に戻します。",
     "zoomIn": "画面を拡大します。",
     "zoomOut": "画面を縮小します。"
@@ -1468,7 +1470,7 @@
     "websocket": "WebSocket（互換）"
   },
   "ui": {
-    "zoom": "UIズーム設定"
+    "zoom": "画面の表示倍率"
   },
   "updateChannel": {
     "dev": "開発版",

@@ -21,12 +21,12 @@
     "mobileConfiguration": "Konfig.",
     "mobilePlugins": "Plugins",
     "mobileScheduler": "Planer",
-    "mobileSettings": "Optionen",
+    "mobileSettings": "Voreinstellungen",
     "plugins": "Plugins",
     "scheduler": "Planer",
     "scrollLeft": "Nach links scrollen",
     "scrollRight": "Nach rechts scrollen",
-    "settings": "Einstellungen"
+    "settings": "Voreinstellungen"
   },
   "common": {
     "add": "Hinzufügen",
@@ -104,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "Einstellungskategorien",
+    "categories": "Kategorien der Voreinstellungen",
     "descriptions": {
       "assets": "Spielressourcen auf der Startseite anzeigen.",
       "idleAutoUpdate": "Skripte automatisch aktualisieren, wenn alle Profile inaktiv sind.",
@@ -122,8 +122,8 @@
       "display": "Anzeige und Effekte",
       "preferences": "Voreinstellungen"
     },
-    "noResults": "Keine passenden Einstellungen",
-    "search": "Einstellungen suchen",
+    "noResults": "Keine passenden Voreinstellungen",
+    "search": "Voreinstellungen suchen",
     "sections": {
       "appearance": "Darstellung",
       "general": "Allgemein",
@@ -853,6 +853,8 @@
     "stepChannel": "Choose update channel",
     "stepDownload": "Download backend",
     "stepExtract": "Install backend files",
+    "stepOcr": "OCR-Laufzeit und Modelle vorbereiten",
+    "stepResources": "Skriptressourcen vorbereiten",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
     "title": "Set up BAAS",
@@ -864,8 +866,8 @@
     "fullscreen": "Vollbild ein- oder ausschalten.",
     "redo": "Rückgängig gemachte Änderung wiederholen.",
     "resetZoom": "Oberflächenskalierung auf 100 % setzen.",
-    "settings": "App-Einstellungen öffnen.",
-    "sidebar": "Profilseitenleiste umschalten; in Einstellungen bleibt sie offen.",
+    "settings": "Voreinstellungen öffnen.",
+    "sidebar": "Profilseitenleiste umschalten; in den Voreinstellungen bleibt sie geöffnet.",
     "undo": "Letzte Einstellungsänderung rückgängig machen; Suchfelder behalten Text-Undo.",
     "zoomIn": "Oberfläche vergrößern.",
     "zoomOut": "Oberfläche verkleinern."
@@ -1468,7 +1470,7 @@
     "websocket": "WebSocket (kompatibel)"
   },
   "ui": {
-    "zoom": "UI-Zoom-Einstellungen"
+    "zoom": "Oberflächenskalierung"
   },
   "updateChannel": {
     "dev": "Entwicklung",

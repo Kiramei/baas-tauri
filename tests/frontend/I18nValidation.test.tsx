@@ -25,6 +25,35 @@ function flatten(value: Record<string, unknown>, prefix = "", result: Record<str
 }
 
 describe("translation validation", () => {
+  test("global navigation and its shortcut use Preferences without renaming profile settings", () => {
+    const titles = {
+      en: "Preferences",
+      zh: "偏好",
+      de: "Voreinstellungen",
+      fr: "Préférences",
+      ja: "環境設定",
+      ko: "환경설정",
+      ru: "Предпочтения",
+    };
+    for (const [language, title] of Object.entries(titles)) {
+      const catalog = flatten(
+        JSON.parse(
+          readFileSync(new URL(`../../public/locales/${language}.json`, import.meta.url), "utf8")
+        )
+      );
+      expect(catalog["nav.settings"]).toBe(title);
+      expect(catalog["nav.mobileSettings"]).toBe(title);
+      expect(catalog["settings.search"].toLocaleLowerCase()).toContain(
+        language === "ru" ? "предпочтен" : title.toLocaleLowerCase()
+      );
+      expect(catalog["applicationShortcutHelp.settings"].toLocaleLowerCase()).toContain(
+        title.toLocaleLowerCase()
+      );
+      expect(catalog["plugins.settings"]).not.toBe(title);
+      expect(catalog["description.script"]).not.toBe(title);
+    }
+  });
+
   test("interpolation names may move and repeat, but cannot disappear or be renamed", () => {
     expect(interpolationNames("{{ version }} / {{- user.name}} / {{count, number}}")).toEqual([
       "count",

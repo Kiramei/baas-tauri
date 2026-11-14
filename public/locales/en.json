@@ -21,12 +21,12 @@
     "mobileConfiguration": "Config",
     "mobilePlugins": "Plugins",
     "mobileScheduler": "Tasks",
-    "mobileSettings": "Settings",
+    "mobileSettings": "Preferences",
     "plugins": "Plugins",
     "scheduler": "Scheduler",
     "scrollLeft": "Scroll left",
     "scrollRight": "Scroll right",
-    "settings": "Settings"
+    "settings": "Preferences"
   },
   "common": {
     "add": "Add",
@@ -104,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "Settings categories",
+    "categories": "Preference categories",
     "descriptions": {
       "assets": "Show game resources on the home page.",
       "idleAutoUpdate": "Automatically update scripts when all profiles are idle.",
@@ -122,8 +122,8 @@
       "display": "Display & effects",
       "preferences": "Preferences"
     },
-    "noResults": "No matching settings",
-    "search": "Search settings",
+    "noResults": "No matching preferences",
+    "search": "Search preferences",
     "sections": {
       "appearance": "Appearance",
       "general": "General",
@@ -853,6 +853,8 @@
     "stepChannel": "Choose update channel",
     "stepDownload": "Download backend",
     "stepExtract": "Install backend files",
+    "stepOcr": "Prepare OCR runtime and models",
+    "stepResources": "Prepare script resources",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
     "title": "Set up BAAS",
@@ -864,8 +866,8 @@
     "fullscreen": "Enter or leave full screen.",
     "redo": "Redo an undone configuration change.",
     "resetZoom": "Reset interface scale to 100%.",
-    "settings": "Open app settings.",
-    "sidebar": "Toggle the profile sidebar; settings keep it open.",
+    "settings": "Open preferences.",
+    "sidebar": "Toggle the profile sidebar; it stays open in Preferences.",
     "undo": "Undo the latest config change; search fields keep text undo.",
     "zoomIn": "Enlarge the interface.",
     "zoomOut": "Shrink the interface."
@@ -1468,7 +1470,7 @@
     "websocket": "WebSocket (compatible)"
   },
   "ui": {
-    "zoom": "UI Zoom Settings"
+    "zoom": "Interface scale"
   },
   "updateChannel": {
     "dev": "Development",

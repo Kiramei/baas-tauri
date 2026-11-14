@@ -21,12 +21,12 @@
     "mobileConfiguration": "配置",
     "mobilePlugins": "插件",
     "mobileScheduler": "调度",
-    "mobileSettings": "设置",
+    "mobileSettings": "偏好",
     "plugins": "插件",
     "scheduler": "调度",
     "scrollLeft": "向左滚动",
     "scrollRight": "向右滚动",
-    "settings": "设置"
+    "settings": "偏好"
   },
   "common": {
     "add": "添加",
@@ -104,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "设置分类",
+    "categories": "偏好分类",
     "descriptions": {
       "assets": "在主页展示游戏资源。",
       "idleAutoUpdate": "所有配置档空闲时自动更新脚本。",
@@ -122,8 +122,8 @@
       "display": "显示与效果",
       "preferences": "首选项"
     },
-    "noResults": "未找到相关设置",
-    "search": "搜索设置",
+    "noResults": "未找到相关偏好",
+    "search": "搜索偏好",
     "sections": {
       "appearance": "外观",
       "general": "常规",
@@ -853,6 +853,8 @@
     "stepChannel": "选择更新通道",
     "stepDownload": "下载后端",
     "stepExtract": "写入后端文件",
+    "stepOcr": "准备 OCR 运行时和模型",
+    "stepResources": "准备脚本资源",
     "stepService": "启动本地服务",
     "stepStorage": "准备应用私有目录",
     "title": "配置 BAAS",
@@ -864,8 +866,8 @@
     "fullscreen": "进入或退出全屏。",
     "redo": "重做已撤销的配置修改。",
     "resetZoom": "恢复 100% 界面缩放。",
-    "settings": "打开应用设置。",
-    "sidebar": "收起或展开配置栏；设置页始终展开。",
+    "settings": "打开偏好。",
+    "sidebar": "收起或展开配置栏；偏好页始终展开。",
     "undo": "撤销最近的配置修改；搜索框保留文本撤销。",
     "zoomIn": "放大界面。",
     "zoomOut": "缩小界面。"
@@ -1468,7 +1470,7 @@
     "websocket": "WebSocket（兼容模式）"
   },
   "ui": {
-    "zoom": "UI 缩放设置"
+    "zoom": "界面缩放"
   },
   "updateChannel": {
     "dev": "开发版",

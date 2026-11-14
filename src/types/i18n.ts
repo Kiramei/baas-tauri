@@ -703,6 +703,8 @@ export type TranslationKey =
   | "androidSetup.stepChannel"
   | "androidSetup.stepDownload"
   | "androidSetup.stepExtract"
+  | "androidSetup.stepOcr"
+  | "androidSetup.stepResources"
   | "androidSetup.stepService"
   | "androidSetup.stepStorage"
   | "androidSetup.title"

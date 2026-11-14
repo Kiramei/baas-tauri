@@ -21,12 +21,12 @@
     "mobileConfiguration": "구성",
     "mobilePlugins": "확장",
     "mobileScheduler": "스케줄러",
-    "mobileSettings": "설정",
+    "mobileSettings": "환경설정",
     "plugins": "플러그인",
     "scheduler": "스케줄러",
     "scrollLeft": "왼쪽으로 스크롤",
     "scrollRight": "오른쪽으로 스크롤",
-    "settings": "설정"
+    "settings": "환경설정"
   },
   "common": {
     "add": "추가",
@@ -104,7 +104,7 @@
     }
   },
   "settings": {
-    "categories": "설정 카테고리",
+    "categories": "환경설정 카테고리",
     "descriptions": {
       "assets": "홈 화면에 게임 자원을 표시합니다.",
       "idleAutoUpdate": "모든 프로필이 유휴 상태이면 스크립트를 자동으로 업데이트합니다.",
@@ -122,8 +122,8 @@
       "display": "화면 및 효과",
       "preferences": "환경설정"
     },
-    "noResults": "일치하는 설정이 없습니다",
-    "search": "설정 검색",
+    "noResults": "일치하는 환경설정이 없습니다",
+    "search": "환경설정 검색",
     "sections": {
       "appearance": "모양",
       "general": "일반",
@@ -853,6 +853,8 @@
     "stepChannel": "Choose update channel",
     "stepDownload": "Download backend",
     "stepExtract": "Install backend files",
+    "stepOcr": "OCR 런타임 및 모델 준비",
+    "stepResources": "스크립트 리소스 준비",
     "stepService": "Start local service",
     "stepStorage": "Prepare private storage",
     "title": "Set up BAAS",
@@ -864,8 +866,8 @@
     "fullscreen": "전체 화면을 켜거나 끕니다.",
     "redo": "취소한 설정 변경을 다시 실행합니다.",
     "resetZoom": "화면 배율을 100%로 되돌립니다.",
-    "settings": "앱 설정을 엽니다.",
-    "sidebar": "프로필 사이드바를 접거나 펼칩니다. 설정에서는 항상 열립니다.",
+    "settings": "환경설정을 엽니다.",
+    "sidebar": "프로필 사이드바를 접거나 펼칩니다. 환경설정에서는 항상 열립니다.",
     "undo": "최근 설정 변경을 취소합니다. 검색창에서는 텍스트를 되돌립니다.",
     "zoomIn": "화면을 확대합니다.",
     "zoomOut": "화면을 축소합니다."
@@ -1468,7 +1470,7 @@
     "websocket": "WebSocket (호환)"
   },
   "ui": {
-    "zoom": "UI 확대/축소 설정"
+    "zoom": "인터페이스 배율"
   },
   "updateChannel": {
     "dev": "개발 버전",

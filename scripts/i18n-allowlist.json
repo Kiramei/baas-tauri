@@ -165,7 +165,9 @@
     "androidSetup.statePending",
     "androidSetup.stateRunning",
     "androidSetup.stateDone",
-    "androidSetup.stateFailed"
+    "androidSetup.stateFailed",
+    "androidSetup.stepOcr",
+    "androidSetup.stepResources"
   ],
   "allowedDynamicFunctions": [
     "artifactPhaseKey",
