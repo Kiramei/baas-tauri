@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, writeFileSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { adapterTypecheckInputs } from "./frontend-adapter-inputs.mjs";
 
 const allowed = new Set(["webui", "tauri", "android", "windows", "macos", "linux"]);
 const oses = { windows: "windows-latest", macos: "macos-latest", linux: "ubuntu-24.04" };
@@ -72,7 +73,7 @@ if (process.argv[2] === "validate") {
   if (existsSync(platformDir)) platformTests.push(platformDir);
   const testPaths = [...tests.map(name => `tests/frontend/${name}.test.ts`), ...platformTests];
   try {
-    writeFileSync(config, JSON.stringify({ extends: "./tsconfig.json", include: [`src/platform/${os}/**/*`, "src/types/**/*.d.ts"] }));
+    writeFileSync(config, JSON.stringify({ extends: "./tsconfig.json", include: adapterTypecheckInputs(os) }));
     run("bunx", "eslint", `src/platform/${os}`, ...testPaths, "--ext", ".ts,.tsx");
     run("bunx", "tsc", "-p", config);
     run("bun", "test", ...testPaths);
