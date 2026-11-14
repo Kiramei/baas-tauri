@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-13T14:07:26.835Z",
+  "checkedAt": "2026-11-14T07:21:15.375Z",
   "platform": "linux",
   "basePath": "",
   "strictStaticHost": true,
@@ -4005,12 +4005,12 @@
     },
     {
       "kind": "search-artifact",
-      "revision": "502dec432ce6f5de850e2a3e81d83cfa3538b6b57467642e81580099f8476557"
+      "revision": "74c99676b2a880eca9cb6717fdbb05a41bc52bcfdcee24c1f415bbb2efd26a08"
     }
   ],
   "caseCount": 575,
   "failures": [],
-  "searchIndexPath": "search-index/502dec432ce6f5de850e2a3e81d83cfa3538b6b57467642e81580099f8476557.json",
-  "searchIndexRevision": "502dec432ce6f5de850e2a3e81d83cfa3538b6b57467642e81580099f8476557",
-  "searchIndexSha256": "2463e1ec2b3ca1aa4412ad1925be73839a5b8ba77fb0b9a919e5e63d5316bcd7"
+  "searchIndexPath": "search-index/74c99676b2a880eca9cb6717fdbb05a41bc52bcfdcee24c1f415bbb2efd26a08.json",
+  "searchIndexRevision": "74c99676b2a880eca9cb6717fdbb05a41bc52bcfdcee24c1f415bbb2efd26a08",
+  "searchIndexSha256": "ea235ab1121b5596fc983bd0d25b6077fafc2cce94c4263ef253a1fec7ac3217"
 }

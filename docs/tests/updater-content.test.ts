@@ -29,7 +29,20 @@ test("updater documentation pins inspected sources without claiming a runtime up
     expect(reference.endLine).toBeGreaterThanOrEqual(reference.startLine);
     expect(reference.endLine).toBeLessThanOrEqual(source!.lines);
   }
-  for (const [file, expected] of Object.entries(audit.testedPages)) expect(sha(read(file))).toBe(expected);
+  const mirror = audit.mirrorCredentialSupplement;
+  expect(mirror.verificationKind).toContain("code inspection");
+  expect(mirror.runtimeUpdateExecuted).toBe(false);
+  expect(mirror.sources).toHaveLength(11);
+  expect(new Set(mirror.sources.map(source => source.revision)).size).toBe(1);
+  for (const source of mirror.sources) {
+    expect(source.gitContentVerified).toBe(true);
+    expect(source.revision).toMatch(/^[a-f0-9]{40}$/);
+    expect(sha(read(source.file))).toBe(source.sha256);
+  }
+  // Preserve the historical pinned audit; later source inspections supersede
+  // only the pages they reviewed.
+  for (const [file, expected] of Object.entries({ ...audit.testedPages, ...mirror.testedPages }))
+    expect(sha(read(file))).toBe(expected);
   expect(audit.historySupplement.revision).toBe("7cb82895bcb78adb82b8f185199f51ef18b57cfa");
   expect(audit.historySupplement.sources).toHaveLength(3);
   for (const source of audit.historySupplement.sources) expect(sha(read(source.file))).toBe(source.sha256);

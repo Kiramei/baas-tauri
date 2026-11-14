@@ -123,6 +123,8 @@ const mode: BackendTransportMode = "shm";
 | `android_prepare_scrcpy_virtual_display` | `{ request }`，桌面走 ADB，Android 走原生显示服务；请求结构不同。 |
 | `android_cleanup_scrcpy_virtual_display` | 通过平台实现清理选定显示。 |
 | `android_scrcpy_virtual_display_status` | 返回显示准备状态，不能证明画面持续更新。 |
+| `android_pick_profile_folder` | 仅 Android，无参数。打开系统文件夹选择器，返回所选 URI，取消时返回 `null`。 |
+| `android_list_profile_folder` | 仅 Android，`{ uri }`。返回 `{ name, uri, isDirectory, isFile, isSymlink }` 条目；仅限用户选中的目录与已通过此桥枚举出的子目录。 |
 | `android_list_games` | 列出 Android 游戏包。 |
 | `android_launch_game` | 启动选定包。 |
 | `android_game_preview` | 经 Android 实现获取预览状态或数据。 |

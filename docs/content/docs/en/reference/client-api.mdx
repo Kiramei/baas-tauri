@@ -123,6 +123,8 @@ These commands belong inside the transport adapters. Reuse their binary encoders
 | `android_prepare_scrcpy_virtual_display` | `{ request }`; desktop uses ADB, Android uses its native display service. The request structs differ. |
 | `android_cleanup_scrcpy_virtual_display` | Cleans up the selected display through the platform implementation. |
 | `android_scrcpy_virtual_display_status` | Reports display preparation/status, without proving a live frame. |
+| `android_pick_profile_folder` | Android only, no arguments. Opens the system folder picker and returns the selected URI, or `null` when cancelled. |
+| `android_list_profile_folder` | Android only, `{ uri }`. Lists entries as `{ name, uri, isDirectory, isFile, isSymlink }`; restricted to the selected folder and subdirectories already enumerated through this bridge. |
 | `android_list_games` | Lists Android game packages. |
 | `android_launch_game` | Launches a selected package. |
 | `android_game_preview` | Preview status/data through the Android implementation. |

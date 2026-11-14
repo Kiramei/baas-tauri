@@ -713,5 +713,90 @@
         "sha256": "2143314b616707f52f4347d6214edfcb1a038ba3db21b4b680044bbb6fa60395"
       }
     ]
+  },
+  "mirrorCredentialSupplement": {
+    "checkedAt": "2026-11-14T07:33:02.295Z",
+    "verificationKind": "code inspection and pinned Git-content comparison; no credential file read",
+    "runtimeUpdateExecuted": false,
+    "scope": [
+      "native device-local CDK validation and private storage",
+      "presence-only frontend configuration and source switching",
+      "stable archive selection with Git fallback and full Android packages"
+    ],
+    "sources": [
+      {
+        "file": "src/shared/MirrorCdk.ts",
+        "revision": "85b37ab0c2c7a4f009d60c960ba2360b2a15f8b5",
+        "sha256": "0516615cb85a7c1578fe8f66209cc1213b8eee689fa99d73b22a231e909f48f4",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src/shared/useMirrorCdkSource.ts",
+        "revision": "85b37ab0c2c7a4f009d60c960ba2360b2a15f8b5",
+        "sha256": "de53ade0d986ce3f22dcd07a8187bac81a60ec8976fe3ec5305570a63d4ca50a",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src/components/settings/MirrorCdkField.tsx",
+        "revision": "85b37ab0c2c7a4f009d60c960ba2360b2a15f8b5",
+        "sha256": "e991b3139d92436903014ab5d1eb0aeaf5233fa650f92424d892c19673efd643",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src/pages/SettingsPage.tsx",
+        "revision": "85b37ab0c2c7a4f009d60c960ba2360b2a15f8b5",
+        "sha256": "f5be0d085d99c82af241688f9c31695cdc3eb11e58f88afe3872d43138f582cb",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/src/commands.rs",
+        "revision": "85b37ab0c2c7a4f009d60c960ba2360b2a15f8b5",
+        "sha256": "b44938bd8827b99dca6503c4ad1b54c60081c7d5d997d81fdefee844197344c2",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/src/mobile_commands.rs",
+        "revision": "85b37ab0c2c7a4f009d60c960ba2360b2a15f8b5",
+        "sha256": "c29d337da0d18e44e1c7b69792ae645ed5ed1d2a60d1379d314d2a209381272a",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/src/mirrorc_validation.rs",
+        "revision": "85b37ab0c2c7a4f009d60c960ba2360b2a15f8b5",
+        "sha256": "314da3a9bf9f2756ca977f7bf4c24b5c82c0b798c52b138952e5b48067884de7",
+        "gitContentVerified": true
+      },
+      {
+        "file": "crates/baas-updater/src/mirrorc_credentials.rs",
+        "revision": "85b37ab0c2c7a4f009d60c960ba2360b2a15f8b5",
+        "sha256": "e63482bf329db5956c6c3deb8de4ed2eca49244d8a02c29932faf6a399b70dc3",
+        "gitContentVerified": true
+      },
+      {
+        "file": "crates/baas-updater/src/mirrorc.rs",
+        "revision": "85b37ab0c2c7a4f009d60c960ba2360b2a15f8b5",
+        "sha256": "ff89fcaca888abcd1cbc23cae63bb53e7618086b14bde8357cd522ee5383bfa5",
+        "gitContentVerified": true
+      },
+      {
+        "file": "crates/baas-updater/src/workflow.rs",
+        "revision": "85b37ab0c2c7a4f009d60c960ba2360b2a15f8b5",
+        "sha256": "da9895aed530edfbff6281e4f637d3930e50969c9a4e84349de00f76bf143a96",
+        "gitContentVerified": true
+      },
+      {
+        "file": "crates/baas-updater/src/android.rs",
+        "revision": "85b37ab0c2c7a4f009d60c960ba2360b2a15f8b5",
+        "sha256": "4c265078c6ed3b5c77d5768f6034b1234c79dad3cea77b17dda24009b1c3c6c1",
+        "gitContentVerified": true
+      }
+    ],
+    "testedPages": {
+      "docs/content/docs/zh/features/update.mdx": "68123e094bc45983ba4df514f16236a805f69da6fd6bb001b2b922ec57c1a3eb",
+      "docs/content/docs/en/features/update.mdx": "39ae940fd37ea124730de7b5d7ac146291c8fe716d0147afdc47c57b69b193e4"
+    },
+    "limitations": [
+      "No runtime update, network CDK validation, device operation or private credential access was performed."
+    ]
   }
 }

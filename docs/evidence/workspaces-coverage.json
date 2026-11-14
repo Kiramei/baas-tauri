@@ -90,7 +90,7 @@
     },
     "update.mirrorCdk": {
       "page": "features/update",
-      "mention": "mirrorcCdk"
+      "mention": "CDK"
     },
     "update.method": {
       "page": "features/update",

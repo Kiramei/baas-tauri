@@ -7,6 +7,8 @@
 1. Added Android client update downloads with signed APK verification and handoff to the system installer.
 2. Added native MirrorChyan CDK verification and device-local credential storage for desktop and Android. Stable backend packages are checked against their SHA-256 before application.
 3. Added an **Open on device** action for Android game sessions whose background preview is unavailable, with recovery of an existing foreground game task when possible.
+4. Added a dedicated profile import pane with ZIP import and batch import from the immediate profile subdirectories of a selected backend `config` folder, including Android system folder selection and per-item results.
+5. Moved macOS client application actions into the native system menu bar, including standard application/window menus and synchronized shortcuts and action state.
 
 ### Improvements
 
@@ -15,6 +17,7 @@
 3. Separated client frontend, native backend, operating-system adapters, BAASX and documentation verification so changes run the relevant CI jobs. README-only changes use lightweight documentation checks.
 4. Prepared six-target BAASX distributions and platform-specific optional npm runtime packages. The scoped `@kiramei/baasx` entry remains the registry installation name; BAASX distribution publication uses its independent version and release tag.
 5. Renamed the BAASX native helper to `baasx-runtime`, retaining the legacy executable, Cargo entry and environment-variable lookup for existing installations.
+6. Gave the wide-screen plugin list and settings pane independent scrolling, while narrow layouts keep page scrolling.
 
 ### Fixes
 
@@ -23,6 +26,7 @@
 3. Kept MirrorChyan credentials out of synchronized frontend configuration and sanitized credential-bearing download diagnostics.
 4. Corrected cross-platform BAASX packaging, Windows archive handling, terminal input synchronization and runtime compatibility checks.
 5. Synchronized native release versions and the legacy runtime dependency, and moved Renovate configuration to the repository root.
+6. Prevented Android log viewing from opening the software keyboard while keeping interactive terminal input available.
 
 ### Upgrade Notes
 
