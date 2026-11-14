@@ -279,16 +279,13 @@ export default function AndroidInstallStepper({ text }: { text: string }) {
           >
             {(["stable", "dev"] as AndroidInstallChannel[]).map((value) => {
               const selected = selectedChannel === value;
-              const unavailable = value === "stable";
               return (
                 <button
                   key={value}
                   type="button"
                   role="radio"
                   aria-checked={selected}
-                  aria-disabled={unavailable}
-                  disabled={unavailable || channelBusy}
-                  title={unavailable ? t("androidSetup.channelUnavailable") : undefined}
+                  disabled={channelBusy}
                   onClick={() => setPendingChannel(value)}
                   className={`flex h-10 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 [@media(max-height:400px)]:h-8 ${
                     selected

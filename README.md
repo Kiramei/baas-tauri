@@ -27,10 +27,6 @@
 
 ---
 
-## 🚀 Overview
-
-BAAS Tauri is a Windows, macOS and Linux desktop client for [Blue Archive Auto Script](https://github.com/pur1fying/blue_archive_auto_script). It manages profiles, scheduling, feature settings, logs, updates and remote device display. The BAAS backend handles device connections, recognition and task execution.
-
 ## 🧩 What It Controls
 
 | Area             | What You Can Do                                                                                                                                    |

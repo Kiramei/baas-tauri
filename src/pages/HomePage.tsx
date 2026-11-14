@@ -287,6 +287,33 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
       : androidStartGuard.run(() => changeAndroidVirtualDisplay(false, packageName), "stop");
   };
 
+  const openAndroidGameOnDevice = async () => {
+    if (!activeConfigId || androidDisplayOperation.current || androidStartGuard.busy) return;
+    if (!androidManualControl.begin()) {
+      toast.error(t("android.game.openOnDeviceBusy"));
+      return;
+    }
+    androidDisplayOperation.current = true;
+    setAndroidVirtualDisplayBusy(true);
+    try {
+      const game = await requireAndroidProfileGame();
+      if (!game) return;
+      // Moving the game out of its virtual display requires every scheduler to be idle.
+      await verifyAndroidManualControlOwnership(useWebSocketStore.getState);
+      const { invoke } = await import("@/shared/TauriInvoke");
+      await invoke("android_launch_game", { request: { packageName: game.packageName } });
+      androidProfileGameSession.clear();
+      setAndroidVirtualDisplayActive(false);
+      void refreshAndroidVirtualDisplayStatus();
+    } catch (error) {
+      toast.error(t("android.game.openOnDeviceFailed"), { description: String(error) });
+    } finally {
+      androidManualControl.setActive(false);
+      androidDisplayOperation.current = false;
+      setAndroidVirtualDisplayBusy(false);
+    }
+  };
+
   useEffect(() => {
     if (activeProfile?.id === activeConfigId) void refreshAndroidVirtualDisplayStatus();
   }, [
@@ -537,14 +564,13 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             configuredPackage={androidGamePackage}
             virtualDisplayActive={androidDisplayMatchesProfile}
             virtualDisplayBusy={androidBusy}
+            onOpenOnDevice={openAndroidGameOnDevice}
             onBeforeManualControl={async () => {
               if (!activeConfigId || !requireAndroidRunSlot())
                 throw new Error("The Android game session is unavailable");
               await verifyAndroidManualControlOwnership(useWebSocketStore.getState, activeConfigId);
             }}
-            onToggleVirtualDisplay={async (active, packageName) => {
-              await toggleAndroidVirtualDisplay(active, packageName);
-            }}
+            onToggleVirtualDisplay={toggleAndroidVirtualDisplay}
           />
         </React.Suspense>
       )}

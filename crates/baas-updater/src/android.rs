@@ -9,6 +9,10 @@ use crate::{
     GitBackend, OutputSink, OutputStyle, RepositoryKind, UpdateChannel, UpdateStatus, UpdaterError,
     UpdaterResult, WorkflowOptions,
     config::{ConfigManager, UpdaterConfig},
+    mirrorc::{
+        MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp, copy_dir_contents,
+        supports_mirror_package,
+    },
     repo::{SourceProbe, SourceSelector, repository_urls},
 };
 use baas_term::{
@@ -292,7 +296,7 @@ pub fn android_workflow_plan() -> WorkflowPlan {
             "android-config",
             "android-config",
             "Android Config",
-            "Load setup.toml and force Android git2 update mode.",
+            "Load Android update settings.",
             "load Android setup.toml",
         )
         .parallel(vec![
@@ -300,8 +304,8 @@ pub fn android_workflow_plan() -> WorkflowPlan {
                 "android-main-repository",
                 "android-main-repository",
                 "Main Repository",
-                "Clone or update the BAAS Python repository with git2.",
-                "git2 sync main repository",
+                "Synchronize the BAAS Python repository from the configured source.",
+                "sync main repository",
             ),
             WorkflowTask::new(
                 "android-cpp-repository",
@@ -324,6 +328,7 @@ pub fn android_workflow_plan() -> WorkflowPlan {
 #[derive(Default)]
 struct AndroidWorkflowState {
     manager: Option<ConfigManager>,
+    credential_dir: Option<PathBuf>,
     main_outcome: Option<AndroidRepositoryOutcome>,
     cpp_outcome: Option<AndroidRepositoryOutcome>,
     last_error: Option<String>,
@@ -485,12 +490,14 @@ fn android_config_task(
     );
     output.line(
         OutputStyle::Success,
-        "Android updater will use Rust git2 only; no archive packages or system git",
+        "Android updater uses the configured main source and git2 for the Android OCR build",
     );
-    args.state
+    let mut state = args
+        .state
         .lock()
-        .map_err(|_| "android workflow state lock poisoned".to_string())?
-        .manager = Some(manager);
+        .map_err(|_| "android workflow state lock poisoned".to_string())?;
+    state.credential_dir = args.options.mirrorc_credential_dir;
+    state.manager = Some(manager);
     Ok(())
 }
 
@@ -562,19 +569,32 @@ fn android_repository_task(
     if cancelled.load(Ordering::Relaxed) {
         return Err("android repository task cancelled".to_string());
     }
-    let config = {
+    let (config, credential_dir) = {
         let state = args
             .state
             .lock()
             .map_err(|_| "android workflow state lock poisoned".to_string())?;
-        state
+        let manager = state
             .manager
             .as_ref()
-            .ok_or_else(|| "android configuration not initialized".to_string())?
-            .config
-            .clone()
+            .ok_or_else(|| "android configuration not initialized".to_string())?;
+        (manager.config.clone(), state.credential_dir.clone())
     };
-    let outcome = match sync_android_repository(args.kind, &config, &output) {
+    let cdk = if supports_mirror_package(args.kind, config.general.channel) {
+        credential_dir
+            .as_deref()
+            .map(crate::mirrorc_credentials::load)
+            .transpose()?
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+    let result = if cdk.is_empty() {
+        sync_android_repository(args.kind, &config, &output)
+    } else {
+        update_android_mirror_repository(&config, &cdk, &cancelled, &output)
+    };
+    let outcome = match result {
         Ok(outcome) => outcome,
         Err(error) => {
             let message = format!(
@@ -604,6 +624,80 @@ fn android_repository_task(
         RepositoryKind::Cpp => state.cpp_outcome = Some(outcome),
     }
     Ok(())
+}
+
+/// Download a complete stable source package into a disposable staging directory.
+/// The live Android tree contains patched Python files and is not a valid delta base.
+pub fn stage_android_mirror_repository(
+    stage: &Path,
+    cdk: &str,
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<String> {
+    let client = MirrorCClient::new(ReqwestMirrorHttp);
+    let result = client.update(
+        &MirrorUpdateRequest {
+            kind: RepositoryKind::Main,
+            channel: UpdateChannel::Stable,
+            current_version: "",
+            cdk,
+            target_dir: stage,
+        },
+        output,
+    )?;
+    validate_android_mirror_package(stage, &result.version)?;
+    Ok(result.version)
+}
+
+fn validate_android_mirror_package(stage: &Path, version: &str) -> UpdaterResult<()> {
+    if version.len() != 40 || !version.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(UpdaterError::MirrorC(
+            "MirrorChyan did not return a BAAS commit SHA".into(),
+        ));
+    }
+    for name in ["main.service.py", "service/app.py", "service/injection.py"] {
+        if !stage.join(name).is_file() {
+            return Err(UpdaterError::MirrorC(format!(
+                "MirrorChyan backend lacks {name} required by Android"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn update_android_mirror_repository(
+    config: &UpdaterConfig,
+    cdk: &str,
+    cancelled: &AtomicBool,
+    output: &impl OutputSink,
+) -> UpdaterResult<AndroidRepositoryOutcome> {
+    let root = config.baas_root();
+    let client = MirrorCClient::new(ReqwestMirrorHttp);
+    let latest = client.latest(RepositoryKind::Main, UpdateChannel::Stable, "", "")?;
+    if !latest.is_success() {
+        return Err(UpdaterError::MirrorC(format!(
+            "MirrorChyan metadata returned code {}",
+            latest.code
+        )));
+    }
+    let current = config.general.current_baas_sha.trim();
+    let matches_recorded_version = latest.latest_version_name.as_deref() == Some(current)
+        && validate_android_mirror_package(&root, current).is_ok();
+    let (status, sha) = if matches_recorded_version {
+        (UpdateStatus::Skipped, current.to_owned())
+    } else {
+        let stage = tempfile::tempdir_in(&root)?;
+        let sha = stage_android_mirror_repository(stage.path(), cdk, output)?;
+        if cancelled.load(Ordering::Relaxed) {
+            return Err(UpdaterError::Cancelled);
+        }
+        copy_dir_contents(stage.path(), &root)?;
+        (UpdateStatus::Updated, sha)
+    };
+    Ok(AndroidRepositoryOutcome {
+        status,
+        sha,
+        source_url: "MirrorChyan".into(),
+    })
 }
 
 /// Performs the sync android repository operation.
@@ -741,8 +835,12 @@ fn should_skip_android_fetch(
     local_sha: Option<&str>,
     remote_sha: &str,
 ) -> bool {
-    (!recorded_sha.is_empty() && recorded_sha == remote_sha)
-        || (target_is_repo && local_sha == Some(remote_sha))
+    if recorded_sha.is_empty() {
+        target_is_repo && local_sha == Some(remote_sha)
+    } else {
+        // A MirrorChyan delivery updates files independently of the saved Git HEAD.
+        recorded_sha == remote_sha
+    }
 }
 
 /// Returns whether a remote SHA probe can prevent an unnecessary Android fetch.
@@ -932,12 +1030,15 @@ fn configure_android_git2_ssl(output: &(dyn OutputSink + Send + Sync)) -> Update
 #[cfg(not(target_os = "android"))]
 fn configure_android_git2_ssl(_output: &(dyn OutputSink + Send + Sync)) -> UpdaterResult<()> {
     static TIMEOUTS: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
-    TIMEOUTS.get_or_init(|| unsafe {
-        git2::opts::set_server_connect_timeout_in_milliseconds(8_000)
-            .map_err(|error| error.to_string())?;
-        git2::opts::set_server_timeout_in_milliseconds(20_000)
-            .map_err(|error| error.to_string())
-    }).clone().map_err(UpdaterError::Git)
+    TIMEOUTS
+        .get_or_init(|| unsafe {
+            git2::opts::set_server_connect_timeout_in_milliseconds(8_000)
+                .map_err(|error| error.to_string())?;
+            git2::opts::set_server_timeout_in_milliseconds(20_000)
+                .map_err(|error| error.to_string())
+        })
+        .clone()
+        .map_err(UpdaterError::Git)
 }
 
 /// Returns the can clone into result.
@@ -1233,6 +1334,23 @@ fn short_sha(sha: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn android_mirror_packages_require_a_commit_and_the_embedded_service() {
+        let temp = tempfile::tempdir().unwrap();
+        let sha = "f".repeat(40);
+        let root = temp.path();
+        fs::write(root.join("main.py"), "# GUI entry").unwrap();
+        assert!(validate_android_mirror_package(root, &sha).is_err());
+        fs::create_dir(root.join("service")).unwrap();
+        for name in ["main.service.py", "service/app.py", "service/injection.py"] {
+            fs::write(root.join(name), "# Android service").unwrap();
+        }
+        assert!(validate_android_mirror_package(root, "1.2.3").is_err());
+        assert!(validate_android_mirror_package(root, &sha).is_ok());
+        // A later archive delivery may leave Git HEAD pointing at the prior version.
+        assert!(!should_skip_android_fetch(true, &sha, Some("old"), "old"));
+    }
 
     /// Handles the android cpp branch maps supported abis workflow.
     #[test]

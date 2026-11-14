@@ -70,7 +70,7 @@ Interactive confirmations select Yes by default. Enter confirms; `n` or the arro
 
 First launch lets you choose a language and a connection mode: install a local BAAS service environment or connect to an existing service. In the workbench, `/install` and `/local` manage the local environment, while `/connect` connects to an existing service. Use `/uninstall` to remove the local backend while keeping settings and user data. `/clear` clears displayed activity and logs without disconnecting or deleting backend data.
 
-Local installation reuses the desktop installation core and installs the `dev` service channel from `Kiramei/baas-dev`, which supports `main.service.py` and local pipes. The environment defaults to `<CLI config directory>/runtime` and includes a private Python runtime, the BAAS backend, OCR, and runtime dependencies. The CLI requires this service protocol and rejects the legacy `blue_archive_auto_script` GUI `stable` channel before installation. The desktop app keeps its own stable-channel default, installation directory, and settings.
+Local installation reuses the desktop installation core. New installations use the `stable` service backend by default. Run `/install dev` to choose the development channel. Reinstalling or updating an existing runtime keeps its selected channel. The environment defaults to `<CLI config directory>/runtime` and includes a private Python runtime, the BAAS backend, OCR, and runtime dependencies.
 
 Installation requires confirmation in the interface, even with `--yes`. Local prebuilt OCR currently supports Windows x64, Linux x64, and macOS ARM64.
 
@@ -116,14 +116,14 @@ bun run baasx --yes update
 bun run baasx --dry-run update
 ```
 
-Updates target a fully installed local `dev` environment managed by the CLI. Before updating, baasx checks every profile in the backend owned by this CLI instance. Any active task, scheduler, or waiting queue prevents the update. Once idle, the private backend stops, dependencies update, and the installation is checked again. If the workbench was connected to the local backend, it restarts and reconnects afterward. The installation lock also prevents replacement while another CLI instance holds a runtime lease.
+Updates target a fully installed local environment managed by the CLI. Before updating, baasx checks every profile in the backend owned by this CLI instance. Any active task, scheduler, or waiting queue prevents the update. Once idle, the private backend stops, dependencies update, and the installation is checked again. If the workbench was connected to the local backend, it restarts and reconnects afterward. The installation lock also prevents replacement while another CLI instance holds a runtime lease.
 
 External services selected by `--server` / `--pipe` are outside the local update target and are neither stopped nor modified. `check-update` only checks, `--dry-run update` only previews, and `--read-only` rejects applying updates.
 
 ## Connecting to an existing service
 
 ```bash
-# Start a service from a baas-dev checkout that supports Service mode.
+# Start a service from a backend checkout that supports Service mode.
 python main.service.py --host 127.0.0.1 --port 8190
 
 # Use /connect in the workbench to enter the service login key in a hidden prompt.

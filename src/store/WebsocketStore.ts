@@ -31,7 +31,9 @@ import {
 import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
 import { remainingSyncOperations, type SyncPatchOperation } from "@/shared/SyncPatchOrdering";
 import { isUserProfileId } from "@/shared/ProfileTabs";
+import { publicUpdateSettings } from "@/shared/MirrorCdk";
 import { resolveClientVersion } from "@/shared/ClientVersion";
+import { compareReleaseVersions } from "@/shared/ReleaseVersion.mjs";
 
 import { resolveBackendAddress } from "@/shared/BackendAddress";
 
@@ -262,14 +264,15 @@ const startBackendUpdaterPolling = (initialDelayMs = 0) => {
   beginPolling();
 };
 
-const checkAndroidClientUpdate = async (currentVersion?: string) => {
-  const { invoke } = await import("@/shared/TauriInvoke");
-  return await invoke<any>("tauri_client_check_update", {
-    request: {
-      currentVersion,
-    },
-  });
-};
+interface ClientUpdateReport {
+  currentVersion: string;
+  version: string | null;
+  updateAvailable: boolean;
+  androidPackageAvailable?: boolean;
+  body: string;
+  date: string;
+  lastChecked: number;
+}
 
 const resetConnectionStores = (): Partial<WebSocketState> => ({
   _receivedSnapshots: {},
@@ -643,152 +646,75 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     checkTauriUpdater: async (notify = false, visible = false) => {
       if (!__WITH_TAURI__ || tauriUpdaterChecking) return;
+      tauriUpdaterChecking = true;
       set((state) => ({
-        ...state,
         versionStore: {
           ...state.versionStore,
-          tauri: {
-            ...(state.versionStore.tauri ?? {}),
-            currentVersion: state.versionStore.tauri?.currentVersion ?? __APP_VERSION__,
-            version: state.versionStore.tauri?.version ?? __APP_VERSION__,
-            checking: true,
-            error: null,
-          },
+          tauri: { ...state.versionStore.tauri, checking: true, error: null },
         },
       }));
-      if (__WITH_ANDROID__) {
-        tauriUpdaterChecking = true;
-        try {
-          const { getVersion } = await import("@tauri-apps/api/app");
-          const currentVersion = resolveClientVersion(await getVersion().catch(() => __APP_VERSION__));
-          const nextTauriVersion = await checkAndroidClientUpdate(currentVersion);
-          set((state) => ({
-            ...state,
-            versionStore: {
-              ...state.versionStore,
-              tauri: {
-                ...nextTauriVersion,
-                currentVersion: nextTauriVersion.currentVersion ?? currentVersion,
-              },
-            },
-          }));
-          if (nextTauriVersion.updateAvailable) {
-            if (notify && tauriUpdaterNotifiedVersion !== nextTauriVersion.version) {
-              toast.info(t("update.tauriAvailable"), {
-                description: nextTauriVersion.version,
-              });
-              tauriUpdaterNotifiedVersion = nextTauriVersion.version;
-            }
-          } else {
-            tauriUpdaterNotifiedVersion = null;
-            if (visible) toast.success(t("update.tauriUpToDate"));
-          }
-        } catch (error) {
-          set((state) => ({
-            ...state,
-            versionStore: {
-              ...state.versionStore,
-              tauri: {
-                ...(state.versionStore.tauri ?? {}),
-                checking: false,
-                updateAvailable: false,
-                lastChecked: Date.now(),
-                error: error instanceof Error ? error.message : String(error),
-              },
-            },
-          }));
-          if (visible) {
-            toast.error(t("update.tauriFailed"), {
-              description: error instanceof Error ? error.message : String(error),
-            });
-          }
-        } finally {
-          tauriUpdaterChecking = false;
-        }
-        return;
-      }
-      if (await isTauriNoUpdateEnabled()) {
-        tauriUpdaterNotifiedVersion = null;
-        set((state) => ({
-          ...state,
-          versionStore: {
-            ...state.versionStore,
-            tauri: {
-              ...(state.versionStore.tauri ?? {}),
-              checking: false,
-              updateAvailable: false,
-              lastChecked: Date.now(),
-              error: null,
-            },
-          },
-        }));
-        return;
-      }
-      tauriUpdaterChecking = true;
-
       try {
+        if (await isTauriNoUpdateEnabled()) {
+          tauriUpdaterNotifiedVersion = null;
+          set((state) => ({
+            versionStore: {
+              ...state.versionStore,
+              tauri: {
+                currentVersion: state.versionStore.tauri?.currentVersion ?? __APP_VERSION__,
+                checking: false,
+                disabled: true,
+                updateAvailable: false,
+              },
+            },
+          }));
+          if (visible) toast.info(t("update.tauriDisabled"));
+          return;
+        }
         const [{ invoke }, { getVersion }] = await Promise.all([
           import("@/shared/TauriInvoke"),
           import("@tauri-apps/api/app"),
         ]);
         const currentVersion = resolveClientVersion(await getVersion().catch(() => __APP_VERSION__));
-        const update = await invoke<any>("tauri_client_check_update", {
+        const update = await invoke<ClientUpdateReport>("tauri_client_check_update", {
           request: { currentVersion },
         });
-        const nextTauriVersion = update.updateAvailable
-          ? {
-              updateAvailable: true,
-              checking: false,
-              currentVersion,
-              version: update.version,
-              body: update.body ?? "",
-              date: update.date ?? "",
-              lastChecked: Date.now(),
-              error: null,
-            }
-          : {
-              updateAvailable: false,
-              checking: false,
-              currentVersion,
-              version: null,
-              body: "",
-              date: "",
-              lastChecked: Date.now(),
-              error: null,
-            };
-
+        const missingPackage = update.androidPackageAvailable === false && update.version !== null &&
+          compareReleaseVersions(update.version, currentVersion) > 0;
         set((state) => ({
-          ...state,
           versionStore: {
             ...state.versionStore,
-            tauri: nextTauriVersion,
+            tauri: { ...update, checking: false, currentVersion, missingPackage, error: null },
           },
         }));
 
-        if (update) {
-          if (notify && tauriUpdaterNotifiedVersion !== update.version) {
-            toast.info(t("update.tauriAvailable"), {
-              description: update.version,
-            });
+        if (update.updateAvailable && update.version) {
+          if (notify && (visible || tauriUpdaterNotifiedVersion !== update.version)) {
+            toast.info(t("update.tauriAvailable"), { description: update.version });
             tauriUpdaterNotifiedVersion = update.version;
           }
         } else {
           tauriUpdaterNotifiedVersion = null;
+          if (visible) {
+            if (missingPackage) toast.info(t("update.androidPackageUnavailable"));
+            else toast.success(t("update.tauriUpToDate"));
+          }
         }
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         set((state) => ({
-          ...state,
           versionStore: {
             ...state.versionStore,
             tauri: {
-              ...(state.versionStore.tauri ?? {}),
+              ...state.versionStore.tauri,
               checking: false,
+              disabled: false,
               updateAvailable: false,
               lastChecked: Date.now(),
-              error: error instanceof Error ? error.message : String(error),
+              error: message,
             },
           },
         }));
+        if (visible) toast.error(t("update.tauriFailed"), { description: message });
       } finally {
         tauriUpdaterChecking = false;
       }
@@ -1127,7 +1053,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           },
           setup_toml: (message: WsMessageItem) => {
             set(() => ({
-              updateStore: message.data,
+              updateStore: publicUpdateSettings(message.data ?? {}),
             }));
           },
         };
@@ -1302,7 +1228,7 @@ export const useWebSocketStore = create<WebSocketState>()(
               callback({ command, data, status, error });
               delete get().pendingCallbacks[timestamp!];
             } else {
-              console.warn("CallBack Not Found:", message);
+              console.warn("Missing callback for backend command", command, timestamp);
             }
           },
 
@@ -1328,6 +1254,17 @@ export const useWebSocketStore = create<WebSocketState>()(
               }
               if (membershipChange && op.op === "remove") {
                 get().send("sync", { type: "list" });
+              } else if (
+                resource === "setup_toml" &&
+                ["/mirrorcCdk", "/mirrorc_cdk"].includes(op.path)
+              ) {
+                get().patch(`${resourceId}::setup_toml/mirrorcCdkConfigured`, Boolean(op.value));
+              } else if (
+                resource === "setup_toml" &&
+                (op.path === "/" || op.path === "") &&
+                isPlainObject(op.value)
+              ) {
+                set({ updateStore: publicUpdateSettings(op.value) });
               } else {
                 const path = `${resourceId}::${resource}${op.path}`;
                 get().patch(path, op.value);
@@ -1621,7 +1558,7 @@ export const useWebSocketStore = create<WebSocketState>()(
               local: "android-bundled",
               remote: "android-bundled",
               updateAvailable: false,
-              channel: "dev",
+              channel: state.updateStore?.channel ?? "stable",
               method: "disabled",
               lastChecked: Date.now(),
             },
@@ -1632,7 +1569,7 @@ export const useWebSocketStore = create<WebSocketState>()(
             versionStore: {
               ...state.versionStore,
               updateAvailable: false,
-              channel: state.updateStore?.channel ?? "dev",
+              channel: state.updateStore?.channel ?? "stable",
               method: "deferred",
               checking: true,
             },

@@ -361,6 +361,7 @@ dependencies = [
  "baas-term",
  "flate2",
  "git2",
+ "minreq",
  "portable-pty",
  "reqwest",
  "serde",
@@ -370,6 +371,7 @@ dependencies = [
  "tauri",
  "tempfile",
  "toml 1.1.2+spec-1.1.0",
+ "url",
  "uuid",
  "zip 8.6.0",
 ]

@@ -49,10 +49,10 @@ snapshot.entries;
 | Command | Application arguments | Behavior |
 | ------- | --------------------- | -------- |
 | `updater_get_storage_state` | None | Storage paths and portable state. |
-| `updater_get_startup_state` | None | Setup configuration and startup state. |
+| `updater_get_startup_state` | None | Setup configuration and startup state. The local credential status is `config.general.mirrorc_cdk_configured`. |
 | `updater_path_exists_non_empty` | `{ path }` | Desktop filesystem check; Android returns `false`. |
 | `updater_update_config` | `{ request }` | Partial setup update; fields include `baasRootPath`, `channel`, `runtimePath`, `noUpdate`, `gitBackend` and `transport`. |
-| `updater_validate_mirrorc_cdk` | `{ request: { cdk, channel? } }` | Validation report; Android returns an unsupported report. |
+| `updater_validate_mirrorc_cdk` | `{ request: { cdk?, channel? } }` | Checks a stable backend CDK and returns its status and expiry. Omit `cdk` to check the credential saved on this device. |
 | `tauri_client_check_update` | `{ request?: { currentVersion? } }` | Desktop updater metadata or Android package-update metadata. |
 | `tauri_client_download_and_install` | `{ onEvent }` | Download/install flow with a Tauri event channel; result handling differs by platform. |
 | `updater_check_version` | `{ request: { channel? } }` | Local/remote backend revision report. |
@@ -60,7 +60,7 @@ snapshot.entries;
 | `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | One remote-revision source probe. |
 | `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | Multiple source probes; reports can complete out of order. |
 | `updater_start_workflow` | `{ request: { installPath?, launch? } }` | Starts an updater terminal session. |
-| `updater_select_channel` | `{ channel }` | Registered only on Android. Persists the initial `dev` channel choice and releases the waiting bootstrap; rejects `stable`. Returns `channel` and `channelSelected: true`. |
+| `updater_select_channel` | `{ channel }` | Registered only on Android. Persists the initial backend channel (`stable` by default, or `dev`) and releases the waiting bootstrap. Returns `channel` and `channelSelected: true`. |
 | `updater_restart_backend` | None | Registered only on Android. Requests a bootstrap restart and ensures the Android backend service is running. `restartScheduled` reports whether the restart request was accepted, not that installation or reconnection completed. |
 | `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | Requests cancellation; inspect the abort report and cleanup limits. |
 | `updater_terminal_snapshot` | None | Structured terminal restore data. |

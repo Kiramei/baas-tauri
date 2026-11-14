@@ -133,7 +133,7 @@ npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary --n
 
 使用 `/uninstall` 卸载本地后端程序，确认时会显示目录；配置和用户数据会保留。命令行也可使用 `baasx uninstall`，非交互执行需加 `--yes`。
 
-本地环境默认在 `<CLI配置目录>/runtime`，使用支持 `main.service.py` 的 **Kiramei/baas-dev 服务版 dev 通道**。旧 GUI 稳定版不具备这里要求的协议，选择 `stable` 会被拒绝。首次安装必须明确确认，`--yes` 不绕过这一步。
+本地环境默认在 `<CLI配置目录>/runtime`。首次安装默认使用 `stable` 服务版后端，可用 `/install dev` 选择开发通道。更新沿用已有环境的通道。首次安装必须明确确认，`--yes` 不绕过这一步。
 
 CLI 配置目录默认是 `$XDG_CONFIG_HOME/baas` 或 `~/.config/baas`。使用 `--config-home <目录>` / `BAAS_CLI_HOME` 可以隔离不同安装：
 
@@ -145,7 +145,7 @@ baasx --config-home ./baasx-lab --demo
 
 ### WebSocket 服务
 
-在兼容的 `baas-dev` 后端目录启动服务：
+在兼容的后端目录启动服务：
 
 ```sh
 python main.service.py --host 127.0.0.1 --port 8190

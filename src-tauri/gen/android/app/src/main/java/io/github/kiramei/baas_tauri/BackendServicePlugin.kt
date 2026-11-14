@@ -331,6 +331,8 @@ private class BackendActivitySession(
     "com.RoamingStar.BlueArchive" to "Blue Archive (CN)",
     "com.YostarJP.BlueArchive" to "Blue Archive (JP)",
     "com.nexon.bluearchive" to "Blue Archive (Global)",
+    "com.nexon.bluearchiveteen" to "Blue Archive (Global Teen)",
+    "com.nexon.bluearchiveone" to "Blue Archive (ONE store)",
   )
 
   @Command
@@ -384,8 +386,7 @@ private class BackendActivitySession(
     val args = invoke.getArgs()
     background(invoke, changesSession = true) {
       val packageName = allowedGamePackage(args.getString("packageName"))
-      if (ShizukuController.state(activity).granted && ShizukuController.virtualDisplayId(activity) >= 0) {
-        ShizukuController.takeOverGame(activity, packageName)
+      if (ShizukuController.state(activity).granted && ShizukuController.takeOverGame(activity, packageName)) {
         return@background JSObject()
       }
       val intent = activity.packageManager.getLaunchIntentForPackage(packageName)
@@ -485,6 +486,15 @@ private class BackendActivitySession(
     background(invoke, changesSession = true) {
       val packageName = allowedGamePackage(args.getString("packageName"))
       val displayId = args.getInteger("displayId", -1)
+      // Rebinding the Home page to the same live display must not kill a loading Unity process.
+      check(ShizukuController.virtualDisplayId(activity) == displayId && displayId > 0) {
+        "The requested game display is no longer active"
+      }
+      if (ShizukuController.currentGamePackage(activity) == packageName &&
+        ShizukuController.topGamePackage(activity) == packageName) {
+        return@background JSObject()
+      }
+      ShizukuController.execute(activity, "am force-stop --user 0 $packageName")
       if (!ShizukuController.launchPackageOnDisplay(activity, packageName, displayId)) {
         throw IllegalStateException("Android rejected the game launch on the virtual display")
       }

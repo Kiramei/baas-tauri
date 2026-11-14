@@ -190,11 +190,12 @@
     "updateSuccess": "设置更新成功"
   },
   "update": {
+    "androidInstallerOpened": "请在 Android 系统安装器中确认更新。",
+    "androidPackageUnavailable": "此版本没有适用于当前设备的 APK。",
     "backendAction": "更新 BAAS",
     "backendStarted": "BAAS 更新已开始",
     "backendStartFailed": "BAAS 更新启动失败",
     "channel": "更新通道",
-    "dueDate": "到期时间",
     "enterCdk": "输入CDK",
     "method": "更新源",
     "mirrorCdk": "Mirror酱的CDK (可选)",
@@ -204,6 +205,7 @@
     "tauriAction": "客户端",
     "tauriAvailable": "发现客户端新版本",
     "tauriChecking": "正在检查客户端更新...",
+    "tauriDisabled": "setup.toml 已禁用客户端更新。",
     "tauriDownloading": "正在下载 {{version}}...",
     "tauriFailed": "客户端更新失败",
     "tauriInstalling": "正在安装并重启...",
@@ -699,7 +701,11 @@
   },
   "mirrorc": {
     "cdk": {
-      "noInput": "请输入Mirror酱CDK!",
+      "blocked": "CDK 已被封禁。",
+      "configured": "此设备已保存 CDK",
+      "mismatch": "此 CDK 不适用于所选资源。",
+      "quota": "今日下载额度已用尽。",
+      "requestFailed": "无法验证或保存本地 CDK，请重试。",
       "testOk": "CDK 验证成功"
     },
     "message": {
@@ -742,8 +748,10 @@
       "inspectFailed": "无法读取已安装的游戏",
       "live": "实时",
       "liveDisplay": "{{game}}实时画面",
+      "openOnDevice": "在设备上打开游戏",
+      "openOnDeviceBusy": "BAAS 正在更新或游戏已进入手动控制。",
+      "openOnDeviceFailed": "无法在设备上打开游戏",
       "restartFailed": "游戏重启失败",
-      "showControls": "显示游戏控制",
       "startBackground": "后台启动游戏",
       "takeoverFailed": "无法进入横屏游戏模式"
     },
@@ -781,7 +789,6 @@
     "channelDev": "开发版",
     "channelStable": "稳定版",
     "channelTitle": "选择更新通道",
-    "channelUnavailable": "稳定版暂不支持 Android。",
     "clientAuth": "验证会话",
     "clientConnect": "连接本地服务",
     "clientSync": "同步配置",

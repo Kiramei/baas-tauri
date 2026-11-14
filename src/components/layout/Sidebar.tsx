@@ -18,7 +18,6 @@ import { PageKey } from "@/types/app";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { reloadWithoutPrompt } from "@/shared/reload";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
-import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgressModal";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
@@ -670,13 +669,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
         </div>
       )}
 
-      <TauriUpdateProgressModal
-        open={tauriUpdate.progressOpen}
-        onClose={() => tauriUpdate.setProgressOpen(false)}
-        updating={tauriUpdate.updating}
-        tauriProgress={tauriUpdate.progress}
-        tauriStatus={tauriUpdate.status}
-      />
       {backendUpdateLogOpen && (
         <div className="mobile-update-log fixed inset-x-4 bottom-24 z-60 mx-auto max-w-2xl rounded-lg border border-slate-300 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-950 lg:bottom-6">
           <div className="mb-2 flex items-center justify-between">

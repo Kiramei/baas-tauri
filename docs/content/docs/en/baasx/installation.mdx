@@ -133,7 +133,7 @@ Inside an existing workbench, `/install` opens installation and `/local` connect
 
 Use `/uninstall` to remove the local backend while keeping settings and user data; the confirmation shows the directory. The CLI also supports `baasx uninstall`, with `--yes` required for noninteractive execution.
 
-The default runtime directory is `<CLI config directory>/runtime`. It uses the **Kiramei/baas-dev service-capable dev channel**, including `main.service.py`. The older GUI stable backend lacks the required protocol; selecting `stable` is rejected. Initial installation always requires explicit confirmation; `--yes` does not bypass it.
+The default runtime directory is `<CLI config directory>/runtime`. New installations use the `stable` service backend by default. Choose `/install dev` for the development channel. Existing installations keep their channel during updates. Initial installation always requires explicit confirmation; `--yes` does not bypass it.
 
 The CLI configuration directory defaults to `$XDG_CONFIG_HOME/baas` or `~/.config/baas`. Use `--config-home <directory>` or `BAAS_CLI_HOME` to isolate an installation:
 
@@ -145,7 +145,7 @@ baasx --config-home ./baasx-lab --demo
 
 ### WebSocket
 
-In a compatible `baas-dev` backend directory, start the service:
+In a compatible backend directory, start the service:
 
 ```sh
 python main.service.py --host 127.0.0.1 --port 8190

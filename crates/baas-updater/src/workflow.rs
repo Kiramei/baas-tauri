@@ -14,7 +14,7 @@ use crate::{
         validate_backend_shm_support, with_cpython_install_mirror,
         with_environment_source_failover,
     },
-    mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp},
+    mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp, supports_mirror_package},
     repo::{
         GitExecutor, GitHttpSourceProbe, GitSourceProbe, GitUpdateGuard, RealGitExecutor,
         RepoManager, RepoSyncOptions,
@@ -155,10 +155,11 @@ impl WorkflowServices for RealWorkflowServices {
         ranking_path: &Path,
         output: &(dyn OutputSink + Send + Sync),
     ) -> UpdaterResult<RepositoryOutcome> {
-        if !config.general.mirrorc_cdk.is_empty() {
-            let current_version = match kind {
-                RepositoryKind::Main => &config.general.current_baas_sha,
-                RepositoryKind::Cpp => &config.general.current_baas_cpp_sha,
+        if use_mirrorc(config, kind) {
+            let current_version = if target_dir.join("main.service.py").is_file() {
+                config.general.current_baas_sha.as_str()
+            } else {
+                ""
             };
             let mirror = MirrorCClient::new(ReqwestMirrorHttp);
             let result = mirror.update(
@@ -171,7 +172,9 @@ impl WorkflowServices for RealWorkflowServices {
                 },
                 output,
             )?;
-            remove_git_metadata_if_present(target_dir, output)?;
+            if result.status != UpdateStatus::Skipped {
+                remove_git_metadata_if_present(target_dir, output)?;
+            }
             return Ok(RepositoryOutcome {
                 kind,
                 status: result.status,
@@ -255,11 +258,16 @@ fn load_manager(options: &WorkflowOptions) -> UpdaterResult<ConfigManager> {
     }
 }
 
+fn use_mirrorc(config: &UpdaterConfig, kind: RepositoryKind) -> bool {
+    !config.general.mirrorc_cdk.trim().is_empty()
+        && supports_mirror_package(kind, config.general.channel)
+}
+
 /// Handles the repository job workflow.
 fn repository_job(config: &UpdaterConfig, kind: RepositoryKind) -> RepositoryJob {
     let root = config.baas_root();
     let tmp = config.tmp_dir();
-    let using_mirrorc = !config.general.mirrorc_cdk.trim().is_empty();
+    let using_mirrorc = use_mirrorc(config, kind);
     match kind {
         RepositoryKind::Main => {
             if using_mirrorc {
@@ -344,32 +352,6 @@ fn finalize_job(job: &RepositoryJob) -> UpdaterResult<()> {
         return Ok(());
     }
     move_dir_contents(&job.target_dir, &job.final_dir)
-}
-
-/// Handles the validate mirrorc cdk before workflow workflow.
-fn validate_mirrorc_cdk_before_workflow(config: &UpdaterConfig) -> UpdaterResult<()> {
-    let cdk = config.general.mirrorc_cdk.trim();
-    if cdk.is_empty() {
-        return Ok(());
-    }
-    let latest = MirrorCClient::new(ReqwestMirrorHttp).latest(
-        RepositoryKind::Main,
-        config.general.channel,
-        "",
-        cdk,
-    )?;
-    if latest.is_success() {
-        return Ok(());
-    }
-    let message = if latest.message.trim().is_empty() {
-        latest
-            .cdk_state()
-            .map(|state| format!("MirrorC CDK validation failed: {state:?}"))
-            .unwrap_or_else(|| format!("MirrorC CDK validation failed with code {}", latest.code))
-    } else {
-        latest.message
-    };
-    Err(UpdaterError::MirrorC(message))
 }
 
 /// Performs the remove git metadata if present operation.
@@ -461,6 +443,7 @@ fn environment_ranking_dir(config: &UpdaterConfig) -> PathBuf {
 #[derive(Default)]
 struct TerminalWorkflowState {
     manager: Option<ConfigManager>,
+    private_mirrorc_cdk: Option<String>,
     main_job: Option<RepositoryJob>,
     cpp_job: Option<RepositoryJob>,
     ranking_dir: Option<PathBuf>,
@@ -873,28 +856,33 @@ fn terminal_config_task(
             spinner.set_detail("applying selected install path");
             manager.config.paths.baas_root_path = path.to_string_lossy().to_string();
         }
-        if !manager.config.general.no_update
-            && !manager.config.general.mirrorc_cdk.trim().is_empty()
-        {
-            spinner.set_detail("validating MirrorC CDK");
-            validate_mirrorc_cdk_before_workflow(&manager.config)
-                .map_err(|error| error.message())?;
+        let private_mirrorc_cdk = args
+            .options
+            .mirrorc_credential_dir
+            .as_deref()
+            .map(crate::mirrorc_credentials::load)
+            .transpose()?;
+        let mut update_config = manager.config.clone();
+        if let Some(cdk) = &private_mirrorc_cdk {
+            update_config.general.mirrorc_cdk.clone_from(cdk);
+            manager.config.general.mirrorc_cdk.clear();
         }
         spinner.set_detail("saving migrated configuration");
         manager.save().map_err(|error| error.message())?;
         fs::create_dir_all(manager.config.baas_root()).map_err(|error| error.to_string())?;
-        let ranking_dir = environment_ranking_dir(&manager.config);
+        let ranking_dir = environment_ranking_dir(&update_config);
         fs::create_dir_all(&ranking_dir).map_err(|error| error.to_string())?;
 
         spinner.set_detail("planning repository targets");
-        let main_job = repository_job(&manager.config, RepositoryKind::Main);
-        let cpp_job = repository_job(&manager.config, RepositoryKind::Cpp);
+        let main_job = repository_job(&update_config, RepositoryKind::Main);
+        let cpp_job = repository_job(&update_config, RepositoryKind::Cpp);
         register_cleanup_paths(&args.cleanup_state, &main_job, &cpp_job)
             .map_err(|error| error.message())?;
         let mut state = args
             .state
             .lock()
             .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
+        state.private_mirrorc_cdk = private_mirrorc_cdk;
         state.manager = Some(manager);
         state.main_job = Some(main_job);
         state.cpp_job = Some(cpp_job);
@@ -1086,8 +1074,12 @@ fn terminal_repo_thread_task(
             .ranking_dir
             .as_ref()
             .ok_or_else(|| "ranking directory not initialized".to_string())?;
+        let mut config = manager.config.clone();
+        if let Some(cdk) = &state.private_mirrorc_cdk {
+            config.general.mirrorc_cdk.clone_from(cdk);
+        }
         (
-            manager.config.clone(),
+            config,
             job,
             ranking_dir.join(format!("{}.json", args.kind.as_str())),
         )
@@ -1121,7 +1113,7 @@ fn terminal_repo_thread_task(
                 args.kind.as_str()
             ),
         );
-        let outcome = if config.general.mirrorc_cdk.is_empty()
+        let outcome = if !use_mirrorc(&config, args.kind)
             && config.general.git_backend != GitBackend::Git2
             && RealGitExecutor.has_cli()
         {
@@ -2315,7 +2307,7 @@ mod tests {
 
     /// Handles the mirrorc jobs use final dirs without requiring git metadata workflow.
     #[test]
-    fn mirrorc_jobs_use_final_dirs_without_requiring_git_metadata() {
+    fn mirrorc_uses_stable_main_and_git_staging_for_ocr_and_dev() {
         let dir = tempfile::tempdir().unwrap();
         let install_path = dir.path().join("BAAS");
         let mut config = UpdaterConfig::default();
@@ -2327,15 +2319,11 @@ mod tests {
 
         assert!(!main_job.needs_move);
         assert_eq!(main_job.target_dir, install_path);
-        assert!(!cpp_job.needs_move);
-        assert_eq!(
-            cpp_job.target_dir,
-            install_path
-                .join("core")
-                .join("ocr")
-                .join("baas_ocr_client")
-                .join("bin")
-        );
+        assert!(cpp_job.needs_move);
+        assert_eq!(cpp_job.target_dir, install_path.join("tmp/cpp-repo"));
+        config.general.channel = crate::UpdateChannel::Dev;
+        assert!(repository_job(&config, RepositoryKind::Main).needs_move);
+        assert!(!use_mirrorc(&config, RepositoryKind::Main));
     }
 
     /// Handles the mirrorc cleanup removes extra git metadata workflow.

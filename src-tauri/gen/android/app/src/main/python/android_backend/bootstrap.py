@@ -29,9 +29,9 @@ GIT_INSTALL_WAIT_SECONDS = 900
 GIT_INSTALL_POLL_SECONDS = 0.2
 INSTALL_HEARTBEAT_SECONDS = 5
 PACKAGE_NAME = "io.github.kiramei.baas_tauri"
-DEFAULT_CHANNEL = "dev"
+DEFAULT_CHANNEL = "stable"
 CHANNEL_OPTIONS = (
-    {"id": "stable", "available": False},
+    {"id": "stable", "available": True},
     {"id": "dev", "available": True},
 )
 # The first install waits for a real channel decision, but a timeout keeps a
@@ -384,7 +384,7 @@ def _await_channel_selection(root, status):
     status["stage"] = "channel"
     status["awaitingChannel"] = True
     status["channelOptions"] = [dict(option) for option in CHANNEL_OPTIONS]
-    status["installMessage"] = "Waiting for you to confirm the Development channel for Android."
+    status["installMessage"] = "Waiting for you to confirm the backend update channel."
     _set_step(root, status, "channel", "running", "Waiting for the update channel chosen in the app.")
     print(
         "[channel] Awaiting your Continue installation confirmation; no download has started.",
@@ -426,14 +426,6 @@ def _await_channel_selection(root, status):
 
 # Records the chosen channel in the status document and the setup file.
 def _record_channel(root, status, channel):
-    if channel == "stable":
-        error = (
-            "The Stable channel lacks the Android service (main.service.py). "
-            "Choose Development (Dev) to install BAAS on Android."
-        )
-        _set_step(root, status, "storage", "done", f"Private directory: {root}")
-        _set_step(root, status, "channel", "failed", error)
-        raise RuntimeError(error)
     status["channel"] = channel
     status["awaitingChannel"] = False
     status["stage"] = "runtime"
@@ -508,13 +500,13 @@ def _ensure_backend_files(root, status):
     tmp_root = root / ".baas-next"
     shutil.rmtree(tmp_root, ignore_errors=True)
     status["installing"] = True
-    status["installMessage"] = f"Installing the {channel} backend with Rust git2."
-    _set_step(root, status, "download", "running", "Requesting Rust git2 mirror speed tests.")
+    status["installMessage"] = f"Installing the {channel} backend from the configured source."
+    _set_step(root, status, "download", "running", "Requesting the backend from the native updater.")
     remote_sha = _await_git2_backend_install(root, status, channel)
     if not _service_path(tmp_root).is_file():
         raise RuntimeError("Rust git2 completed without main.service.py; refusing an incomplete backend checkout.")
-    _set_step(root, status, "download", "done", f"Git2 transfer completed from {status.get('downloadSource') or 'the selected mirror'}.")
-    _set_step(root, status, "extract", "done", "Git2 checkout verified; ready for Android compatibility patches.")
+    _set_step(root, status, "download", "done", f"Backend transfer completed from {status.get('downloadSource') or 'the selected mirror'}.")
+    _set_step(root, status, "extract", "done", "Backend verified; ready for Android compatibility patches.")
     _set_step(root, status, "adapt", "running", "Applying Android compatibility patches.")
     print("[adapt] Applying Android compatibility patches to the verified git2 checkout.", flush=True)
     _ensure_android_support_files(tmp_root)
@@ -573,13 +565,12 @@ def _await_git2_backend_install(root, status, channel):
     }
     status["gitInstallRequestId"] = request_id
     status["installPhase"] = "native-start"
-    _set_step(root, status, "download", "running", "Waiting for the Rust git2 installer to acknowledge the request.")
+    _set_step(root, status, "download", "running", "Waiting for the native installer to acknowledge the request.")
     temporary_request = request_path.with_suffix(".json.tmp")
     temporary_request.write_text(json.dumps(request), encoding="utf-8")
     os.replace(str(temporary_request), str(request_path))
     print(
-        f"[git2] Requested native installation {request_id}; mirror tests, transfer and checkout "
-        "will report progress below. No ZIP archive will be downloaded.",
+        f"[install] Requested native installation {request_id}; download and verification progress follows.",
         flush=True,
     )
 
@@ -623,7 +614,7 @@ def _await_git2_backend_install(root, status, channel):
                     raise RuntimeError("Rust git2 reported success without a valid repository commit SHA.")
                 if result.get("source"):
                     status["downloadSource"] = str(result["source"])
-                status["installPhase"] = "git2-complete"
+                status["installPhase"] = "mirrorc-complete" if result.get("source") == "MirrorChyan" else "git2-complete"
                 print(f"[git2] Verified native checkout at commit {sha} from {status.get('downloadSource', 'the selected mirror')}.", flush=True)
                 return sha
 
@@ -3585,6 +3576,8 @@ def _write_uiautomator2_stub(root):
         "            self._jsonrpc('deviceInfo', [], timeout=2)\n"
         "            return True\n"
         "        except Exception:\n"
+        "            if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
+        "                raise\n"
         "            return False\n\n"
         "    def _jsonrpc(self, method, params=None, timeout=60):\n"
         "        body = json.dumps({\n"
@@ -3685,6 +3678,8 @@ def _write_uiautomator2_stub(root):
         "    def app_start(self, package_name, activity=None, wait=False, stop=False):\n"
         "        if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
         "            result = self._jsonrpc('appStart', [package_name], timeout=20)\n"
+        "            if result is not True:\n"
+        "                raise RuntimeError(f'Android could not launch {package_name} on the game display')\n"
         "            if wait:\n"
         "                time.sleep(1)\n"
         "            return result\n"

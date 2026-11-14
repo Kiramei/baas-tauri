@@ -5,6 +5,7 @@ import {
   listPublishedReleases,
   releaseFeedVersion,
   selectPublishedReleases,
+  signedReleasePlatforms,
 } from "./release-feed.mjs";
 
 const UPDATE_TAG_NAME = "updater";
@@ -35,59 +36,8 @@ async function resolveUpdater() {
       resolveUpdateLogDefault().catch(() => "No changelog available")
     ),
     pub_date: latestRelease.published_at ?? new Date().toISOString(),
-    platforms: {
-      "windows-x86_64": { signature: "", url: "" },
-      "windows-aarch64": { signature: "", url: "" },
-      "windows-x86": { signature: "", url: "" },
-      "windows-i686": { signature: "", url: "" },
-    },
+    platforms: await signedReleasePlatforms(latestRelease, { fixedWebView2: true }),
   };
-
-  const promises = latestRelease.assets.map(async (asset) => {
-    const { name, browser_download_url } = asset;
-
-    // win64 url
-    if (name.endsWith("x64_fixed_webview2-setup.exe")) {
-      updateData.platforms["windows-x86_64"].url = browser_download_url;
-    }
-    // win64 signature
-    if (name.endsWith("x64_fixed_webview2-setup.exe.sig")) {
-      updateData.platforms["windows-x86_64"].signature = await getSignature(browser_download_url);
-    }
-
-    // win32 url
-    if (name.endsWith("x86_fixed_webview2-setup.exe")) {
-      updateData.platforms["windows-x86"].url = browser_download_url;
-      updateData.platforms["windows-i686"].url = browser_download_url;
-    }
-    // win32 signature
-    if (name.endsWith("x86_fixed_webview2-setup.exe.sig")) {
-      const sig = await getSignature(browser_download_url);
-      updateData.platforms["windows-x86"].signature = sig;
-      updateData.platforms["windows-i686"].signature = sig;
-    }
-
-    // win arm url
-    if (name.endsWith("arm64_fixed_webview2-setup.exe")) {
-      updateData.platforms["windows-aarch64"].url = browser_download_url;
-    }
-    // win arm signature
-    if (name.endsWith("arm64_fixed_webview2-setup.exe.sig")) {
-      updateData.platforms["windows-aarch64"].signature = await getSignature(browser_download_url);
-    }
-  });
-
-  await Promise.allSettled(promises);
-  console.log(updateData);
-
-  // maybe should test the signature as well
-  // delete the null field
-  Object.entries(updateData.platforms).forEach(([key, value]) => {
-    if (!value.url) {
-      console.log(`[Error]: failed to parse release for "${key}"`);
-      delete updateData.platforms[key];
-    }
-  });
 
   // Proxy
   const updateDataNew = JSON.parse(JSON.stringify(updateData));
@@ -182,16 +132,6 @@ async function resolveUpdater() {
     name: UPDATE_JSON_CNB,
     data: JSON.stringify(updateDataCNB, null, 2),
   });
-}
-
-// get the signature file content
-async function getSignature(url) {
-  const response = await fetch(url, {
-    method: "GET",
-    headers: { "Content-Type": "application/octet-stream" },
-  });
-
-  return response.text();
 }
 
 resolveUpdater().catch((error) => {

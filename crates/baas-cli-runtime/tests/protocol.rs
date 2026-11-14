@@ -39,29 +39,6 @@ fn inspect_is_read_only_and_emits_a_single_result() {
 }
 
 #[test]
-fn stable_install_fails_without_creating_a_directory_or_reporting_download_progress() {
-    let parent = tempfile::tempdir().unwrap();
-    let root = parent.path().join("unused-runtime");
-    let (success, messages) = invoke(&[
-        "install",
-        "--root",
-        root.to_str().unwrap(),
-        "--channel",
-        "stable",
-    ]);
-    assert!(!success);
-    assert_eq!(messages.len(), 1);
-    assert_eq!(messages[0]["type"], "error");
-    assert_eq!(messages[0]["code"], "config");
-    assert_eq!(
-        messages[0]["message"],
-        baas_cli_runtime::DEV_BACKEND_REQUIRED
-    );
-    assert!(!root.exists());
-    assert_eq!(std::fs::read_dir(parent.path()).unwrap().count(), 0);
-}
-
-#[test]
 fn unmanaged_install_is_rejected_without_changing_existing_files() {
     let parent = tempfile::tempdir().unwrap();
     let existing = parent.path().join("settings.json");
@@ -71,7 +48,7 @@ fn unmanaged_install_is_rejected_without_changing_existing_files() {
         "--root",
         parent.path().to_str().unwrap(),
         "--channel",
-        "dev",
+        "stable",
     ]);
     assert!(!success);
     assert_eq!(messages.len(), 1);

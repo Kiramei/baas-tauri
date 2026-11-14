@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-11-07T13:02:30.016Z",
+  "checkedAt": "2026-11-13T11:38:39.762Z",
   "cases": 8,
   "failures": 0,
   "testedSources": {
-    "docs/content/docs/zh/guide/android.mdx": "a4fa3c6babec394b77460acb61a39e97114961eb024bef2ae59a6766104017c6",
+    "docs/content/docs/zh/guide/android.mdx": "1e8d0841d2412e4534373c02bf9fedad5374d397472ca769346654ea761121dc",
     "docs/content/docs/zh/reference/troubleshooting.mdx": "700b40a8ea4588958e75535a5f4403b3ddb6a48ddb8856e7e6d77b9f0e0e782a",
-    "docs/content/docs/en/guide/android.mdx": "1b6b1a4b9154fc067fe43ebb4ae02cfa9f0d2548212264b93c51fd31c5105d58",
+    "docs/content/docs/en/guide/android.mdx": "0b5fab540bff17ce79d28db58f81bc1202ceee7bb81fa7e7b1eeecf4210bb740",
     "docs/content/docs/en/reference/troubleshooting.mdx": "6d732ba8495efd791b7301cc653417cd3749c6e408e4f514d9a3987f42269b43"
   },
   "results": [

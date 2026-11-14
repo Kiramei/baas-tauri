@@ -87,6 +87,7 @@ const WEBUI_HIDDEN_KEYWORDS = new Set<TranslationKey>([
   "settings.shortcuts.profileRun",
   "transport.label",
   "about.clientVersion",
+  "update.mirrorCdk",
   "settings.ui.idleAutoUpdate",
 ]);
 

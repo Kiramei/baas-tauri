@@ -26,8 +26,7 @@ import { shouldCancelInstallerFromEscape } from "@/shared/InstallerCancelShortcu
 interface UpdaterConfig {
   general?: {
     channel?: "stable" | "dev";
-    mirrorc_cdk?: string;
-    mirrorcCdk?: string;
+    mirrorc_cdk_configured?: boolean;
     no_update?: boolean;
     noUpdate?: boolean;
     transport?: "websocket" | "pipe" | "shm";
@@ -59,9 +58,6 @@ interface FailureInfo {
 
 const authReadyPhases = new Set(["server_verified", "waiting_password", "authenticated"]);
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
-  config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
 
 const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
   Boolean(config?.general?.no_update ?? config?.general?.noUpdate ?? false);
@@ -130,12 +126,12 @@ const SetupPage = () => {
   }, []);
 
   const persistConfig = useCallback(
-    async (path = installPath, nextConfig = config) => {
+    async (path = installPath, nextConfig = config, cdk?: string) => {
       const updated = await invoke<UpdaterConfig>("updater_update_config", {
         request: {
           baasRootPath: path,
           channel: nextConfig?.general?.channel ?? "stable",
-          mirrorcCdk: setupMirrorcCdk(nextConfig),
+          ...(cdk === undefined ? {} : { mirrorcCdk: cdk }),
           noUpdate: setupNoUpdate(nextConfig),
           transport: nextConfig?.general?.transport ?? normalizeTransportMode(undefined),
         },
@@ -499,16 +495,18 @@ const SetupPage = () => {
             )}
           </div>
         )}
-        <ConfigEditorModal
-          config={config ?? {}}
-          setConfig={setConfig}
-          open={settingModal}
-          onCancel={() => setSettingModal(false)}
-          onConfirm={async () => {
-            await persistConfig();
-            setSettingModal(false);
-          }}
-        />
+        {settingModal && (
+          <ConfigEditorModal
+            config={config ?? {}}
+            setConfig={setConfig}
+            open
+            onCancel={() => setSettingModal(false)}
+            onConfirm={async (cdk) => {
+              await persistConfig(installPath, config, cdk);
+              setSettingModal(false);
+            }}
+          />
+        )}
       </InstallerLayout>
       <Modal
         isOpen={failure !== null}

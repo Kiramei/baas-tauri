@@ -7,7 +7,8 @@
 
 use super::{Inspection, InstallationMarker, Progress, inspect, normalize_root, validate_anchors};
 use baas_updater::{
-    UpdaterError, UpdaterResult, config::ConfigManager, constants::MAIN_REPO_SRC_DEV,
+    RepositoryKind, UpdateChannel, UpdaterError, UpdaterResult, config::ConfigManager,
+    repo::repository_urls,
 };
 use cap_fs_ext::{DirExt, FollowSymlinks, MetadataExt, OpenOptionsFollowExt};
 use cap_std::{
@@ -225,7 +226,7 @@ fn write_restore_slot(dir: &Dir, slot: &str, expected: &[u8], mode: u32) -> Upda
     Ok(())
 }
 
-fn repository(root: &Path) -> UpdaterResult<Repository> {
+fn repository(root: &Path, channel: UpdateChannel) -> UpdaterResult<Repository> {
     super::reject_symlink(&root.join(".git"))?;
     let repo = Repository::open(root).map_err(|_| {
         UpdaterError::Config("cannot safely identify the managed backend Git repository".into())
@@ -252,8 +253,8 @@ fn repository(root: &Path) -> UpdaterResult<Repository> {
     let origin_url = origin
         .url()
         .map_err(|_| UpdaterError::Config("backend origin URL is invalid".into()))?;
-    if !std::iter::once(MAIN_REPO_SRC_DEV.main)
-        .chain(MAIN_REPO_SRC_DEV.proxy.iter().copied())
+    if !repository_urls(RepositoryKind::Main, channel)
+        .iter()
         .any(|trusted| trusted == origin_url)
     {
         return Err(UpdaterError::Config(
@@ -417,7 +418,7 @@ pub fn uninstall(
     lock.try_lock()
         .map_err(|_| UpdaterError::Workflow("this runtime is in use or being updated".into()))?;
     let mut marker = read_marker_cap(&root_cap, &root)?;
-    let repo = repository(&root)?;
+    let repo = repository(&root, marker.channel)?;
     let check = root_dir(&root)?.dir_metadata()?;
     if (check.dev(), check.ino()) != expected_identity {
         return Err(UpdaterError::Config(
@@ -543,7 +544,7 @@ pub(super) fn restore(
     cancelled: &AtomicBool,
     emit: &mut impl FnMut(Progress),
 ) -> UpdaterResult<Inspection> {
-    let repo = repository(root)?;
+    let repo = repository(root, marker.channel)?;
     let root_cap = root_dir(root)?;
     let opened_marker = read_marker_cap(&root_cap, root)?;
     if serde_json::to_vec(&opened_marker).ok() != serde_json::to_vec(marker).ok() {
@@ -692,7 +693,7 @@ mod tests {
     use super::*;
     use crate::{cpp_program, install_with, private_config};
     use baas_updater::{
-        UpdateChannel,
+        constants::{MAIN_REPO_SRC, MAIN_REPO_SRC_DEV},
         environ::{requirements_lock_path, runtime_python, uv_executable},
     };
 
@@ -758,6 +759,30 @@ mod tests {
             },
         )
         .unwrap();
+    }
+
+    #[test]
+    fn stable_uninstall_and_restore_use_the_recorded_channel_origin() {
+        let root = tempfile::tempdir().unwrap();
+        initialized(root.path());
+        super::super::write_marker(root.path(), UpdateChannel::Stable, true).unwrap();
+        let mut manager = ConfigManager::load_from(root.path().join("setup.toml")).unwrap();
+        manager.config.general.channel = UpdateChannel::Stable;
+        manager.save().unwrap();
+        let cancelled = AtomicBool::new(false);
+        assert!(uninstall(root.path(), &cancelled, &mut |_| {}).is_err());
+        Repository::open(root.path())
+            .unwrap()
+            .remote_set_url("origin", MAIN_REPO_SRC.main)
+            .unwrap();
+        let removed = uninstall(root.path(), &cancelled, &mut |_| {}).unwrap();
+        assert!(!removed.installed);
+        let restored = install_with(root.path(), None, &cancelled, &mut |_| {}, |_, _| {
+            panic!("restore must reuse the checkout")
+        })
+        .unwrap();
+        assert!(restored.installed);
+        assert_eq!(restored.channel, UpdateChannel::Stable);
     }
 
     #[test]
@@ -926,7 +951,7 @@ mod tests {
         let parent = tempfile::tempdir().unwrap();
         let root = parent.path().join("runtime");
         initialized(&root);
-        let repo = repository(&root).unwrap();
+        let repo = repository(&root, UpdateChannel::Dev).unwrap();
         let files = plan(&root, &repo).unwrap();
         let cap = root_dir(&root).unwrap();
         let quarantine = new_quarantine(&cap).unwrap();
@@ -1050,7 +1075,7 @@ mod tests {
         let external = parent.path().join("external");
         fs::create_dir(&external).unwrap();
         fs::write(external.join("runner.py"), b"external user file").unwrap();
-        let repo = repository(&root).unwrap();
+        let repo = repository(&root, UpdateChannel::Dev).unwrap();
         let files = plan(&root, &repo).unwrap();
         let cap = root_dir(&root).unwrap();
         let quarantine = new_quarantine(&cap).unwrap();
@@ -1078,7 +1103,7 @@ mod tests {
         let cap = root_dir(&root).unwrap();
         let marker = read_marker_cap(&cap, &root).unwrap();
         assert!(marker.complete);
-        let repo = repository(&root).unwrap();
+        let repo = repository(&root, marker.channel).unwrap();
         let files = plan(&root, &repo).unwrap();
         assert!(files.iter().any(|file| file.path == "main.service.py"));
         eprintln!(

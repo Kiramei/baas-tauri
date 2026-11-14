@@ -9,7 +9,7 @@ The APK includes Python; first launch also downloads the backend. Automation req
 
 Download a trusted Android build from the project's [Releases](https://github.com/Kiramei/baas-tauri/releases). Match the device's real architecture, not only the game's architecture. Allow installation from the chosen browser/file manager if Android asks. The APK declares a minimum of Android 7.0/API 24; native game capture requires Android 8.0/API 26 or newer. Meeting these versions still requires checking the device's privileged-display support.
 
-Keep network access available on first launch. The startup page exposes five stages:
+Keep network access available on first launch. Confirm **Stable** to install the upstream BAAS backend, or select **Development** to use `Kiramei/baas-dev`. Later backend updates follow the channel saved in Settings. The startup page exposes five stages:
 
 | Stage                         | What happens                                                                       |
 | ----------------------------- | ---------------------------------------------------------------------------------- |
@@ -86,7 +86,9 @@ The embedded preview does not send game taps; enter fullscreen for manual contro
 
 The close path sends a stop request without waiting for backend confirmation. The bottom Stop control alone leaves the game display open. Entering fullscreen does not automatically stop scheduling. Automation input takes priority and cancels or blocks conflicting manual gestures. Manual input still changes game state; stop scheduling and inspect the logs first to avoid interference. Restart ends the session and recreates the display; it does not restart the scheduler.
 
-### Preview States
+#If the preview stays black, frames stop, or the game exits, stop any running schedulers and choose **Open on device** below the preview. The client moves an existing game task to the foreground or opens the game through its Android launcher if the task has exited.
+
+## Preview States
 
 The [virtual-display repair build](https://github.com/Kiramei/baas-tauri/commit/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19) introduced the state labels. APKs containing the [consumer-progress check](https://github.com/Kiramei/baas-tauri/commit/532f785b) and [unique-buffer counter](https://github.com/Kiramei/baas-tauri/commit/128983b8) use the rules below. Earlier Live indicators can overstate frame progress.
 

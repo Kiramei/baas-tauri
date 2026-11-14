@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Play } from "lucide-react";
+import { Loader2, Play, Smartphone } from "lucide-react";
 import { toast } from "sonner";
+import CButton from "@/components/ui/CButton";
 import { invoke } from "@/shared/TauriInvoke";
 import { AndroidNativePreviewOwnership } from "@/shared/AndroidNativePreviewOwnership";
 import { useAppTranslation } from "@/shared/useAppTranslation";
@@ -34,7 +35,8 @@ interface AndroidGamePanelProps {
   configuredPackage?: string;
   virtualDisplayActive: boolean;
   virtualDisplayBusy: boolean;
-  onToggleVirtualDisplay: (active: boolean, packageName?: string) => Promise<void>;
+  onToggleVirtualDisplay: (active: boolean, packageName?: string) => Promise<boolean>;
+  onOpenOnDevice: () => Promise<void>;
   onBeforeManualControl: () => Promise<void>;
 }
 
@@ -45,6 +47,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
   virtualDisplayActive,
   virtualDisplayBusy,
   onToggleVirtualDisplay,
+  onOpenOnDevice,
   onBeforeManualControl,
 }) => {
   const { t, language } = useAppTranslation();
@@ -294,8 +297,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
     if (!selectedGame || restarting || virtualDisplayBusy) return;
     setRestarting(true);
     try {
-      await onToggleVirtualDisplay(false, selectedGame.packageName);
-      await new Promise((resolve) => window.setTimeout(resolve, 200));
+      if (!(await onToggleVirtualDisplay(false, selectedGame.packageName))) return;
       await onToggleVirtualDisplay(true, selectedGame.packageName);
     } catch (error) {
       toast.error(t("android.game.restartFailed"), { description: String(error) });
@@ -334,53 +336,68 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
   });
 
   return (
-    <section
-      ref={previewRef}
-      className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-black shadow-sm ring-1 ring-border"
-    >
-      {virtualDisplayActive && (
-        <div
-          aria-label={t("android.game.liveDisplay", {
-            game: selectedGame?.label ?? t("android.game.fallbackName"),
-          })}
-          className="absolute inset-0 block h-full w-full select-none object-cover"
-        />
-      )}
-
-      <button
-        type="button"
-        aria-label={
-          virtualDisplayActive ? t("android.game.showControls") : t("android.game.startBackground")
-        }
-        disabled={virtualDisplayBusy}
-        onClick={() => {
-          if (!virtualDisplayActive) void startBackgroundDisplay();
-        }}
-        className="absolute inset-0 z-10 grid h-full w-full place-items-center disabled:cursor-not-allowed"
+    <>
+      <section
+        ref={previewRef}
+        className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-black shadow-sm ring-1 ring-border"
       >
-        {!virtualDisplayActive && (
-          <span className="grid h-16 w-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-black/35 transition active:scale-95 disabled:opacity-50">
-            {virtualDisplayBusy ? (
-              <Loader2 className="h-7 w-7 animate-spin" />
-            ) : (
-              <Play className="ml-1 h-7 w-7 fill-current" />
-            )}
-          </span>
-        )}
-        {virtualDisplayActive && !previewReady && (
-          <Loader2 className="h-7 w-7 animate-spin text-white/80" />
-        )}
-      </button>
-
-      {virtualDisplayActive && (
-        <div className="pointer-events-none absolute right-2 top-2 z-30 flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-semibold text-white">
-          <span
-            className={`h-2 w-2 rounded-full ${previewReady ? "bg-emerald-400" : "bg-slate-400"}`}
+        {virtualDisplayActive && (
+          <div
+            aria-label={t("android.game.liveDisplay", {
+              game: selectedGame?.label ?? t("android.game.fallbackName"),
+            })}
+            className="absolute inset-0 block h-full w-full select-none object-cover"
           />
-          {previewReady ? t("android.game.live") : t("android.start.displayNotReady")}
-        </div>
+        )}
+
+        <button
+          type="button"
+          aria-label={
+            virtualDisplayActive ? t("view.fullscreen") : t("android.game.startBackground")
+          }
+          disabled={virtualDisplayBusy}
+          onClick={() => {
+            if (virtualDisplayActive) void takeOverGame();
+            else void startBackgroundDisplay();
+          }}
+          className="absolute inset-0 z-10 grid h-full w-full place-items-center disabled:cursor-not-allowed"
+        >
+          {!virtualDisplayActive && (
+            <span className="grid h-16 w-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-black/35 transition active:scale-95 disabled:opacity-50">
+              {virtualDisplayBusy ? (
+                <Loader2 className="h-7 w-7 animate-spin" />
+              ) : (
+                <Play className="ml-1 h-7 w-7 fill-current" />
+              )}
+            </span>
+          )}
+          {virtualDisplayActive && !previewReady && (
+            <Loader2 className="h-7 w-7 animate-spin text-white/80" />
+          )}
+        </button>
+
+        {virtualDisplayActive && (
+          <div className="pointer-events-none absolute right-2 top-2 z-30 flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-semibold text-white">
+            <span
+              className={`h-2 w-2 rounded-full ${previewReady ? "bg-emerald-400" : "bg-slate-400"}`}
+            />
+            {previewReady ? t("android.game.live") : t("android.start.displayNotReady")}
+          </div>
+        )}
+      </section>
+      {(!virtualDisplayActive || !previewReady) && (
+        <CButton
+          type="button"
+          variant="secondary"
+          disabled={virtualDisplayBusy || restarting || takingOver}
+          onClick={() => void onOpenOnDevice()}
+          className="self-start"
+        >
+          <Smartphone className="h-4 w-4" aria-hidden="true" />
+          {t("android.game.openOnDevice")}
+        </CButton>
       )}
-    </section>
+    </>
   );
 };
 

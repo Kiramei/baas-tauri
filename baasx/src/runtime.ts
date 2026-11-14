@@ -242,11 +242,11 @@ export class RuntimeManager {
       if (this.backend) throw new RuntimeError("runtime_busy", "请先关闭当前本地后端再更新环境");
       const previous = await this.metadata();
       const root = resolve(options.root || previous?.root || join(this.directory, "runtime"));
-      const channel = options.channel || previous?.channel || "dev";
-      if (!string(root) || !CHANNELS.has(channel))
+      const channel = options.channel;
+      if (!string(root) || (channel !== undefined && !CHANNELS.has(channel)))
         throw new RuntimeError("runtime_config", "安装目录或更新通道无效");
       const data = await this.helper(
-        ["install", "--root", root, "--channel", channel],
+        ["install", "--root", root, ...(channel ? ["--channel", channel] : [])],
         operationSignal,
         onEvent
       );
@@ -452,8 +452,8 @@ export class RuntimeManager {
         throw new RuntimeError("runtime_busy", "请先检查并关闭空闲本地后端，再更新环境");
       const root = await this.getConfigRoot();
       const before = await this.inspectRoot(root, operationSignal);
-      if (!before.installed || !before.managed || before.channel !== "dev")
-        throw new RuntimeError("runtime_missing", "只能更新安装完整的 CLI 托管 dev 环境");
+      if (!before.installed || !before.managed)
+        throw new RuntimeError("runtime_missing", "只能更新安装完整的 CLI 托管环境");
       const updated = await this.state(
         await this.helper(["update", "--root", root], operationSignal, onEvent),
         root

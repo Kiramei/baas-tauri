@@ -23,7 +23,7 @@ Native workflows, file replacement, cancellation and trust boundaries are covere
 
 Check again after changing source/channel. Blank, Checking, error or disabled-check state is not an equality proof. A backend commit and client version number are not directly comparable.
 
-When a backend update is available, the desktop and WebUI sidebar action (or compact/floating equivalent) requests Stop all tasks and waits for stopped state. Native desktop then reloads into its managed startup/update path; WebUI uses the streamed backend updater. Android's manual entry branches into its own git2 workflow and terminal before this `stopAllTasks` call, so this action does not establish that tasks have stopped.
+When a backend update is available, the desktop and WebUI sidebar action (or compact/floating equivalent) requests Stop all tasks and waits for stopped state. Native desktop then reloads into its managed startup/update path; WebUI uses the streamed backend updater. Android's manual entry branches into its own repository workflow and terminal before this `stopAllTasks` call, so this action does not establish that tasks have stopped.
 
 **Before a manual Android backend update, stop tasks in every profile and confirm that all profiles are stopped.**
 
@@ -50,9 +50,8 @@ These are shared backend setup fields, not per-profile game strategies:
 | `updateMethod` | Source control value; backend maps it to `general.get_remote_sha_method` |
 | `channel`      | `stable` or `dev`, resolved using the configured repository refs  |
 | `shaMethod`    | SHA lookup preference; maps to the same `general.get_remote_sha_method` |
-| `mirrorcCdk`   | Verified MirrorC key; handle as a secret                          |
 
-The two controls share one persisted field and cannot retain independent values. When both occur in one patch, `updateMethod` is written last. Native Git downloads select among repository URLs separately and persist successful sources; this field does not pin their URL. A nonempty CDK selects desktop MirrorC, whose requests currently hardcode `stable` even when the UI selects `dev`. Android repository workflows force git2 and clear the CDK. The source control, SHA probes and actual download path require separate interpretation.
+The two controls share one persisted field and cannot retain independent values. When both occur in one patch, `updateMethod` is written last. Native Git downloads select among repository URLs separately and persist successful sources; this field does not pin their URL. The source control, SHA probes and actual download path require separate interpretation.
 
 Source choices in this client are:
 
@@ -72,9 +71,9 @@ A listed mirror is not a promise of reachability, freshness or matching channel 
 
 ## MirrorC Key
 
-Typing edits a local key draft; **Verify**, or Enter in the field, submits `valid_cdk` with the channel. A successful result stores the key and can show its expiry. A rejected result clears the draft/stored key and expiry. The text field is not password-masked.
+On desktop or Android, select the stable channel in **Settings → Updates**, enter your own CDK and choose **Verify**. The native client checks the key with MirrorChyan and stores it in this device’s private directory after a successful check. The result includes expiry when available and distinguishes expired, mismatched, exhausted and blocked keys. Selecting another download source clears the key.
 
-A stored key makes MirrorC available in the source list. Switching from MirrorC to another source clears the stored key and expiry; return requires verification again. Do not publish the key in screenshots, issue reports or shared setup files. CDK verification confirms server-reported key status. The desktop implementation parses the response's `sha256` but never compares it with downloaded archive bytes, so successful verification does not establish archive integrity.
+The stable main backend uses MirrorChyan archives. The updater verifies SHA-256 before applying a full or incremental package. The development backend and platform-specific OCR continue to update from Git. Polling requests public version metadata. The native client sends the user’s key to MirrorChyan when requesting validation or download authorization. WebUI has no local credential input.
 
 ## SHA Diagnostics
 
@@ -106,4 +105,4 @@ Wait for startup/authentication/configuration synchronization, confirm the local
 
 Failure can leave partially replaced code: desktop fresh clones move into place entry by entry, MirrorC edits the live installation, Android git2 resets in place, and bootstrap archives also replace entries individually. There is no whole-directory atomic swap or automatic code rollback. Idle recovery records contain scheduler state only.
 
-Android embeds Python/bootstrap. Bootstrap can use a backend archive when present in the APK or download one when the backend is missing; manual repository updates use git2. The client does not bundle a Shizuku installer or provide the old notification script toggle. See [Android Client](../guide/android) for current behavior and the explicit game-validation limits. Repository refs, no-update policy and advanced source configuration are described in [setup.toml](../reference/setup-toml).
+Android embeds Python/bootstrap. Bootstrap can use a backend archive when present in the APK or download one when the backend is missing; manual updates use MirrorChyan for a configured stable backend and git2 for the other repositories. The client does not bundle a Shizuku installer or provide the old notification script toggle. See [Android Client](../guide/android) for current behavior and the explicit game-validation limits. Repository refs, no-update policy and advanced source configuration are described in [setup.toml](../reference/setup-toml).

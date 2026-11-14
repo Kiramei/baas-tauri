@@ -71,7 +71,7 @@ export function resolveAndroidInstallState(
 ) {
   const bootstrap = state.bootstrap ?? {};
   const channel: AndroidInstallChannel =
-    (bootstrap.channel ?? state.channel) === "stable" ? "stable" : "dev";
+    (bootstrap.channel ?? state.channel) === "dev" ? "dev" : "stable";
   const installed = bootstrap.backendInstalled === true || state.baasRootExistsNonEmpty === true;
   const failedStep = bootstrap.steps?.find((step) => step.state === "failed");
   const backendError =
@@ -96,7 +96,7 @@ export function resolveAndroidInstallState(
 
   return {
     channel,
-    selectedChannel: installed ? (pendingChannel ?? channel) : "dev",
+    selectedChannel: pendingChannel ?? channel,
     installed,
     awaitingChannel,
     showChannelChoice: !installed && (awaitingChannel || !!backendError),

@@ -30,8 +30,8 @@ Desktop attempts recorded-backend cleanup at app startup, before updating, durin
 | Native version lookup | Reads local HEAD or a recorded SHA, tries the configured SHA method first, then other usable Git lookup sources; reports the method and remote SHA |
 | Native Git transfer | Derives candidate URLs by repository/channel and selects separately through `SourceSelector`; the SHA preference does not pin the download URL |
 | Channel and ref | `stable` / `dev` select main-repository source groups, both currently on `master`; Cpp/OCR branches depend on platform/architecture |
-| Desktop MirrorC | A nonempty CDK selects archives; `mirrorc_latest_url` ignores its channel argument and requests `stable` |
-| Android repository workflow | Forces `git_backend = "git2"`, clears the CDK and uses embedded Python; it installs no desktop UV/venv and uses no MirrorC archive |
+| MirrorChyan | A local CDK enables archive delivery of the stable main backend. Development and OCR use their respective Git sources. |
+| Android repository workflow | Uses embedded Python, MirrorChyan for a configured stable main backend, and git2 for Git sources. |
 
 `SourceSelector` first reuses a persisted successful URL. Otherwise it races enabled probes and takes the first successful response. Only a successful real operation promotes a source; failures disable sources, and exhaustion re-enables them for up to three complete failed cycles. Records live under `.baas-updater/source-ranking/`: desktop repositories use `main.json` / `cpp.json`, Android uses `android-main.json` / `android-cpp.json`. UV, CPython, PyPI and client packages have separate source records.
 
@@ -102,11 +102,11 @@ Android `fetch_and_reset_git2` points the branch at `FETCH_HEAD` and hard-resets
 
 ### MirrorC
 
-CDK checks handle server-reported key status, quota and expiry, separately from archive-byte verification. `MirrorLatest.sha256` is parsed into the response structure, but the update path downloads and extracts/applies the archive without computing and comparing its SHA256. It also performs no Minisign verification of backend archives. A valid CDK, readable ZIP and saved version establish neither archive provenance nor integrity. Requests carry the CDK, so logs and reports still require secret handling.
+Native clients check the stable backend revision using public metadata and use the stored CDK for MirrorChyan download authorization. The updater compares the downloaded archive against `MirrorLatest.sha256` before extraction or application. Development test keys stay in the developer workspace and are never loaded by the application.
 
 ### Android APK
 
-The install command fetches metadata again, requires a remote version newer than the current client, an HTTPS download URL and a nonempty signature, then checks the ZIP/APK header and verifies downloaded bytes with Minisign using the embedded public key. Only after verification does it write the app-private cache and invoke Kotlin `installPackage`. Kotlin checks that the file is in private cache/files storage and hands it to the system installer through FileProvider.
+The installer refetches the stable manifest and checks the device ABI and version. It streams the APK to private temporary storage while verifying its Minisign signature, then publishes the verified file and opens the system installer via FileProvider. A retry can reuse a cached APK after verifying it again.
 
 On Android 8 and later, missing permission to install from this app opens authorization settings and returns an error; another update attempt is required after authorization. Once the system installer opens, the command returns success and emits `Finished`, without an installation-result callback. The user can cancel installation there. Closing progress also offers no interface to abort the blocking download. Signature verification establishes package-byte authenticity; a subsequent client launch and version check establish installation and the running version.
 

@@ -1,16 +1,31 @@
-import React, { createContext, ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import React, {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { getTimestampMs } from "@/shared/GlobalUtilities";
 import { isTauriNoUpdateEnabled, useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
 import IdleBackendUpdater from "@/components/IdleBackendUpdater";
 
+const TauriUpdateProgressModal = React.lazy(() =>
+  import("@/components/updater/TauriUpdateProgressModal").then((module) => ({
+    default: module.TauriUpdateProgressModal,
+  }))
+);
+
+type ClientUpdateEvent =
+  | { event: "Started"; data: { contentLength?: number } }
+  | { event: "Progress"; data: { chunkLength: number } }
+  | { event: "Finished" };
+
 interface TauriSelfUpdateContextType {
   updating: boolean;
-  progress: number;
-  status: string;
-  progressOpen: boolean;
-  setProgressOpen: React.Dispatch<React.SetStateAction<boolean>>;
   runUpdate: () => Promise<void>;
 }
 
@@ -21,7 +36,9 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
   const { t } = useTranslation();
   const trigger = useWebSocketStore((state) => state.trigger);
   const [updating, setUpdating] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const running = useRef(false);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const [progressOpen, setProgressOpen] = useState(false);
 
@@ -39,16 +56,18 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
   }, [trigger]);
 
   const runUpdate = useCallback(async (): Promise<void> => {
-    if (!__WITH_TAURI__) return;
-    if (await isTauriNoUpdateEnabled()) {
-      toast.info(t("update.tauriUpToDate"));
-      return;
-    }
+    if (!__WITH_TAURI__ || running.current) return;
+    running.current = true;
     setUpdating(true);
     setProgressOpen(true);
-    setProgress(0);
+    setProgress(null);
+    setErrorDetail(null);
     setStatus(t("update.tauriChecking"));
     try {
+      if (await isTauriNoUpdateEnabled()) {
+        setStatus(t("update.tauriDisabled"));
+        return;
+      }
       const [{ invoke }, { Channel }] = await Promise.all([
         import("@/shared/TauriInvoke"),
         import("@tauri-apps/api/core"),
@@ -63,12 +82,12 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
       let downloaded = 0;
       let contentLength = 0;
       setStatus(t("update.tauriDownloading", { version }));
-      const onEvent = new Channel<any>();
+      const onEvent = new Channel<ClientUpdateEvent>();
       onEvent.onmessage = (event) => {
         if (event.event === "Started") {
           contentLength = event.data.contentLength ?? 0;
           downloaded = 0;
-          setProgress(0);
+          setProgress(contentLength > 0 ? 0 : null);
         } else if (event.event === "Progress") {
           downloaded += event.data.chunkLength;
           if (contentLength > 0) {
@@ -76,41 +95,50 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
           }
         } else if (event.event === "Finished") {
           setProgress(100);
-          setStatus(t("update.tauriInstalling"));
+          if (!__WITH_ANDROID__) setStatus(t("update.tauriInstalling"));
         }
       };
-      const installed = await invoke<boolean>("tauri_client_download_and_install", { onEvent });
-      if (!installed) {
+      const updateStarted = await invoke<boolean>("tauri_client_download_and_install", { onEvent });
+      if (!updateStarted) {
+        void useWebSocketStore.getState().checkTauriUpdater();
         setStatus(t("update.tauriUpToDate"));
         toast.success(t("update.tauriUpToDate"));
         return;
       }
       if (__WITH_ANDROID__) {
-        setStatus(t("update.tauriInstalling"));
-        toast.success(t("update.tauriInstalling"));
+        setProgress(100);
+        setStatus(t("update.androidInstallerOpened"));
         return;
       }
       const { relaunch } = await import("@tauri-apps/plugin-process");
       await relaunch();
     } catch (error) {
+      setErrorDetail(error instanceof Error ? error.message : String(error));
       setStatus(t("update.tauriFailed"));
-      toast.error(t("update.tauriFailed"), {
-        description: error instanceof Error ? error.message : String(error),
-      });
     } finally {
+      running.current = false;
       setUpdating(false);
     }
   }, [stopAllTasks, t]);
 
-  const value = useMemo(
-    () => ({ updating, progress, status, progressOpen, setProgressOpen, runUpdate }),
-    [progress, progressOpen, runUpdate, status, updating]
-  );
+  const value = useMemo(() => ({ updating, runUpdate }), [runUpdate, updating]);
 
   return (
     <TauriSelfUpdateContext.Provider value={value}>
       <IdleBackendUpdater clientUpdating={updating} />
       {children}
+      {progressOpen && (
+        <React.Suspense fallback={null}>
+          <TauriUpdateProgressModal
+            onClose={() => setProgressOpen(false)}
+            updating={updating}
+            progress={progress}
+            status={status}
+            errorDetail={errorDetail}
+            onRetry={runUpdate}
+          />
+        </React.Suspense>
+      )}
     </TauriSelfUpdateContext.Provider>
   );
 };

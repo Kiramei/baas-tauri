@@ -190,11 +190,12 @@
     "updateSuccess": "Einstellungen erfolgreich aktualisiert"
   },
   "update": {
+    "androidInstallerOpened": "Bestätige das Update im Android-Installationsprogramm.",
+    "androidPackageUnavailable": "Für dieses Gerät enthält diese Version keine APK.",
     "backendAction": "BAAS aktualisieren",
     "backendStarted": "BAAS-Aktualisierung gestartet",
     "backendStartFailed": "BAAS-Aktualisierung konnte nicht gestartet werden",
     "channel": "Update-Kanal",
-    "dueDate": "Ablaufdatum",
     "enterCdk": "CDK eingeben",
     "method": "Update-Quelle",
     "mirrorCdk": "MirrorC-CDK",
@@ -204,6 +205,7 @@
     "tauriAction": "Client",
     "tauriAvailable": "Client-Update verfügbar",
     "tauriChecking": "Client-Update wird geprüft...",
+    "tauriDisabled": "Client-Updates sind in setup.toml deaktiviert.",
     "tauriDownloading": "{{version}} wird heruntergeladen...",
     "tauriFailed": "Client-Update fehlgeschlagen",
     "tauriInstalling": "Installiert und startet neu...",
@@ -699,7 +701,11 @@
   },
   "mirrorc": {
     "cdk": {
-      "noInput": "Bitte geben Sie den MirrorC CDK ein!",
+      "blocked": "Der CDK ist gesperrt.",
+      "configured": "CDK auf diesem Gerät gespeichert",
+      "mismatch": "Der CDK ist für diese Ressource nicht gültig.",
+      "quota": "Das tägliche Downloadkontingent ist aufgebraucht.",
+      "requestFailed": "Der lokale CDK konnte nicht geprüft oder gespeichert werden. Bitte erneut versuchen.",
       "testOk": "CDK gültig"
     },
     "message": {
@@ -742,8 +748,10 @@
       "inspectFailed": "Installierte Spiele konnten nicht gelesen werden",
       "live": "Live",
       "liveDisplay": "Livebild von {{game}}",
+      "openOnDevice": "Spiel auf dem Gerät öffnen",
+      "openOnDeviceBusy": "BAAS wird aktualisiert oder das Spiel wird bereits manuell gesteuert.",
+      "openOnDeviceFailed": "Das Spiel konnte auf diesem Gerät nicht geöffnet werden",
       "restartFailed": "Spiel konnte nicht neu gestartet werden",
-      "showControls": "Spielsteuerung anzeigen",
       "startBackground": "Spiel im Hintergrund starten",
       "takeoverFailed": "Vollbild-Spielmodus konnte nicht geöffnet werden"
     },
@@ -781,7 +789,6 @@
     "channelDev": "Development",
     "channelStable": "Stable",
     "channelTitle": "Choose the update channel",
-    "channelUnavailable": "Stable ist derzeit für Android nicht verfügbar.",
     "clientAuth": "Authenticate session",
     "clientConnect": "Connect to local service",
     "clientSync": "Sync configuration",

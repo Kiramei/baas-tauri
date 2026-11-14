@@ -190,11 +190,12 @@
     "updateSuccess": "설정이 성공적으로 업데이트되었습니다"
   },
   "update": {
+    "androidInstallerOpened": "Android 설치 화면에서 업데이트를 확인하세요.",
+    "androidPackageUnavailable": "이 버전에는 이 기기와 호환되는 APK가 없습니다.",
     "backendAction": "BAAS 업데이트",
     "backendStarted": "BAAS 업데이트를 시작했습니다",
     "backendStartFailed": "BAAS 업데이트를 시작하지 못했습니다",
     "channel": "업데이트 채널",
-    "dueDate": "만료일",
     "enterCdk": "CDK 입력",
     "method": "업데이트 소스",
     "mirrorCdk": "MirrorC CDK (선택 사항)",
@@ -204,6 +205,7 @@
     "tauriAction": "클라이언트",
     "tauriAvailable": "클라이언트 업데이트 있음",
     "tauriChecking": "클라이언트 업데이트 확인 중...",
+    "tauriDisabled": "setup.toml에서 클라이언트 업데이트가 비활성화되어 있습니다.",
     "tauriDownloading": "{{version}} 다운로드 중...",
     "tauriFailed": "클라이언트 업데이트 실패",
     "tauriInstalling": "설치 후 재시작 중...",
@@ -699,7 +701,11 @@
   },
   "mirrorc": {
     "cdk": {
-      "noInput": "MirrorC CDK를 입력하세요!",
+      "blocked": "차단된 CDK입니다.",
+      "configured": "이 기기에 저장된 CDK",
+      "mismatch": "이 CDK는 선택한 리소스를 지원하지 않습니다.",
+      "quota": "일일 다운로드 한도에 도달했습니다.",
+      "requestFailed": "로컬 CDK를 확인하거나 저장할 수 없습니다. 다시 시도하세요.",
       "testOk": "CDK 유효"
     },
     "message": {
@@ -742,8 +748,10 @@
       "inspectFailed": "설치된 게임을 불러올 수 없습니다",
       "live": "실시간",
       "liveDisplay": "{{game}} 실시간 화면",
+      "openOnDevice": "기기에서 게임 열기",
+      "openOnDeviceBusy": "BAAS를 업데이트 중이거나 게임을 이미 수동으로 조작 중입니다.",
+      "openOnDeviceFailed": "기기에서 게임을 열 수 없습니다",
       "restartFailed": "게임을 다시 시작할 수 없습니다",
-      "showControls": "게임 제어 표시",
       "startBackground": "백그라운드에서 게임 시작",
       "takeoverFailed": "전체 화면 게임 모드를 시작할 수 없습니다"
     },
@@ -781,7 +789,6 @@
     "channelDev": "Development",
     "channelStable": "Stable",
     "channelTitle": "Choose the update channel",
-    "channelUnavailable": "현재 Android에서는 안정 버전을 사용할 수 없습니다.",
     "clientAuth": "Authenticate session",
     "clientConnect": "Connect to local service",
     "clientSync": "Sync configuration",

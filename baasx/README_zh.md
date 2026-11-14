@@ -72,7 +72,7 @@ bun run baasx --help
 
 `/uninstall` 卸载本地后端程序并保留配置和用户数据；`/clear` 清除当前显示的活动和日志，不断开连接或删除数据。命令行可使用 `baasx uninstall`，非交互执行需加 `--yes`。
 
-本地安装复用桌面端的安装核心，自动安装支持 `main.service.py` 和本地管道的 `Kiramei/baas-dev` 服务版（`dev` 通道）。环境默认位于 `<CLI配置目录>/runtime`，包含私有 Python、BAAS 后端、OCR 和运行依赖。CLI 不使用缺少该服务协议的旧 `blue_archive_auto_script` GUI 稳定版；其安装器会提前拒绝 `stable` 通道。桌面端自身的 stable 默认、安装目录和设置不变。
+本地安装复用桌面端的安装核心。新安装默认使用 `stable` 服务版后端，也可通过 `/install dev` 选择开发通道。重装或更新已有环境会沿用选定的通道。默认目录为 `<CLI配置目录>/runtime`，包含私有 Python、BAAS 后端、OCR 和运行依赖。
 
 安装仍需界面确认，`--yes` 不跳过首次安装确认。目前本地 OCR 预构建支持 Windows x64、Linux x64、macOS ARM64。
 
@@ -118,14 +118,14 @@ bun run baasx --yes update
 bun run baasx --dry-run update
 ```
 
-更新只针对完整安装、由 CLI 管理的本地 `dev` 运行环境。更新前检查本次 CLI 所持有后端的全部配置档；只要仍有任务、调度或等待队列，就拒绝更新。确认空闲后关闭该私有后端、更新依赖并复查安装；工作台原先连接本地后端时会重新启动并连接。其他 CLI 实例仍持有运行租约时，安装锁也会拒绝替换该环境。
+更新只针对完整安装、由 CLI 管理的本地运行环境。更新前检查本次 CLI 所持有后端的全部配置档；只要仍有任务、调度或等待队列，就拒绝更新。确认空闲后关闭该私有后端、更新依赖并复查安装；工作台原先连接本地后端时会重新启动并连接。其他 CLI 实例仍持有运行租约时，安装锁也会拒绝替换该环境。
 
 `--server` / `--pipe` 指定的外部服务不属于本地更新目标，更新不会停止或修改它们。`check-update` 只检查，`--dry-run update` 只预览，`--read-only` 拒绝应用更新。
 
 ## 连接已有服务
 
 ```bash
-# 在支持 Service 模式的 baas-dev 目录启动服务
+# 在支持 Service 模式的后端目录启动服务
 python main.service.py --host 127.0.0.1 --port 8190
 
 # 工作台中输入 /connect，隐藏输入服务登录 Key

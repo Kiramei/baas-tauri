@@ -83,8 +83,12 @@ flow:
 5. Compile and sync dependencies with `uv pip`.
 6. Launch the backend when both workflow options and config allow it.
 
-MirrorC is used when `general.mirrorc_cdk` is non-empty. Otherwise the updater
-uses Git. `general.git_backend` selects the Git implementation: `auto` prefers
+A configured MirrorChyan CDK enables full and incremental updates for the stable
+main repository. The development backend and platform-specific OCR prebuilds
+use their configured Git sources. The updater verifies the package SHA-256
+before applying files and preserves local settings and profiles.
+
+`general.git_backend` selects the Git implementation: `auto` prefers
 system `git` and falls back to `git2`, `git_cli` uses only system `git`, and
 `git2` uses Rust `git2`/libgit2 only.
 

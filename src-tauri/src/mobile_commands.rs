@@ -1,4 +1,5 @@
-use crate::client_version::{compare_versions, display_version, normalize_version};
+use crate::android_client_update::{copy_verified_apk, public_key, Package, PackageError, Release};
+use crate::client_version::{compare_versions, display_version};
 use crate::pipe_commands::BackendPipeManager;
 use crate::mobile_update_query::{QueryDeadline, QueryProbeLease, QueryProbeScope, UpdateQuery};
 use crate::system_logs::system_log;
@@ -50,7 +51,6 @@ const TAURI_UPDATE_ENDPOINTS: &[&str] = &[
     "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
     "https://github.com/Kiramei/baas-tauri/releases/download/updater/update.json",
 ];
-const TAURI_UPDATE_PUBLIC_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM0NzNGODlERTkxNUJDMDEKUldRQnZCWHBuZmh6eERYUWs0dFowYUNYcFRFNmZIZGk5WStWZWI3Z0dGRmphQnFNbFM2MHhpTloK";
 
 #[derive(Clone, Copy)]
 struct AndroidUpdateEndpointProbe;
@@ -102,7 +102,7 @@ pub struct UpdaterConfigUpdateRequest {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MirrorCValidateRequest {
-    pub cdk: String,
+    pub cdk: Option<String>,
     pub channel: Option<String>,
 }
 
@@ -328,7 +328,9 @@ pub async fn android_launch_game(
     request: AndroidGamePackageRequest,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        crate::android_backend_service::launch_game(&app, &request.package_name)
+        crate::android_backend_service::launch_game(&app, &request.package_name)?;
+        // A foreground launch releases the owned display. Do not restore it from a stale marker.
+        clear_android_display_marker(&app)
     })
     .await
     .map_err(|error| format!("Android game launch worker failed: {error}"))?
@@ -480,6 +482,15 @@ pub async fn android_set_system_bars(
     .map_err(|error| format!("Android system bar worker failed: {error}"))?
 }
 
+fn clear_android_display_marker(app: &AppHandle) -> Result<(), String> {
+    let marker = android_storage_root(app)?.join("config").join("scrcpy_display_id.txt");
+    match fs::remove_file(marker) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!("Failed to clear native display state: {error}")),
+    }
+}
+
 fn android_cleanup_scrcpy_virtual_display_blocking(
     app: AppHandle,
     serial: Option<String>,
@@ -502,15 +513,7 @@ fn android_cleanup_scrcpy_virtual_display_blocking(
         if crate::android_backend_service::shizuku_status(&app)?.shizuku_display_id >= 0 {
             return Err("The native game display is still active after stopping".to_string());
         }
-        if let Ok(root) = android_storage_root(&app) {
-            let path = root.join("config").join("scrcpy_display_id.txt");
-            if let Err(error) = fs::remove_file(&path) {
-                if error.kind() != std::io::ErrorKind::NotFound {
-                    return Err(format!("Failed to clear native display state: {error}"));
-                }
-            }
-        }
-        return Ok(());
+        return clear_android_display_marker(&app);
     }
     match adb_direct_shell_with_timeout(
         &adb_serial,
@@ -728,13 +731,6 @@ fn prepare_scrcpy_virtual_display_with_shizuku(
     let height = request.height.unwrap_or(720);
     let density = request.density.unwrap_or(240);
     let mut log = vec!["Shizuku privileged virtual-display service connected".to_string()];
-    let display_id =
-        crate::android_backend_service::start_shizuku_display(app, width, height, density)?;
-    if display_id <= 0 {
-        return Err("Shizuku did not return a valid virtual display id".to_string());
-    }
-    let display_id = u32::try_from(display_id)
-        .map_err(|_| "Shizuku returned an invalid virtual display id".to_string())?;
     let package_name = match request.package_name.as_deref() {
         Some(package) if android_blue_archive_package_candidates().contains(&package) => {
             package.to_string()
@@ -746,10 +742,13 @@ fn prepare_scrcpy_virtual_display_with_shizuku(
         Some(activity) if !activity.is_empty() => activity.to_string(),
         _ => resolve_android_launcher_component_with_shizuku(app, &package_name)?,
     };
-    crate::android_backend_service::shizuku_shell(
-        app,
-        &format!("am force-stop --user 0 {package_name}"),
-    )?;
+    let display_id =
+        crate::android_backend_service::start_shizuku_display(app, width, height, density)?;
+    if display_id <= 0 {
+        return Err("Shizuku did not return a valid virtual display id".to_string());
+    }
+    let display_id = u32::try_from(display_id)
+        .map_err(|_| "Shizuku returned an invalid virtual display id".to_string())?;
     crate::android_backend_service::launch_package_on_shizuku_display(
         app,
         &package_name,
@@ -1931,6 +1930,8 @@ fn android_blue_archive_package_candidates() -> &'static [&'static str] {
         "com.RoamingStar.BlueArchive",
         "com.YostarJP.BlueArchive",
         "com.nexon.bluearchive",
+        "com.nexon.bluearchiveteen",
+        "com.nexon.bluearchiveone",
     ]
 }
 
@@ -2434,9 +2435,21 @@ fn format_adb_read_error(part: &str, error: std::io::Error) -> String {
 
 /// Listen at the same private root that the Kotlin backend resolves before Python starts.
 pub(crate) fn start_android_bootstrap_installer(app: &AppHandle) -> Result<(), String> {
-    let root = app.path().app_data_dir().map_err(|error| error.to_string())?
-        .join("files").join("baas");
-    crate::android_bootstrap_installer::start(root)
+    let directory = android_credential_dir(app)?;
+    let root = directory.join("files").join("baas");
+    // Migrate before starting the Python service, whose sync resource exposes setup.toml.
+    migrate_android_credential(&root, &directory)?;
+    crate::android_bootstrap_installer::start(root, directory)
+}
+
+fn android_credential_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path().app_local_data_dir().map_err(|error| error.to_string())
+}
+
+fn migrate_android_credential(root: &Path, directory: &Path) -> Result<(), String> {
+    let mut config = baas_updater::config::ConfigManager::load_from(root.join("setup.toml"))
+        .map_err(|_| "Cannot read Android backend settings".to_string())?;
+    crate::mirrorc_credentials::migrate(&mut config, directory)
 }
 
 /// Returns the real Python bootstrap state and the live Rust git2 output.
@@ -2458,7 +2471,7 @@ pub fn updater_get_startup_state(app: AppHandle) -> Result<Value, String> {
         || installed;
     Ok(json!({
         "configPath": config_path,
-        "config": mobile_config(&root),
+        "config": mobile_config(&root, !crate::mirrorc_credentials::load(&android_credential_dir(&app)?)?.is_empty()),
         "defaultInstallPath": "",
         "installPath": root,
         "portable": true,
@@ -2499,12 +2512,6 @@ pub async fn updater_restart_backend(app: AppHandle) -> Result<Value, String> {
 #[tauri::command]
 pub fn updater_select_channel(app: AppHandle, channel: String) -> Result<Value, String> {
     let parsed = UpdateChannel::parse(&channel).map_err(|error| error.message())?;
-    if parsed != UpdateChannel::Dev {
-        return Err(
-            "Stable does not provide the Android service backend. Choose Development (Dev)."
-                .to_string(),
-        );
-    }
     let normalized = parsed.as_str().to_string();
     system_log(
         "INFO",
@@ -2521,11 +2528,11 @@ pub fn updater_select_channel(app: AppHandle, channel: String) -> Result<Value, 
     }))
 }
 
-/// Returns the persisted channel, defaulting to Android's supported backend.
+/// Returns the persisted channel, or the default for a fresh installation.
 fn android_persisted_channel(root: &Path) -> String {
     read_setup_value(&root.join("setup.toml"), "channel")
         .filter(|value| UpdateChannel::parse(value).is_ok())
-        .unwrap_or_else(|| "dev".to_string())
+        .unwrap_or_else(|| UpdateChannel::default().as_str().to_string())
 }
 
 /// Reads the channel handshake file the Python bootstrap polls.
@@ -2545,7 +2552,7 @@ fn write_android_channel(root: &Path, setup_path: &Path, channel: &str) -> Resul
         read_setup_value(setup_path, "get_remote_sha_method").unwrap_or_default();
     let request = UpdaterConfigUpdateRequest {
         baas_root_path: Some(root.to_path_buf()),
-        mirrorc_cdk: read_setup_value(setup_path, "mirrorc_cdk"),
+        mirrorc_cdk: None,
         channel: Some(channel.to_string()),
         runtime_path: read_setup_value(setup_path, "runtime_path"),
         no_update: read_setup_value(setup_path, "no_update").and_then(|value| value.parse().ok()),
@@ -2599,40 +2606,56 @@ pub fn updater_update_config(
     );
     let root = android_storage_root(&app)?;
     fs::create_dir_all(&root).map_err(|error| error.to_string())?;
-    let setup_path = root.join("setup.toml");
-    let config = mobile_config_with_request(&root, Some(&request));
-    let current_sha = read_setup_value(&setup_path, "current_baas_sha").unwrap_or_default();
-    let current_cpp_sha = read_setup_value(&setup_path, "current_baas_cpp_sha").unwrap_or_default();
-    let remote_sha_method =
-        read_setup_value(&setup_path, "get_remote_sha_method").unwrap_or_default();
-    fs::write(
-        setup_path,
-        mobile_setup_toml(
-            &root,
-            &request,
-            &current_sha,
-            &current_cpp_sha,
-            &remote_sha_method,
-        ),
-    )
-    .map_err(|error| error.to_string())?;
-    Ok(config)
+    let directory = android_credential_dir(&app)?;
+    let mut manager = baas_updater::config::ConfigManager::load_from(ensure_android_setup_toml(&root)?)
+        .map_err(|_| "Cannot read Android backend settings".to_string())?;
+    crate::mirrorc_credentials::migrate(&mut manager, &directory)?;
+    // Saving only a key must not rewrite or reset any other setup fields.
+    if request.baas_root_path.is_some() || request.channel.is_some() || request.no_update.is_some() || request.transport.is_some()
+        || request.git_backend.is_some() || request.runtime_path.is_some()
+    {
+        if let Some(path) = request.baas_root_path {
+            manager.config.paths.baas_root_path = path.to_string_lossy().into_owned();
+        }
+        if let Some(channel) = request.channel.as_deref() {
+            manager.config.general.channel = UpdateChannel::parse(channel).map_err(|error| error.message())?;
+        }
+        if let Some(no_update) = request.no_update {
+            manager.config.general.no_update = no_update;
+        }
+        if let Some(transport) = request.transport.as_deref() {
+            manager.config.general.transport = baas_updater::config::BackendTransport::parse(transport)
+                .map_err(|error| error.message())?;
+        }
+        if let Some(backend) = request.git_backend.as_deref() {
+            manager.config.general.git_backend = baas_updater::GitBackend::parse(backend)
+                .map_err(|error| error.message())?;
+        }
+        if let Some(runtime) = request.runtime_path {
+            manager.config.python.runtime_path = runtime;
+        }
+        manager.save().map_err(|error| error.message())?;
+    }
+    if let Some(cdk) = request.mirrorc_cdk {
+        crate::mirrorc_credentials::store(&directory, &cdk)?;
+    }
+    Ok(mobile_config(&root, !crate::mirrorc_credentials::load(&directory)?.is_empty()))
 }
 
 /// Performs the updater validate mirrorc cdk operation.
 #[tauri::command]
-pub fn updater_validate_mirrorc_cdk(request: MirrorCValidateRequest) -> Value {
-    let _requested_cdk = request.cdk.trim();
-    let _requested_channel = request.channel.as_deref().unwrap_or_default();
-    json!({
-        "success": false,
-        "code": null,
-        "message": ANDROID_BACKEND_MESSAGE,
-        "mirrorcMessage": null,
-        "latestVersion": null,
-        "expiresAt": null,
-        "expiresAtIso": null
-    })
+pub async fn updater_validate_mirrorc_cdk(
+    app: AppHandle, request: MirrorCValidateRequest,
+) -> Result<crate::mirrorc_validation::MirrorCValidateReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = android_storage_root(&app)?;
+        let channel = android_requested_channel(request.channel.as_deref(), &root.join("setup.toml"))?;
+        let cdk = match request.cdk {
+            Some(cdk) => cdk,
+            None => crate::mirrorc_credentials::load(&android_credential_dir(&app)?)?,
+        };
+        Ok(crate::mirrorc_validation::validate(&cdk, channel))
+    }).await.map_err(|_| "MirrorChyan validation worker failed".to_string())?
 }
 
 /// Handles the tauri client check update workflow.
@@ -2647,15 +2670,19 @@ pub async fn tauri_client_check_update(
         .map(|value| display_version(&value))
         .unwrap_or_else(|| display_version(env!("CARGO_PKG_VERSION")));
     ANDROID_CLIENT_UPDATE_QUERY
-        .run(current_version.clone(), ANDROID_UPDATE_QUERY_TIMEOUT, move |deadline| {
-            // Declaration order ensures probe leases drop before their scope, including unwinding.
-            let scope = QueryProbeScope::new();
-            let probe = TimedAndroidUpdateEndpointProbe {
-                deadline,
-                _lease: scope.lease(),
-            };
-            tauri_client_check_update_blocking(app, current_version, deadline, &probe)
-        })
+        .run(
+            current_version.clone(),
+            ANDROID_UPDATE_QUERY_TIMEOUT,
+            move |deadline| {
+                // Declaration order ensures probe leases drop before their scope, including unwinding.
+                let scope = QueryProbeScope::new();
+                let probe = TimedAndroidUpdateEndpointProbe {
+                    deadline,
+                    _lease: scope.lease(),
+                };
+                tauri_client_check_update_blocking(app, current_version, deadline, &probe)
+            },
+        )
         .await
 }
 
@@ -2691,21 +2718,9 @@ fn tauri_client_check_update_blocking(
             .map_err(|error| error.message())?;
         match fetch_android_update_metadata_before(&endpoint, deadline) {
             Ok(update) => {
-                let remote_version = normalize_version(
-                    update
-                        .get("version")
-                        .or_else(|| update.get("name"))
-                        .and_then(Value::as_str)
-                        .unwrap_or_default(),
-                )
-                .ok_or_else(|| "Invalid client update release version".to_string())?;
-                let platform = android_update_platform(&update);
-                let update_url = platform
-                    .and_then(|value| value.get("url"))
-                    .and_then(Value::as_str)
-                    .map(ToOwned::to_owned);
+                let update_url = update.package.as_ref().map(|package| package.url.as_str());
                 let update_available = update_url.is_some()
-                    && compare_versions(&remote_version, &current_version).is_gt();
+                    && compare_versions(&update.version, &current_version).is_gt();
                 selector
                     .mark_succeeded(&endpoint)
                     .map_err(|error| error.message())?;
@@ -2713,9 +2728,9 @@ fn tauri_client_check_update_blocking(
                     "updateAvailable": update_available,
                     "checking": false,
                     "currentVersion": current_version,
-                    "version": remote_version,
-                    "body": update.get("notes").or_else(|| update.get("body")).and_then(Value::as_str).unwrap_or_default(),
-                    "date": update.get("pub_date").or_else(|| update.get("date")).and_then(Value::as_str).unwrap_or_default(),
+                    "version": update.version,
+                    "body": update.notes,
+                    "date": update.date,
                     "url": update_url,
                     "endpoint": endpoint,
                     "androidPackageAvailable": update_url.is_some(),
@@ -2763,7 +2778,20 @@ fn tauri_client_download_and_install_blocking(
     let mut selector =
         SourceSelector::load(Some(&ranking_path), &endpoints).map_err(|error| error.message())?;
 
-    loop {
+    let update_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join("client-update");
+    fs::create_dir_all(&update_dir).map_err(|error| error.to_string())?;
+    let encoded_key = app.config().plugins.0.get("updater")
+        .and_then(|config| config.get("pubkey"))
+        .and_then(Value::as_str)
+        .ok_or("Missing Android update public key")?;
+    let key = public_key(encoded_key)?;
+    let mut last_error = None;
+
+    let package_path = loop {
         let endpoint = selector
             .next_source(
                 &probes,
@@ -2771,124 +2799,111 @@ fn tauri_client_download_and_install_blocking(
                 &baas_updater::NoopOutput,
                 "Android client update",
             )
-            .map_err(|error| error.message())?;
+            .map_err(|error| last_error.take().unwrap_or_else(|| error.message()))?;
         let attempt = (|| {
-            let metadata = fetch_android_update_metadata(&endpoint)?;
-            let remote_version = normalize_version(
-                metadata
-                    .get("version")
-                    .or_else(|| metadata.get("name"))
-                    .and_then(Value::as_str)
-                    .unwrap_or_default(),
-            )
-            .ok_or_else(|| "Invalid client update release version".to_string())?;
-            if !compare_versions(&remote_version, &current_version).is_gt() {
-                return Ok(false);
+            let release = fetch_android_update_metadata(&endpoint).map_err(PackageError::Source)?;
+            if !compare_versions(&release.version, &current_version).is_gt() {
+                return Ok(None);
             }
-            let platform = android_update_platform(&metadata)
-                .ok_or_else(|| "release metadata has no Android package".to_string())?;
-            let package_url = platform
-                .get("url")
-                .and_then(Value::as_str)
-                .filter(|value| value.starts_with("https://"))
-                .ok_or_else(|| "release metadata has no secure Android package URL".to_string())?;
-            let signature = platform
-                .get("signature")
-                .and_then(Value::as_str)
-                .filter(|value| !value.is_empty())
-                .ok_or_else(|| "release metadata has no Android package signature".to_string())?;
-
-            let _ = on_event.send(ClientUpdateEvent::Started {
-                content_length: None,
-            });
-            let response = minreq::get(package_url)
-                .with_header("cache-control", "no-cache")
-                .with_timeout(120)
-                .send()
-                .map_err(|error| error.to_string())?;
-            if !(200..300).contains(&response.status_code) {
-                return Err(format!(
-                    "Android update download returned HTTP {} {}",
-                    response.status_code, response.reason_phrase
-                ));
+            let package = release.package.ok_or_else(|| {
+                PackageError::Source("Release has no APK for this Android architecture".to_owned())
+            })?;
+            let path = update_dir.join(format!("baas-{}.apk", release.version));
+            // A cancelled installer or a trip to Settings can reuse this download.
+            // Verify the cache against the current manifest on every handoff.
+            if let Ok(file) = fs::File::open(&path) {
+                if copy_verified_apk(file, std::io::sink(), &key, &package.signature, |_| {})
+                    .is_ok()
+                {
+                    return Ok(Some(path));
+                }
             }
-            let bytes = response.into_bytes();
-            if bytes.len() < 4 || &bytes[..2] != b"PK" {
-                return Err("downloaded Android update is not an APK archive".to_string());
-            }
-            verify_android_update_signature(&bytes, signature)?;
-            let _ = on_event.send(ClientUpdateEvent::Progress {
-                chunk_length: bytes.len(),
-            });
-
-            let update_dir = app
-                .path()
-                .app_cache_dir()
-                .map_err(|error| error.to_string())?
-                .join("client-update");
-            fs::create_dir_all(&update_dir).map_err(|error| error.to_string())?;
-            let package_path = update_dir.join("baas-update.apk");
-            fs::write(&package_path, bytes).map_err(|error| error.to_string())?;
-            let package_path = package_path
-                .to_str()
-                .ok_or_else(|| "Android update path is not valid UTF-8".to_string())?;
-            crate::android_backend_service::install_package(&app, package_path)?;
-            let _ = on_event.send(ClientUpdateEvent::Finished);
-            Ok(true)
+            download_android_apk(&package, &key, &update_dir, &path, &on_event)?;
+            Ok(Some(path))
         })();
 
         match attempt {
-            Ok(installed) => {
+            Ok(path) => {
                 selector
                     .mark_succeeded(&endpoint)
                     .map_err(|error| error.message())?;
-                return Ok(installed);
+                break path;
             }
-            Err(error) => {
+            Err(PackageError::Storage(error)) => return Err(error.to_string()),
+            Err(PackageError::Source(error)) => {
                 system_log(
                     "WARNING",
                     "client_update",
                     format!("Android client update from {endpoint} failed: {error}"),
                 );
+                last_error = Some(error);
                 selector
                     .mark_failed(&endpoint)
                     .map_err(|error| error.message())?;
             }
         }
-    }
+    };
+
+    let Some(path) = package_path else {
+        return Ok(false);
+    };
+    let path = path
+        .to_str()
+        .ok_or("Android update path is not valid UTF-8")?;
+    // Permission prompts and installer errors are local. Retrying a mirror cannot fix them.
+    crate::android_backend_service::install_package(&app, path)?;
+    let _ = on_event.send(ClientUpdateEvent::Finished);
+    Ok(true)
 }
 
-fn verify_android_update_signature(bytes: &[u8], encoded_signature: &str) -> Result<(), String> {
-    use minisign_verify::{PublicKey, Signature};
-
-    let public_key = BASE64_STANDARD
-        .decode(TAURI_UPDATE_PUBLIC_KEY)
-        .map_err(|error| format!("invalid embedded update key: {error}"))?;
-    let public_key = std::str::from_utf8(&public_key)
-        .map_err(|error| format!("invalid embedded update key text: {error}"))?;
-    let public_key = PublicKey::decode(public_key)
-        .map_err(|error| format!("invalid embedded update key: {error}"))?;
-    let signature = BASE64_STANDARD
-        .decode(encoded_signature)
-        .map_err(|error| format!("invalid update signature encoding: {error}"))?;
-    let signature = std::str::from_utf8(&signature)
-        .map_err(|error| format!("invalid update signature text: {error}"))?;
-    let signature = Signature::decode(signature)
-        .map_err(|error| format!("invalid update signature: {error}"))?;
-    public_key
-        .verify(bytes, &signature, true)
-        .map_err(|error| format!("Android update signature verification failed: {error}"))
+fn download_android_apk(
+    package: &Package,
+    key: &minisign_verify::PublicKey,
+    update_dir: &Path,
+    destination: &Path,
+    on_event: &Channel<ClientUpdateEvent>,
+) -> Result<(), PackageError> {
+    let response = minreq::get(&package.url)
+        .with_header("cache-control", "no-cache")
+        .with_timeout(600)
+        .send_lazy()
+        .map_err(|e| PackageError::Source(e.to_string()))?;
+    if !(200..300).contains(&response.status_code) || !response.url.starts_with("https://") {
+        return Err(PackageError::Source(format!(
+            "Android update download requires a successful HTTPS response (HTTP {})",
+            response.status_code
+        )));
+    }
+    let content_length = response
+        .headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+        .and_then(|(_, value)| value.parse().ok());
+    let _ = on_event.send(ClientUpdateEvent::Started { content_length });
+    let mut file = tempfile::NamedTempFile::new_in(update_dir).map_err(PackageError::Storage)?;
+    copy_verified_apk(
+        response,
+        &mut file,
+        key,
+        &package.signature,
+        |chunk_length| {
+            let _ = on_event.send(ClientUpdateEvent::Progress { chunk_length });
+        },
+    )?;
+    file.persist(destination)
+        .map_err(|e| PackageError::Storage(e.error))?;
+    Ok(())
 }
 
 /// Handles the fetch android update metadata workflow.
-fn fetch_android_update_metadata(endpoint: &str) -> Result<Value, String> {
+fn fetch_android_update_metadata(endpoint: &str) -> Result<Release, String> {
     fetch_android_update_metadata_with_timeout(endpoint, 15)
 }
 
 fn fetch_android_update_metadata_before(
     endpoint: &str,
     deadline: QueryDeadline,
-) -> Result<Value, String> {
+) -> Result<Release, String> {
     // minreq's timeout uses whole seconds. Round up, never start a request after the deadline,
     // and retain the existing 15-second per-source cap. This is not a hard git2 cancellation.
     let remaining = deadline.remaining()?;
@@ -2896,7 +2911,10 @@ fn fetch_android_update_metadata_before(
     fetch_android_update_metadata_with_timeout(endpoint, seconds.clamp(1, 15))
 }
 
-fn fetch_android_update_metadata_with_timeout(endpoint: &str, seconds: u64) -> Result<Value, String> {
+fn fetch_android_update_metadata_with_timeout(
+    endpoint: &str,
+    seconds: u64,
+) -> Result<Release, String> {
     let response = minreq::get(endpoint)
         .with_header("cache-control", "no-cache")
         .with_header("accept", "application/json")
@@ -2909,8 +2927,9 @@ fn fetch_android_update_metadata_with_timeout(endpoint: &str, seconds: u64) -> R
             endpoint, response.status_code, response.reason_phrase
         ));
     }
-    serde_json::from_str(response.as_str().map_err(|error| error.to_string())?)
-        .map_err(|error| error.to_string())
+    let metadata = serde_json::from_str(response.as_str().map_err(|error| error.to_string())?)
+        .map_err(|error| error.to_string())?;
+    Release::parse(&metadata, std::env::consts::ARCH)
 }
 
 /// Android shares the metadata engine and supplies its existing rustls HTTP client.
@@ -3000,7 +3019,13 @@ fn updater_check_version_blocking(
     let preferred_method = normalize_android_sha_method(
         &read_setup_value(&setup_path, "get_remote_sha_method").unwrap_or_default(),
     );
-    let (method, remote) = android_first_remote_sha(&root, channel, &preferred_method, deadline)?;
+    let use_mirror = baas_updater::mirrorc::supports_mirror_package(RepositoryKind::Main, channel)
+        && (!crate::mirrorc_credentials::load(&android_credential_dir(&app)?)?.is_empty() || preferred_method == "mirrorc");
+    let (method, remote) = if use_mirror {
+        ("mirrorc".to_string(), crate::mirrorc_validation::remote_version_with_timeout(channel, deadline.remaining()?)?)
+    } else {
+        android_first_remote_sha(&root, channel, &preferred_method, deadline)?
+    };
     Ok(json!({
         "local": local,
         "remote": remote,
@@ -3095,9 +3120,11 @@ pub fn updater_start_workflow(
         .install_path
         .filter(|path| !path.as_os_str().is_empty())
         .unwrap_or(root);
+    let credential_dir = android_credential_dir(&app)?;
     let session = manager.start(
         app,
         WorkflowOptions {
+            mirrorc_credential_dir: Some(credential_dir),
             config_path: Some(setup_path),
             install_path: Some(install_path),
             launch: request.launch.unwrap_or(false),
@@ -3166,7 +3193,7 @@ fn persist_android_transport(app: &tauri::AppHandle, transport: &str) -> Result<
     let setup_path = ensure_android_setup_toml(&root)?;
     let request = UpdaterConfigUpdateRequest {
         baas_root_path: Some(root.clone()),
-        mirrorc_cdk: read_setup_value(&setup_path, "mirrorc_cdk"),
+        mirrorc_cdk: None,
         channel: read_setup_value(&setup_path, "channel"),
         runtime_path: read_setup_value(&setup_path, "runtime_path"),
         no_update: read_setup_value(&setup_path, "no_update")
@@ -3258,7 +3285,7 @@ fn android_requested_channel(
         .filter(|value| !value.trim().is_empty())
         .map(ToOwned::to_owned)
         .or_else(|| read_setup_value(setup_path, "channel"))
-        .unwrap_or_else(|| "dev".to_string());
+        .unwrap_or_else(|| UpdateChannel::default().as_str().to_string());
     UpdateChannel::parse(&value).map_err(|error| error.message())
 }
 
@@ -3325,35 +3352,24 @@ async fn run_android_sha_probe(
 ) -> Value {
     let start = Instant::now();
     let worker_name = name.clone();
-    let worker = tauri::async_runtime::spawn_blocking(move || match url {
-        Some(url) => {
-            match android_repository_remote_sha(&root, RepositoryKind::Main, channel, &url) {
-                Ok(value) => json!({
-                    "success": true,
-                    "name": worker_name,
-                    "order": order,
-                    "duration": start.elapsed().as_secs_f64(),
-                    "value": value,
-                    "error": null
-                }),
-                Err(error) => json!({
-                    "success": false,
-                    "name": worker_name,
-                    "order": -1,
-                    "duration": start.elapsed().as_secs_f64(),
-                    "value": null,
-                    "error": error.message()
-                }),
-            }
-        }
-        None => json!({
-            "success": false,
+    let worker = tauri::async_runtime::spawn_blocking(move || {
+        let result = if worker_name == "mirrorc" {
+            crate::mirrorc_validation::remote_version_with_timeout(channel, timeout)
+        } else if let Some(url) = url {
+            android_repository_remote_sha(&root, RepositoryKind::Main, channel, &url)
+                .map_err(|error| error.message())
+        } else {
+            Err("Unknown SHA source".into())
+        };
+        let success = result.is_ok();
+        json!({
+            "success": success,
             "name": worker_name,
-            "order": -1,
+            "order": if success { order } else { -1 },
             "duration": start.elapsed().as_secs_f64(),
-            "value": null,
-            "error": "not a git source"
-        }),
+            "value": result.as_ref().ok(),
+            "error": result.as_ref().err()
+        })
     });
 
     match time::timeout(timeout, worker).await {
@@ -3426,27 +3442,6 @@ fn android_storage_root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app_data_dir.join("files").join("baas"))
 }
 
-/// Handles the android update platform workflow.
-fn android_update_platform(update: &Value) -> Option<&Value> {
-    let platforms = update.get("platforms")?.as_object()?;
-    let arch = match std::env::consts::ARCH {
-        "aarch64" => "android-arm64-v8a",
-        "arm" | "armv7" => "android-armeabi-v7a",
-        "x86_64" => "android-x86_64",
-        "x86" => "android-x86",
-        _ => "android",
-    };
-    platforms
-        .get(arch)
-        .or_else(|| platforms.get("android"))
-        .or_else(|| {
-            platforms
-                .iter()
-                .find(|(key, _)| key.to_ascii_lowercase().starts_with("android"))
-                .map(|(_, value)| value)
-        })
-}
-
 /// Handles the current time millis workflow.
 fn current_time_millis() -> u128 {
     std::time::SystemTime::now()
@@ -3455,38 +3450,15 @@ fn current_time_millis() -> u128 {
         .unwrap_or_default()
 }
 
-/// Handles the mobile config workflow.
-fn mobile_config(root: &PathBuf) -> Value {
-    mobile_config_with_request(root, None)
-}
-
-/// Handles the mobile config with request workflow.
-fn mobile_config_with_request(
-    root: &PathBuf,
-    request: Option<&UpdaterConfigUpdateRequest>,
-) -> Value {
-    let channel = request
-        .and_then(|request| request.channel.as_deref())
-        .map(ToOwned::to_owned)
-        .or_else(|| read_setup_value(&root.join("setup.toml"), "channel"))
-        .filter(|value| UpdateChannel::parse(value).is_ok())
-        .unwrap_or_else(|| "dev".to_string());
-    let mirrorc_cdk = request
-        .and_then(|request| request.mirrorc_cdk.as_deref())
-        .unwrap_or("");
-    let no_update = request
-        .and_then(|request| request.no_update)
-        .unwrap_or(false);
-    let git_backend = request
-        .and_then(|request| request.git_backend.as_deref())
-        .unwrap_or("git2");
-    let runtime_path = request
-        .and_then(|request| request.runtime_path.as_deref())
-        .unwrap_or("embedded-python-3.9");
+/// Builds a public configuration snapshot without including the private download credential.
+fn mobile_config(root: &Path, cdk_configured: bool) -> Value {
+    let channel = android_persisted_channel(root);
+    let setup = root.join("setup.toml");
+    let no_update = android_no_update(root, None);
+    let git_backend = read_setup_value(&setup, "git_backend").unwrap_or_else(|| "git2".to_string());
+    let runtime_path = read_setup_value(&setup, "runtime_path").unwrap_or_else(|| "embedded-python-3.9".to_string());
     let persisted_transport = read_setup_value(&root.join("setup.toml"), "transport");
-    let transport = request
-        .and_then(|request| request.transport.as_deref())
-        .or(persisted_transport.as_deref())
+    let transport = persisted_transport.as_deref()
         .filter(|value| matches!(*value, "websocket" | "pipe"))
         .unwrap_or("pipe")
         .to_string();
@@ -3495,11 +3467,11 @@ fn mobile_config_with_request(
         "general": {
             "transport": transport,
             "channel": channel,
-            "mirrorc_cdk": mirrorc_cdk,
+            "mirrorc_cdk_configured": cdk_configured,
             "no_update": no_update,
             "launch": true,
             "git_backend": git_backend,
-            "current_baas_sha": ""
+            "current_baas_sha": read_setup_value(&setup, "current_baas_sha").unwrap_or_default()
         },
         "paths": {
             "baas_root_path": root
@@ -3510,9 +3482,17 @@ fn mobile_config_with_request(
         "android": {
             "embedded_python": true,
             "uses_uv": false,
-            "backend_install_source": "rust_git2",
+            "backend_install_source": if cdk_configured && channel == "stable" { "mirrorc" } else { "rust_git2" },
             "message": ANDROID_BACKEND_MESSAGE
         }
+    })
+}
+
+fn android_no_update(root: &Path, requested: Option<bool>) -> bool {
+    requested.unwrap_or_else(|| {
+        read_setup_value(&root.join("setup.toml"), "no_update")
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(false)
     })
 }
 
@@ -3530,9 +3510,8 @@ fn mobile_setup_toml(
         .as_deref()
         .or(persisted_channel.as_deref())
         .filter(|value| UpdateChannel::parse(value).is_ok())
-        .unwrap_or("dev");
-    let mirrorc_cdk = request.mirrorc_cdk.as_deref().unwrap_or("");
-    let no_update = request.no_update.unwrap_or(false);
+        .unwrap_or(UpdateChannel::default().as_str());
+    let no_update = android_no_update(root, request.no_update);
     let git_backend = request.git_backend.as_deref().unwrap_or("git2");
     let requested_transport = request
         .transport
@@ -3553,7 +3532,7 @@ fn mobile_setup_toml(
         "schema_version = 1\n\n\
          [general]\n\
          transport = \"{}\"\n\
-         mirrorc_cdk = \"{}\"\n\
+         mirrorc_cdk = \"\"\n\
          channel = \"{}\"\n\
          current_baas_sha = \"{}\"\n\
          current_baas_cpp_sha = \"{}\"\n\
@@ -3575,7 +3554,6 @@ fn mobile_setup_toml(
          main_sources = []\n\
          cpp_sources = []\n",
         escape_toml_string(requested_transport),
-        escape_toml_string(mirrorc_cdk),
         escape_toml_string(channel),
         escape_toml_string(current_sha),
         escape_toml_string(current_cpp_sha),
@@ -3596,9 +3574,7 @@ fn ensure_android_setup_toml(root: &Path) -> Result<PathBuf, String> {
     let request = UpdaterConfigUpdateRequest {
         baas_root_path: Some(root.to_path_buf()),
         mirrorc_cdk: None,
-        // The picker confirms this before downloading. Only Dev currently
-        // provides the service entry point required by the Android runtime.
-        channel: Some("dev".to_string()),
+        channel: None,
         runtime_path: Some("embedded-python-3.9".to_string()),
         no_update: Some(false),
         git_backend: Some("git2".to_string()),
@@ -3645,6 +3621,9 @@ fn read_setup_value(path: &Path, key: &str) -> Option<String> {
     let content = fs::read_to_string(path).ok()?;
     content.lines().find_map(|line| {
         let value = line.trim().strip_prefix(&prefix)?.trim();
+        if matches!(value, "true" | "false") {
+            return Some(value.to_string());
+        }
         value
             .strip_prefix('"')
             .and_then(|value| value.strip_suffix('"'))
@@ -3682,6 +3661,22 @@ mod tests {
         assert!(setup.contains("transport = \"pipe\""));
         assert!(setup.contains("current_baas_sha = \"main-sha\""));
         assert!(setup.contains("current_baas_cpp_sha = \"cpp-sha\""));
+    }
+
+    #[test]
+    fn android_backend_config_defaults_to_stable_and_preserves_saved_update_preferences() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let path = ensure_android_setup_toml(root).unwrap();
+        assert_eq!(android_requested_channel(None, &path).unwrap(), UpdateChannel::Stable);
+        assert_eq!(mobile_config(root, false)["general"]["channel"], "stable");
+
+        fs::write(&path, "[general]\nchannel = \"dev\"\nno_update = true\n").unwrap();
+        assert_eq!(mobile_config(root, false)["general"]["channel"], "dev");
+        assert_eq!(mobile_config(root, false)["general"]["no_update"], true);
+        write_android_channel(root, &path, "stable").unwrap();
+        assert_eq!(mobile_config(root, false)["general"]["channel"], "stable");
+        assert_eq!(mobile_config(root, false)["general"]["no_update"], true);
     }
 
     #[test]

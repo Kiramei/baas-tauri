@@ -38,8 +38,6 @@ pub use updates::{RepositoryUpdate, UpdateCheck, check_update, update};
 pub const MARKER_FILE: &str = ".baas-cli-runtime.json";
 const OWNER: &str = "baas-cli-runtime";
 const SCHEMA_VERSION: u32 = 1;
-pub const DEV_BACKEND_REQUIRED: &str =
-    "CLI 本地环境需要 dev 服务后端；stable 当前不包含 BPIP 管道协议，请使用 --channel dev。";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -262,19 +260,10 @@ pub fn inspect(root: &Path) -> UpdaterResult<Inspection> {
 /// managed Python, and dependency synchronization. Never launch a backend.
 pub fn install(
     root: &Path,
-    channel: UpdateChannel,
+    channel: impl Into<Option<UpdateChannel>>,
     cancelled: &AtomicBool,
     emit: &mut impl FnMut(Progress),
 ) -> UpdaterResult<Inspection> {
-    if cancelled.load(Ordering::Relaxed) {
-        return Err(UpdaterError::Cancelled);
-    }
-    // The desktop stable source is the legacy Qt application and currently
-    // has neither main.service.py nor the BPIP transport. Fail before any
-    // filesystem or network operation rather than installing an unusable GUI.
-    if channel == UpdateChannel::Stable {
-        return Err(UpdaterError::Config(DEV_BACKEND_REQUIRED.into()));
-    }
     install_with(root, channel, cancelled, emit, |root, emit| {
         run_workflow(root, cancelled, emit)
     })
@@ -282,7 +271,7 @@ pub fn install(
 
 fn install_with(
     root: &Path,
-    channel: UpdateChannel,
+    channel: impl Into<Option<UpdateChannel>>,
     cancelled: &AtomicBool,
     emit: &mut impl FnMut(Progress),
     workflow: impl FnOnce(&Path, &mut dyn FnMut(Progress)) -> UpdaterResult<()>,
@@ -341,6 +330,10 @@ fn install_with(
     {
         return uninstall::restore(&root, previous, cancelled, emit);
     }
+    let channel = channel
+        .into()
+        .or_else(|| marker.map(|m| m.channel))
+        .unwrap_or_default();
     write_marker(&root, channel, false)?;
     let mut manager = ConfigManager::load_from(root.join("setup.toml"))?;
     manager.config.paths.baas_root_path = root.to_string_lossy().into_owned();
@@ -352,6 +345,14 @@ fn install_with(
     manager.config.general.transport_version = 1;
     manager.config.general.launch = false;
     manager.config.general.no_update = false;
+    if !manager.config.general.mirrorc_cdk.trim().is_empty() {
+        baas_updater::mirrorc_credentials::store(
+            &root.join(".baas-updater"),
+            &manager.config.general.mirrorc_cdk,
+        )
+        .map_err(UpdaterError::Config)?;
+        manager.config.general.mirrorc_cdk.clear();
+    }
     manager.save()?;
     emit(Progress::status(
         "prepare",
@@ -421,6 +422,7 @@ fn run_workflow(
         launch: false,
         pipe_name: None,
         shm_name: None,
+        mirrorc_credential_dir: Some(root.join(".baas-updater")),
     };
     let worker = thread::spawn(move || {
         run_terminal_workflow_flow(state, session_id, tx, options, new_workflow_cleanup_state())
@@ -577,23 +579,63 @@ mod tests {
     use super::*;
 
     #[test]
-    fn stable_install_is_rejected_before_creating_root_or_emitting_progress() {
-        let parent = tempfile::tempdir().unwrap();
-        let root = parent.path().join("must-not-be-created");
-        let mut progress = Vec::new();
-        let result = install(
-            &root,
-            UpdateChannel::Stable,
+    fn installs_default_to_stable_and_reuse_the_selected_channel() {
+        let root = tempfile::tempdir().unwrap();
+        for (requested, expected) in [
+            (None, UpdateChannel::Stable),
+            (Some(UpdateChannel::Dev), UpdateChannel::Dev),
+            (None, UpdateChannel::Dev),
+        ] {
+            let state = install_with(
+                root.path(),
+                requested,
+                &AtomicBool::new(false),
+                &mut |_| {},
+                |root, _| {
+                    assert_eq!(
+                        ConfigManager::load_from(root.join("setup.toml"))?
+                            .config
+                            .general
+                            .channel,
+                        expected
+                    );
+                    fixture(root);
+                    Ok(())
+                },
+            )
+            .unwrap();
+            assert!(state.installed);
+            assert_eq!(state.channel, expected);
+        }
+    }
+
+    #[test]
+    fn install_migrates_a_legacy_cdk_to_the_private_runtime_file() {
+        let root = tempfile::tempdir().unwrap();
+        let mut manager = ConfigManager::load_from(root.path().join("setup.toml")).unwrap();
+        manager.config.general.mirrorc_cdk = "fixture-local-key".into();
+        manager.save().unwrap();
+        write_marker(root.path(), UpdateChannel::Stable, true).unwrap();
+        install_with(
+            root.path(),
+            None,
             &AtomicBool::new(false),
-            &mut |item| progress.push(item),
-        );
-        assert_eq!(
-            result,
-            Err(UpdaterError::Config(DEV_BACKEND_REQUIRED.into()))
-        );
-        assert!(progress.is_empty());
-        assert!(!root.exists());
-        assert_eq!(fs::read_dir(parent.path()).unwrap().count(), 0);
+            &mut |_| {},
+            |root, _| {
+                assert_eq!(
+                    baas_updater::mirrorc_credentials::load(&root.join(".baas-updater")).unwrap(),
+                    "fixture-local-key"
+                );
+                assert!(
+                    !fs::read_to_string(root.join("setup.toml"))
+                        .unwrap()
+                        .contains("fixture-local-key")
+                );
+                fixture(root);
+                Ok(())
+            },
+        )
+        .unwrap();
     }
 
     pub(super) fn fixture(root: &Path) {

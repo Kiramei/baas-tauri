@@ -2,7 +2,11 @@ import { afterEach, expect, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { selectPublishedReleases, releaseFeedVersion } from "../../scripts/release-feed.mjs";
+import {
+  selectPublishedReleases,
+  releaseFeedVersion,
+  signedReleasePlatforms,
+} from "../../scripts/release-feed.mjs";
 import { parseUpdateLog } from "../../scripts/update-log.mjs";
 import { setReleaseVersion } from "../../scripts/set-release-version.mjs";
 import {
@@ -52,6 +56,68 @@ test("feed wire versions satisfy native SemVer and do not duplicate Tauri's name
   expect(releaseFeedVersion("v0.0.8-rc").version).toBe("0.0.8-rc");
   expect(releaseFeedVersion("v0.0.8-rc1").version).toBe("0.0.8-rc1");
   expect(releaseFeedVersion("0.0.9")).not.toHaveProperty("name");
+});
+
+test("GitHub prereleases stay on preview even with a final-looking tag", () => {
+  const published = release("v0.0.10-0.post.2");
+  const flagged = { ...release("0.0.11"), prerelease: true };
+  expect(selectPublishedReleases([published, flagged])).toEqual({
+    stable: published,
+    preview: flagged,
+  });
+});
+
+test("updater targets use the signed installer for their OS, architecture and bundle format", async () => {
+  const targets = {
+    "linux-x86_64-deb": "amd64.deb",
+    "linux-x86_64-rpm": "x86_64.rpm",
+    "linux-aarch64-deb": "arm64.deb",
+    "linux-aarch64-rpm": "aarch64.rpm",
+    "linux-armv7-deb": "armhf.deb",
+    "linux-armv7-rpm": "armv7hl.rpm",
+    "android-arm64-v8a": "android_arm64-v8a.apk",
+    "darwin-aarch64": "aarch64.app.tar.gz",
+    "windows-x86_64": "x64-setup.exe",
+    win64: "x64-setup.exe",
+  };
+  const base = "BAAS.Tauri_1.2.3.post1_";
+  const asset = (name: string) => ({ name, browser_download_url: `https://example.com/${name}` });
+  const assets = [...new Set([...Object.values(targets), "x64_fixed_webview2-setup.exe"])].flatMap(
+    (suffix) => [asset(base + suffix), asset(base + suffix + ".sig")]
+  );
+  const version = { tag_name: "v1.2.3.post1", assets: assets.reverse() };
+  const fetchSignature = async (url: string) => new Response("signed:" + url + "\n");
+  const payload = (suffix: string) => ({
+    url: asset(base + suffix).browser_download_url,
+    signature: "signed:" + asset(base + suffix + ".sig").browser_download_url,
+  });
+  expect(await signedReleasePlatforms(version, { fetchSignature })).toEqual(
+    Object.fromEntries(Object.entries(targets).map(([target, suffix]) => [target, payload(suffix)]))
+  );
+  expect(await signedReleasePlatforms(version, { fixedWebView2: true, fetchSignature })).toEqual({
+    "windows-x86_64": payload("x64_fixed_webview2-setup.exe"),
+  });
+});
+
+test("partial historical assets are omitted and signature download errors stop publication", async () => {
+  const name = "BAAS.Tauri_1.2.3_android_arm64-v8a.apk";
+  const release = {
+    tag_name: "1.2.3",
+    assets: [{ name, browser_download_url: "https://example.com/app.apk" }],
+  };
+  expect(await signedReleasePlatforms(release)).toEqual({});
+  release.assets.push({
+    name: name + ".sig",
+    browser_download_url: "https://example.com/app.apk.sig",
+  });
+  await expect(
+    signedReleasePlatforms(release, {
+      fetchSignature: async () => new Response("error", { status: 502 }),
+    })
+  ).rejects.toThrow("HTTP 502");
+  await expect(
+    signedReleasePlatforms(release, { fetchSignature: async () => new Response(" ") })
+  ).rejects.toThrow("Empty updater signature");
 });
 
 test("new changelog headings and historical headings share canonical lookups", () => {

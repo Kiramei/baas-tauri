@@ -190,11 +190,12 @@
     "updateSuccess": "Настройки успешно обновлены"
   },
   "update": {
+    "androidInstallerOpened": "Подтвердите обновление в установщике Android.",
+    "androidPackageUnavailable": "В этом выпуске нет APK для вашего устройства.",
     "backendAction": "Обновить BAAS",
     "backendStarted": "Обновление BAAS запущено",
     "backendStartFailed": "Не удалось запустить обновление BAAS",
     "channel": "Канал обновления",
-    "dueDate": "Срок действия",
     "enterCdk": "Введите CDK",
     "method": "Источник обновления",
     "mirrorCdk": "CDK MirrorC (необязательно)",
@@ -204,6 +205,7 @@
     "tauriAction": "Клиент",
     "tauriAvailable": "Доступно обновление клиента",
     "tauriChecking": "Проверка обновления клиента...",
+    "tauriDisabled": "Обновления клиента отключены в setup.toml.",
     "tauriDownloading": "Загрузка {{version}}...",
     "tauriFailed": "Ошибка обновления клиента",
     "tauriInstalling": "Установка и перезапуск...",
@@ -699,7 +701,11 @@
   },
   "mirrorc": {
     "cdk": {
-      "noInput": "Пожалуйста, введите CDK MirrorC!",
+      "blocked": "CDK заблокирован.",
+      "configured": "CDK сохранён на этом устройстве",
+      "mismatch": "Этот CDK не подходит для выбранного ресурса.",
+      "quota": "Дневная квота загрузок исчерпана.",
+      "requestFailed": "Не удалось проверить или сохранить локальный CDK. Повторите попытку.",
       "testOk": "CDK действителен"
     },
     "message": {
@@ -742,8 +748,10 @@
       "inspectFailed": "Не удалось прочитать список установленных игр",
       "live": "Прямой эфир",
       "liveDisplay": "{{game}} — прямая трансляция",
+      "openOnDevice": "Открыть игру на устройстве",
+      "openOnDeviceBusy": "BAAS обновляется или игра уже управляется вручную.",
+      "openOnDeviceFailed": "Не удалось открыть игру на устройстве",
       "restartFailed": "Не удалось перезапустить игру",
-      "showControls": "Показать управление игрой",
       "startBackground": "Запустить игру в фоне",
       "takeoverFailed": "Не удалось открыть полноэкранный режим игры"
     },
@@ -781,7 +789,6 @@
     "channelDev": "Development",
     "channelStable": "Stable",
     "channelTitle": "Choose the update channel",
-    "channelUnavailable": "Стабильная версия пока недоступна на Android.",
     "clientAuth": "Authenticate session",
     "clientConnect": "Connect to local service",
     "clientSync": "Sync configuration",

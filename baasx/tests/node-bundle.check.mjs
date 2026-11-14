@@ -47,7 +47,7 @@ test("Node bundle finds the matching platform helper inside a registry package",
     timeout: 15_000,
   });
   assert.equal(result.status, 1, result.stderr);
-  assert.match(JSON.parse(result.stdout).error, /updates require a complete CLI-managed dev runtime/);
+  assert.match(JSON.parse(result.stdout).error, /updates require a complete CLI-managed runtime/);
 });
 
 test("Node 20 WebSocket fallback sends the BAAS control handshake", { timeout: 20_000 }, async (t) => {

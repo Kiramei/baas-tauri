@@ -7,6 +7,10 @@
 mod android_backend_service;
 #[cfg(target_os = "android")]
 mod android_bootstrap_installer;
+#[cfg(any(target_os = "android", test))]
+mod android_client_update;
+use baas_updater::mirrorc_credentials;
+mod mirrorc_validation;
 mod behavior;
 mod client_version;
 #[cfg(not(mobile))]

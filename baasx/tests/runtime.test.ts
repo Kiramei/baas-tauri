@@ -101,12 +101,13 @@ async function fixture(mode: Record<string, unknown> = {}) {
     const mode = JSON.parse(await readFile(${JSON.stringify(modeFile)}, 'utf8'));
     await appendFile(${JSON.stringify(callsFile)}, JSON.stringify({command,args}) + '\\n');
     const output = value => console.log(JSON.stringify(value));
+    const channel = value('--channel') || await readFile(join(root,'.installed'), 'utf8').catch(() => 'stable');
     const state = async () => ({
       installed: mode.installed ?? await access(join(root,'.installed')).then(()=>true,()=>false),
       managed: mode.managed ?? await access(join(root,'.installed')).then(()=>true,()=>false),
       root: mode.wrongRoot ? root + '-other' : root,
       backendPath:${JSON.stringify(backend)},pythonPath:${JSON.stringify(process.execPath)},cppPath:join(root,'ocr'),
-      channel:value('--channel') || 'dev',missing:mode.missing || [],
+      channel,missing:mode.missing || [],
     });
     if (mode.malformed) { console.log('not JSON'); process.exit(0); }
     if (mode.large) { console.log('x'.repeat(70000)); process.exit(0); }
@@ -127,7 +128,7 @@ async function fixture(mode: Record<string, unknown> = {}) {
       if (mode.progress) output({type:'progress',stage:'uv',message:'download 50%',...mode.progress});
       if (mode.stderrCR) process.stderr.write('download 10%\\rdownload 20%\\rready\\n');
       await mkdir(root,{recursive:true});
-      await writeFile(join(root,'.installed'),'ready');
+      await writeFile(join(root,'.installed'),channel);
     }
     if (command === 'uninstall' && (mode.failUninstall || mode.stallUninstall)) {
       await writeFile(join(root, 'uninstall-partial-fixture'), 'partial');
@@ -145,7 +146,7 @@ async function fixture(mode: Record<string, unknown> = {}) {
       process.stderr.write('credential\\n');
     }
     const data = command === 'uninstall' ? { ...await state(), installed:false, managed:true, missing:['backend'] } : command === 'check-update' ? mode.checkResult || {
-      root,channel:'dev',available:true,repositories:[
+      root,channel,available:true,repositories:[
         {name:'backend',localVersion:'a'.repeat(40),remoteVersion:'b'.repeat(40),available:true},
         {name:'ocr',localVersion:'c'.repeat(40),remoteVersion:'c'.repeat(40),available:false},
       ]
@@ -220,7 +221,7 @@ describe("local runtime installation", () => {
       expect((await stat(join(target.directory, "runtime.json"))).mode & 0o777).toBe(0o600);
     const resumed = new RuntimeManager({ directory: target.directory, helperPath: target.helper });
     try {
-      expect(await resumed.inspect()).toMatchObject({ root, installed: true });
+      expect(await resumed.install()).toMatchObject({ root, installed: true, channel: "dev" });
     } finally {
       resumed.close();
     }
@@ -357,7 +358,7 @@ describe("managed runtime uninstall", () => {
     await expect(target.manager.uninstall(confirmed)).rejects.toMatchObject({ code: "runtime_config" });
     expect((await target.calls()).some((call) => call.command === "uninstall")).toBe(false);
     expect(await readFile(join(confirmed.root, "user-data.txt"), "utf8")).toBe("new directory");
-    expect(await readFile(join(oldRoot, ".installed"), "utf8")).toBe("ready");
+    expect(await readFile(join(oldRoot, ".installed"), "utf8")).toBe("stable");
   });
 
   test("failed partial uninstall retains metadata and user files", async () => {
@@ -651,7 +652,7 @@ describe("managed runtime updates and structured progress", () => {
     const metadata = await readFile(join(target.directory, "runtime.json"), "utf8");
     const result = await target.manager.checkUpdates();
     expect(result).toMatchObject({
-      channel: "dev",
+      channel: "stable",
       available: true,
       repositories: [
         { name: "backend", available: true },

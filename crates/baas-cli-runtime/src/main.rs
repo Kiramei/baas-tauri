@@ -140,12 +140,7 @@ fn run(cancelled: &AtomicBool) -> UpdaterResult<Option<Value>> {
             cancelled,
             &mut progress,
         )?),
-        "install" => serde_json::to_value(install(
-            &root,
-            channel.unwrap_or(UpdateChannel::Dev),
-            cancelled,
-            &mut progress,
-        )?),
+        "install" => serde_json::to_value(install(&root, channel, cancelled, &mut progress)?),
         "launch-spec" => serde_json::to_value(launch_spec(
             &root,
             &pipe.ok_or_else(|| UpdaterError::Config("--pipe is required".into()))?,

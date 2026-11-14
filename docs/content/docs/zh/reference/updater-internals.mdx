@@ -30,8 +30,8 @@ description: 桌面与 Android 更新的进程归属、选源、阶段、取消�
 | 原生版本查询 | 读取本地提交或记录 SHA，优先尝试配置的 SHA 方法，再回退其他可用 Git 查询源；返回使用的方法及远端 SHA |
 | 原生 Git 传输 | 按仓库和通道生成候选 URL，单独通过 `SourceSelector` 选源；SHA 偏好不固定下载 URL |
 | 通道和引用 | `stable` / `dev` 选择主仓库来源组，两者当前都用 `master`；Cpp/OCR 按平台/架构选分支 |
-| 桌面 Mirror 酱 | 非空 CDK 选择归档路径；`mirrorc_latest_url` 忽略传入通道并固定请求 `stable` |
-| Android 仓库工作流 | 强制 `git_backend = "git2"`，清空 CDK，使用内嵌 Python；不安装桌面 UV/venv，也不走 Mirror 酱归档 |
+| Mirror 酱 | 稳定版主仓可使用本机保存的 CDK 下载归档，开发版和 OCR 使用各自的 Git 源 |
+| Android 仓库工作流 | 使用内嵌 Python；稳定版主仓支持 Mirror 酱，Git 下载使用 git2 |
 
 `SourceSelector` 优先复用已保存的成功 URL，否则并发探测可用来源并采用首个成功响应。实际操作成功后才提升为首选；失败来源被禁用，全部失败后重新启用，最多三个完整失败周期。排名记录位于 `.baas-updater/source-ranking/`，桌面仓库使用 `main.json` / `cpp.json`，Android 使用 `android-main.json` / `android-cpp.json`；UV、CPython、PyPI 和客户端包有各自的来源记录。
 
@@ -102,11 +102,11 @@ Android `fetch_and_reset_git2` 将分支指向 `FETCH_HEAD` 并执行硬重置�
 
 ### Mirror 酱
 
-CDK 检查处理服务端密钥状态、额度、有效期等响应；与归档字节校验分属两个边界。`MirrorLatest.sha256` 从响应解析并保存到结构体，更新路径随后直接下载并解压/应用，没有计算归档 SHA256 与该值比较，也没有后端归档 Minisign 校验。CDK 有效、ZIP 可解压、版本号已保存都不足以证明归档来源及完整性。CDK 随请求发送，日志与反馈材料仍需按敏感信息处理。
+原生客户端使用公开元数据检查稳定版主仓的版本，向 Mirror 酱请求下载授权时才使用保存的 CDK。更新器比较下载归档的 SHA-256 和 `MirrorLatest.sha256`，匹配后才解压或应用文件。开发测试用 CDK 单独保存在工作区，客户端不读取该文件。
 
 ### Android APK
 
-APK 安装命令重新获取元数据，确认远端版本高于当前版本，要求 HTTPS 下载地址和非空签名，检查 ZIP/APK 头后，用内置公钥对下载字节执行 Minisign 验签。验证通过才写入应用私有缓存并调用 Kotlin `installPackage`；Kotlin 检查文件位于私有缓存/文件目录，再通过 FileProvider 交给系统安装器。
+APK 安装命令重新获取稳定版清单并检查本机 ABI 与版本。下载数据写入私有临时文件并同步执行 Minisign 验签。验签成功后发布缓存文件，通过 FileProvider 打开系统安装器。授权后重试可复用重新验签的缓存。
 
 Android 8 及以上缺少安装来源权限时打开授权设置并返回错误，授权后需要重新发起更新。系统安装器启动后命令即成功返回并发出 `Finished`，没有等待安装结果的回调。用户可以取消系统安装；进度窗口关闭也没有取消阻塞下载的接口。验签确认的是包字节，安装结果和实际运行版本仍需以后续客户端启动与版本检查确认。
 

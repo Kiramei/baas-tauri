@@ -60,18 +60,18 @@ describe("Android horizontal installation progress", () => {
 });
 
 describe("Android first installation state", () => {
-  test("continuing without touching a channel card submits the displayed development choice", () => {
+  test("continuing without touching a channel card submits the displayed stable choice", () => {
     const state = resolveAndroidInstallState({ channelSelected: false }, null, null);
     expect(state.awaitingChannel).toBe(true);
     expect(state.showChannelChoice).toBe(true);
-    expect(state.selectedChannel).toBe("dev");
+    expect(state.selectedChannel).toBe("stable");
     expect(state.selectedChannel).toBe(state.channel);
   });
 
-  test("a fresh installation offers the available development channel even after a stable attempt failed", () => {
+  test("the picker respects explicit choices from either channel and keeps the failed channel for retry", () => {
     const saved = { channel: "dev", channelSelected: false };
     expect(resolveAndroidInstallState(saved, null, null).selectedChannel).toBe("dev");
-    expect(resolveAndroidInstallState(saved, "stable", null).selectedChannel).toBe("dev");
+    expect(resolveAndroidInstallState(saved, "stable", null).selectedChannel).toBe("stable");
     expect(resolveAndroidInstallState({ channel: "stable" }, "dev", null).selectedChannel).toBe(
       "dev"
     );
@@ -84,7 +84,7 @@ describe("Android first installation state", () => {
         null,
         null
       ).selectedChannel
-    ).toBe("dev");
+    ).toBe("stable");
   });
 
   test("a completed channel selection hides the picker even when the legacy stage still says channel", () => {
