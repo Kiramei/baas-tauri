@@ -28,6 +28,7 @@ type ActionEntry = Exclude<TitlebarMenuEntry, { separator: true }>;
 export function macMenuAccelerator(shortcut?: string): string | null {
   const normalized = normalizeApplicationShortcut(shortcut ?? "", true);
   if (!normalized) return null;
+  if (normalized === "+") return "Equal";
   if (normalized.endsWith("++")) return normalized.slice(0, -1) + "Equal";
   const parts = normalized.split("+");
   const key = parts.pop()!;

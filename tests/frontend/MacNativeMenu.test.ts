@@ -158,6 +158,7 @@ describe("macOS native application menu", () => {
 
   test("native accelerators preserve remaps, arrows, plus, punctuation and disabled bindings", () => {
     expect(macMenuAccelerator("Cmd++")).toBe("Cmd+Equal");
+    expect(macMenuAccelerator("+")).toBe("Equal");
     expect(macMenuAccelerator("Option+←")).toBe("Alt+ArrowLeft");
     expect(macMenuAccelerator("Cmd+,")).toBe("Cmd+,");
     expect(macMenuAccelerator("Cmd+Shift+?")).toBe("Cmd+Shift+Slash");
