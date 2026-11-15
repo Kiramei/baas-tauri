@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Select which CNB data to synchronize.
+        description: Select CNB data to synchronize, or fast-forward Dev from main.
         required: true
         default: repository
         type: choice
@@ -15,6 +15,7 @@ on:
           - repository
           - release
           - all
+          - branches
       tag-name:
         description: Release tag to sync. Defaults to the package.json version tag.
         required: false
@@ -29,6 +30,45 @@ permissions:
   contents: read
 
 jobs:
+  sync-dev:
+    if: ${{ github.repository == 'Kiramei/baas-tauri' && github.ref == 'refs/heads/main' && ((github.event_name == 'push' && github.event.forced == false && github.event.deleted == false) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'branches')) }}
+    name: Fast-forward Dev from main
+    runs-on: ubuntu-latest
+    environment: branch-sync
+    timeout-minutes: 5
+    concurrency:
+      group: sync-dev-from-main
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Require branch-sync App configuration
+        env:
+          APP_ID: ${{ secrets.BRANCH_SYNC_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.BRANCH_SYNC_APP_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$APP_ID" || -z "$APP_PRIVATE_KEY" ]]; then
+            echo '::error::Configure BRANCH_SYNC_APP_ID and BRANCH_SYNC_APP_PRIVATE_KEY for the protected Dev fast-forward.'
+            exit 1
+          fi
+      - name: Create a token for this repository only
+        id: branch-app
+        uses: actions/create-github-app-token@v3.3.0
+        with:
+          app-id: ${{ secrets.BRANCH_SYNC_APP_ID }}
+          private-key: ${{ secrets.BRANCH_SYNC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-workflows: write
+      - name: Validate promotion and fast-forward Dev
+        env:
+          BRANCH_SYNC_TOKEN: ${{ steps.branch-app.outputs.token }}
+          EXPECTED_MAIN_SHA: ${{ github.event_name == 'push' && github.event.after || github.sha }}
+        run: node scripts/ci/sync-dev.mjs
+
   sync-repository:
     if: ${{ github.event_name == 'push' || inputs.operation == 'repository' || inputs.operation == 'all' }}
     name: Sync repository
