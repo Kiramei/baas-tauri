@@ -34,6 +34,7 @@ jobs:
     if: ${{ github.repository == 'Kiramei/baas-tauri' && github.ref == 'refs/heads/main' && ((github.event_name == 'push' && github.event.forced == false && github.event.deleted == false) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'branches')) }}
     name: Fast-forward Dev from main
     runs-on: ubuntu-latest
+    environment: branch-sync
     timeout-minutes: 5
     concurrency:
       group: sync-dev-from-main

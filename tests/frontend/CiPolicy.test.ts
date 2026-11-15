@@ -46,6 +46,7 @@ test("Dev synchronization reuses main pushes without invoking builds or blocking
   expect(source.on.workflow_dispatch.inputs.operation.options).toContain("branches");
   expect(source.permissions).toEqual({ contents: "read" });
   const sync = source.jobs["sync-dev"];
+  expect(sync.environment).toBe("branch-sync");
   expect(sync.if).toContain("github.ref == 'refs/heads/main'");
   expect(sync.if).toContain("github.repository == 'Kiramei/baas-tauri'");
   expect(sync.if).toContain("inputs.operation == 'branches'");

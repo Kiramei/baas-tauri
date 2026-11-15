@@ -18,7 +18,7 @@ Place Dev integrity in a separate ruleset before granting the App bypass to the 
 
 ## App and workflow setup
 
-Install a dedicated GitHub App for this repository only, with repository **Contents: write** and **Workflows: write** permissions. It does not need Administration permission. Add these repository Actions secrets:
+Install a dedicated GitHub App for this repository only, with repository **Contents: write** and **Workflows: write** permissions. It does not need Administration permission. Create the `branch-sync` GitHub environment with **Selected branches and tags** allowing only the **main branch**, with no tag rules. The synchronization job uses that environment and also requires the `refs/heads/main` workflow ref, including manual dispatch. Add these secrets to that environment, rather than repository-wide Actions secrets:
 
 - `BRANCH_SYNC_APP_ID`: the GitHub App ID.
 - `BRANCH_SYNC_APP_PRIVATE_KEY`: the App's private key.
@@ -38,6 +38,6 @@ Promote Main as a user or with an App token. A merge performed using a workflow'
 - Identical Main and Dev tips are a no-op. A stale Main event must not update Dev.
 - The current Main commit must have exactly two parents, with its second parent equal to the current Dev tip. Its tree must equal that Dev commit's tree. A different parent or tree requires review instead of automatic synchronization.
 - Serialize synchronization and recheck the remote refs before updating. Reject concurrent branch movement; never reset a newer Dev commit to the promoted snapshot.
-- Update only `refs/heads/dev` with `force: false`. An API failure must remain a failure; do not retry with force, fall back to an administrator token, or weaken rules. The [Git refs API](https://docs.github.com/en/rest/git/refs#update-a-reference) guarantees a fast-forward update when force is false.
+- Update only `refs/heads/dev` with `force: false`. Each API request has a 20-second timeout. An API failure must remain a failure; do not retry the write, fall back to an administrator token, or weaken rules. The [Git refs API](https://docs.github.com/en/rest/git/refs#update-a-reference) guarantees a fast-forward update when force is false.
 
 If a feature merges into Dev while promotion is finishing, leave that work intact and resolve the branch state manually. Inspect both branch tips and the promotion commit, preserve concurrent commits, and review the next promotion before resuming synchronization. A failed or skipped synchronization is not permission to repeat the one-time history reset.

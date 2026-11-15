@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { createGitHubClient, syncDev, validateSyncEvent } from "../../scripts/ci/sync-dev.mjs";
 
 const main = "1".repeat(40);
@@ -12,6 +12,7 @@ type Reply = { body?: unknown; status?: number; error?: Error; invalidJson?: boo
 
 function fixture(overrides: Record<string, Reply[]> = {}) {
   const requests: { method: string; path: string; body?: any }[] = [];
+  const signals: (AbortSignal | null | undefined)[] = [];
   const counts = new Map<string, number>();
   const defaults: Record<string, unknown> = {
     "GET /git/ref/heads/main": ref("main", main),
@@ -26,6 +27,7 @@ function fixture(overrides: Record<string, Reply[]> = {}) {
     fetchImpl: async (url: string, init: RequestInit) => {
       const path = new URL(url).pathname.replace("/repos/owner/repo", "");
       const method = init.method!;
+      signals.push(init.signal);
       requests.push({ method, path, ...(init.body ? { body: JSON.parse(String(init.body)) } : {}) });
       const key = `${method} ${path}`;
       const count = counts.get(key) ?? 0;
@@ -39,7 +41,7 @@ function fixture(overrides: Record<string, Reply[]> = {}) {
       });
     },
   });
-  return { run: () => syncDev({ client, expectedMainSha: main }), requests,
+  return { run: () => syncDev({ client, expectedMainSha: main }), requests, signals,
     writes: () => requests.filter(request => request.method !== "GET") };
 }
 
@@ -60,6 +62,17 @@ describe("protected Dev fast-forward", () => {
     expect(await state.run()).toEqual({ result: "equal", main, dev: main });
     expect(state.requests).toHaveLength(2);
     expect(state.writes()).toEqual([]);
+  });
+
+  test("every API request receives its own 20-second timeout signal", async () => {
+    const timeout = spyOn(AbortSignal, "timeout");
+    try {
+      const state = fixture();
+      await state.run();
+      expect(timeout.mock.calls).toEqual(state.requests.map(() => [20_000]));
+      expect(state.signals.every(signal => signal instanceof AbortSignal && !signal.aborted)).toBe(true);
+      expect(new Set(state.signals).size).toBe(state.requests.length);
+    } finally { timeout.mockRestore(); }
   });
 
   test("a superseded main event does not update either branch", async () => {
@@ -119,6 +132,20 @@ describe("protected Dev fast-forward", () => {
     }
   });
 
+  for (const error of [new DOMException("Request timed out", "TimeoutError"), new Error("network unavailable")]) {
+    test(`${error.name} during a read never writes`, async () => {
+      const state = fixture({ "GET /git/ref/heads/main": [{ error }] });
+      await expect(state.run()).rejects.toThrow(error.message);
+      expect(state.writes()).toEqual([]);
+      expect(state.requests.filter(request => request.path === "/git/ref/heads/main")).toHaveLength(1);
+    });
+    test(`${error.name} during PATCH never retries the uncertain write`, async () => {
+      const state = fixture({ "PATCH /git/refs/heads/dev": [{ error }] });
+      await expect(state.run()).rejects.toThrow(error.message);
+      expect(state.writes()).toEqual([{ method: "PATCH", path: "/git/refs/heads/dev", body: { sha: main, force: false } }]);
+    });
+  }
+
   for (const status of [403, 422, 500]) test(`a rejected write (${status}) is never retried or forced`, async () => {
     const state = fixture({ "PATCH /git/refs/heads/dev": [{ status }] });
     await expect(state.run()).rejects.toThrow(`HTTP ${status}`);
@@ -152,5 +179,6 @@ describe("trusted sync events", () => {
     ["a different pushed SHA", { ...input, event: { ...input.event, after: other } }],
     ["an invalid event SHA", { ...input, expectedMainSha: "main" }],
     ["an unrelated manual operation", { ...input, eventName: "workflow_dispatch", event: { ...input.event, inputs: { operation: "all" } } }],
+    ["a manual branches operation outside main", { ...input, eventName: "workflow_dispatch", ref: "refs/heads/dev", event: { ...input.event, inputs: { operation: "branches" } } }],
   ]) test(`rejects ${name}`, () => expect(() => validateSyncEvent(value)).toThrow());
 });

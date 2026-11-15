@@ -43,6 +43,7 @@ export function createGitHubClient({ repository, token, fetchImpl = globalThis.f
   async function request(method, suffix, body) {
     const response = await fetchImpl(`https://api.github.com/repos/${repository}${suffix}`, {
       method,
+      signal: AbortSignal.timeout(20_000),
       headers: {
         Accept: "application/vnd.github+json",
         Authorization: `Bearer ${token}`,
