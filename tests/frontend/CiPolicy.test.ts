@@ -39,6 +39,36 @@ test("main source guard uses trusted base workflow without checking out PR code"
   expect(guard.jobs.source.steps.every((step: any) => !step.uses)).toBe(true);
 });
 
+test("Dev synchronization reuses main pushes without invoking builds or blocking CNB jobs", () => {
+  const source = workflow("source-dispatch");
+  expect(Object.keys(source.on).sort()).toEqual(["push", "workflow_dispatch"]);
+  expect(source.on.push.branches).toEqual(["main"]);
+  expect(source.on.workflow_dispatch.inputs.operation.options).toContain("branches");
+  expect(source.permissions).toEqual({ contents: "read" });
+  const sync = source.jobs["sync-dev"];
+  expect(sync.environment).toBe("branch-sync");
+  expect(sync.if).toContain("github.ref == 'refs/heads/main'");
+  expect(sync.if).toContain("github.repository == 'Kiramei/baas-tauri'");
+  expect(sync.if).toContain("inputs.operation == 'branches'");
+  expect(sync.needs).toBeUndefined();
+  expect(sync.concurrency["cancel-in-progress"]).toBe(false);
+  expect(source.jobs["sync-repository"].needs).toBeUndefined();
+  expect(source.jobs["sync-release"].needs).toBeUndefined();
+  expect(source.jobs["sync-repository"].if).toBe("${{ github.event_name == 'push' || inputs.operation == 'repository' || inputs.operation == 'all' }}");
+  const token = sync.steps.find((step: any) => step.id === "branch-app");
+  expect(token.uses).toBe("actions/create-github-app-token@v3.3.0");
+  expect(token.with).toEqual({
+    "app-id": "${{ secrets.BRANCH_SYNC_APP_ID }}",
+    "private-key": "${{ secrets.BRANCH_SYNC_APP_PRIVATE_KEY }}",
+    owner: "${{ github.repository_owner }}",
+    repositories: "${{ github.event.repository.name }}",
+    "permission-contents": "write",
+    "permission-workflows": "write",
+  });
+  expect(sync.steps.at(-1).run).toBe("node scripts/ci/sync-dev.mjs");
+  expect(sync.steps.some((step: any) => step.uses?.includes("release") || step.run?.includes("build"))).toBe(false);
+});
+
 const bash = Bun.which("bash");
 const shellTest = bash ? test : test.skip;
 test("both named gates validate the router output and every contributing job", () => {
