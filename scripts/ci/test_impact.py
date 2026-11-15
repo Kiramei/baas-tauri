@@ -20,6 +20,8 @@ class Routing(unittest.TestCase):
             "docs/components/Terminal.tsx": {"site"},
             ".github/actions/sync-cnb-release/action.yml": {"contracts"},
             ".github/workflows/source-dispatch.yml": {"contracts"},
+            "scripts/ci/sync-dev.mjs": {"contracts"},
+            "tests/frontend/BranchSync.test.ts": {"contracts"},
             ".github/actions/mirror-upstream-release/action.yml": {"contracts"},
             "scripts/mirror-upstream-release.py": {"contracts"},
             "scripts/tests/test_mirror_upstream_release.py": {"contracts"},

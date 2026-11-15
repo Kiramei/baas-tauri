@@ -65,7 +65,7 @@ RULES = [
     (("src-tauri/*",), NATIVE | ANDROID),
     (("scripts/android-css*", "src/android/*", "src/shared/Android*", "tests/frontend/*Android*", "tests/frontend/MobileNavigation*", "tests/browser/android-*", "src/components/Android*", "tsconfig.ci.android.json"), {"ui:android"}),
     (("src/App.tsx", "src/platform/App.tsx", "src/platform/startup.ts", "src/pages/SettingsPage.tsx", "tsconfig.ci.desktop.json"), {"ui:webui", "ui:tauri"}),
-    (("tests/frontend/CiPolicy.test.ts", "tests/frontend/ReleasePublishing.test.ts", "tests/frontend/ReleaseWorkflows.test.ts", "tests/frontend/LinuxReleaseArtifacts.test.ts", "tests/frontend/ArchiveSignatures.test.ts"), CONTRACTS),
+    (("tests/frontend/CiPolicy.test.ts", "tests/frontend/BranchSync.test.ts", "tests/frontend/ReleasePublishing.test.ts", "tests/frontend/ReleaseWorkflows.test.ts", "tests/frontend/LinuxReleaseArtifacts.test.ts", "tests/frontend/ArchiveSignatures.test.ts"), CONTRACTS),
     (("src/*", "tests/frontend/*", "tests/browser/*", "public/*", "index.html", "components.json",
       "vite.config.*", "tsconfig*.json", "scripts/vite/*", "scripts/i18n*", "scripts/*font*",
       "scripts/fonts-src/*", "scripts/*log-batching*", "scripts/benchmark-pipe*", "scripts/appearance*",
