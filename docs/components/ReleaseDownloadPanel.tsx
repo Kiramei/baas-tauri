@@ -5,7 +5,7 @@ import { ChevronDown, Download, ExternalLink, MonitorDown } from "lucide-react";
 
 type Locale = "zh" | "en";
 type Platform = "windows" | "macos" | "linux";
-type Architecture = "x64" | "arm64" | "arm32" | "unknown";
+type Architecture = "x64" | "arm64" | "unknown";
 
 type ReleaseAsset = {
   name: string;
@@ -25,7 +25,7 @@ type DownloadItem = {
   size: number;
   platform: Platform;
   label: string;
-  kind: "installer" | "fixed-webview2" | "portable" | "dmg" | "deb" | "rpm";
+  kind: "installer" | "portable" | "dmg" | "deb" | "rpm" | "appimage";
   arch: Architecture;
 };
 
@@ -162,7 +162,7 @@ function detectEnvironment(): { platform: Platform; arch: Architecture } {
   // macOS browsers may report MacIntel on Apple Silicon as well.
   let arch: Architecture = platform === "macos" ? "unknown" : "x64";
   if (rawArch.includes("arm64") || rawArch.includes("aarch64")) arch = "arm64";
-  else if (rawArch.includes("armv7") || rawArch.includes("armhf")) arch = "arm32";
+  else if (rawArch.includes("armv7") || rawArch.includes("armhf")) arch = "unknown";
   else if (
     platform !== "macos" &&
     (
@@ -178,9 +178,9 @@ function detectEnvironment(): { platform: Platform; arch: Architecture } {
 }
 
 /** Handles the classify asset workflow. */
-function classifyAsset(asset: ReleaseAsset, locale: Locale): DownloadItem | null {
+export function classifyAsset(asset: ReleaseAsset, locale: Locale): DownloadItem | null {
   const lower = asset.name.toLowerCase();
-  if (lower.endsWith(".sig") || lower.endsWith(".app.tar.gz") || lower.endsWith(".nsis.zip"))
+  if (lower.includes("fixed_webview2") || /_(armhf|armv7(?:hl|l)?|i386)\./.test(lower) || lower.endsWith(".sig") || lower.endsWith(".app.tar.gz") || lower.endsWith(".nsis.zip"))
     return null;
 
   const zh = locale === "zh";
@@ -189,21 +189,7 @@ function classifyAsset(asset: ReleaseAsset, locale: Locale): DownloadItem | null
   let arch: Architecture = "unknown";
   let label = asset.name;
 
-  if (lower.includes("fixed_webview2_portable") && lower.endsWith(".zip")) {
-    platform = "windows";
-    kind = "portable";
-    arch = lower.includes("arm64") ? "arm64" : "x64";
-    label = zh
-      ? `Windows ${arch === "arm64" ? "ARM64" : "x64"} 固定 WebView2 便携版`
-      : `Windows ${arch === "arm64" ? "ARM64" : "x64"} fixed WebView2 portable`;
-  } else if (lower.includes("fixed_webview2-setup") && lower.endsWith(".exe")) {
-    platform = "windows";
-    kind = "fixed-webview2";
-    arch = lower.includes("arm64") ? "arm64" : "x64";
-    label = zh
-      ? `Windows ${arch === "arm64" ? "ARM64" : "x64"} 固定 WebView2 安装包`
-      : `Windows ${arch === "arm64" ? "ARM64" : "x64"} fixed WebView2 installer`;
-  } else if (lower.endsWith("-setup.exe")) {
+  if (lower.endsWith("-setup.exe")) {
     platform = "windows";
     kind = "installer";
     arch = lower.includes("arm64") ? "arm64" : "x64";
@@ -215,18 +201,26 @@ function classifyAsset(asset: ReleaseAsset, locale: Locale): DownloadItem | null
     kind = "dmg";
     arch = lower.includes("aarch64") || lower.includes("arm64") ? "arm64" : "x64";
     label = arch === "arm64" ? "macOS Apple Silicon DMG" : "macOS Intel DMG";
+  } else if (lower.endsWith("_portable.exe")) {
+    platform = "windows";
+    kind = "portable";
+    arch = lower.includes("arm64") ? "arm64" : "x64";
+    label = zh ? `Windows ${arch === "arm64" ? "ARM64" : "x64"} 便携版` : `Windows ${arch === "arm64" ? "ARM64" : "x64"} portable`;
   } else if (lower.endsWith(".deb")) {
     platform = "linux";
     kind = "deb";
-    arch = lower.includes("armhf") ? "arm32" : lower.includes("arm64") ? "arm64" : "x64";
-    label = zh
-      ? `Linux ${arch === "arm64" ? "ARM64" : arch === "arm32" ? "armhf" : "amd64"} DEB`
-      : `Linux ${arch === "arm64" ? "ARM64" : arch === "arm32" ? "armhf" : "amd64"} DEB`;
+    arch = lower.includes("arm64") ? "arm64" : "x64";
+    label = `Linux ${arch === "arm64" ? "ARM64" : "amd64"} DEB`;
   } else if (lower.endsWith(".rpm")) {
     platform = "linux";
     kind = "rpm";
-    arch = lower.includes("armv7hl") ? "arm32" : lower.includes("aarch64") ? "arm64" : "x64";
-    label = `Linux ${arch === "arm64" ? "aarch64" : arch === "arm32" ? "armv7hl" : "x86_64"} RPM`;
+    arch = lower.includes("aarch64") ? "arm64" : "x64";
+    label = `Linux ${arch === "arm64" ? "aarch64" : "x86_64"} RPM`;
+  } else if (lower.endsWith(".appimage")) {
+    platform = "linux";
+    kind = "appimage";
+    arch = lower.includes("aarch64") || lower.includes("arm64") ? "arm64" : "x64";
+    label = `Linux ${arch === "arm64" ? "ARM64" : "x64"} AppImage`;
   }
 
   if (!platform || !kind) return null;
@@ -250,12 +244,11 @@ function itemRank(item: DownloadItem, desiredArch: Architecture) {
 
   if (item.platform === "windows") {
     if (item.kind === "installer") score += 0;
-    else if (item.kind === "fixed-webview2") score += 10;
     else score += 20;
   } else if (item.platform === "macos") {
     score += item.kind === "dmg" ? 0 : 20;
   } else {
-    score += item.kind === "deb" ? 0 : 10;
+    score += item.kind === "appimage" ? 0 : item.kind === "deb" ? 10 : 20;
   }
 
   return score;
@@ -381,7 +374,7 @@ export function ReleaseDownloadPanel({
         const architecture = hints.architecture?.toLowerCase();
         const arch: Architecture =
           architecture === "arm" || architecture === "arm64"
-            ? hints.bitness === "32" ? "arm32" : "arm64"
+            ? hints.bitness === "32" ? "unknown" : "arm64"
             : architecture === "x86" || architecture === "x86_64" || architecture === "x64"
               ? "x64"
               : environment.arch;

@@ -18,14 +18,18 @@ description: 桌面包选择、普通与便携安装、全部高级选项、实�
 | 平台与包类型                                       | 用途                                                                    |
 | -------------------------------------------------- | ----------------------------------------------------------------------- |
 | Windows x64 / ARM64 安装包，`*-setup.exe`          | 安装匹配架构的桌面客户端，再在应用内准备后端                            |
-| Windows 便携 ZIP                                   | 完整解压到可写目录，将相邻配置和运行文件一起保留                        |
-| 已发布的固定 WebView2 包                           | 随附独立 WebView2 运行时；以实际发布的架构为准，不能假定存在 ARM64 版本 |
+| Windows 便携 EXE                                   | 在可写目录运行匹配架构的 `*_portable.exe`，保留相邻配置与后端文件                        |
 | macOS `aarch64.dmg` / `x64.dmg`                    | 分别对应 Apple Silicon / Intel，拖入 Applications                       |
-| Linux `amd64.deb` / `arm64.deb` / `armhf.deb`      | 匹配系统架构与包管理器                                                  |
-| Linux `x86_64.rpm` / `aarch64.rpm` / `armv7hl.rpm` | 匹配系统架构与 RPM 发行版                                               |
+| Linux `amd64.deb` / `arm64.deb`      | 匹配系统架构与包管理器                                                  |
+| Linux `x86_64.rpm` / `aarch64.rpm` | 匹配系统架构与 RPM 发行版                                               |
+| Linux `x86_64.AppImage` / `aarch64.AppImage` | 分别为 x64 / ARM64；赋予执行权限后，从持久可写目录运行 |
 | Android APK                                        | 使用 Android 指南，不套用桌面后端目录步骤                               |
 
 仅选择该版本实际发布的资产。更新归档、签名文件不等同于首次安装的 DMG 或安装包。系统安装包安装的是**客户端**，应用内安装向导管理的是**后端环境**。
+
+### Linux AppImage
+
+运行 `chmod +x BAAS.Tauri_*.AppImage` 后启动匹配架构的文件。更新会验签并替换同一原文件，保留执行权限；即使运行于 Debian 或 RPM 系统，AppImage 客户端仍获取 AppImage 更新。请保持文件及父目录可写。后端文件与 `setup.toml` 使用所选持久目录（默认 `~/.baas`）；原 AppImage 旁已有 `setup.toml` 时使用该目录的便携模式。临时 `APPDIR` 挂载目录不能作为数据目录。Linux 客户端提供 x64 和 ARM64 包。
 
 ### macOS 安全提示
 

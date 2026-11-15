@@ -37,9 +37,7 @@
     "tauri:android:build:release": "bun scripts/android-build-release.mjs",
     "tauri:android:dev": "tauri android dev",
     "tauri:android:dev:hot": "bun scripts/android-dev-hot.mjs",
-    "updater": "bun scripts/updater.mjs",
-    "updater-fixed-webview2": "bun scripts/updater-fixed-webview2.mjs",
-    "portable-fixed-webview2": "bun scripts/portable-fixed-webview2.mjs"
+    "updater": "bun scripts/updater.mjs"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",

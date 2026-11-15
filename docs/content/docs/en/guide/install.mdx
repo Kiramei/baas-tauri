@@ -18,14 +18,18 @@ Choose the operating system **and CPU architecture** on [official Releases](http
 | Platform / package                                 | Use                                                                                                                  |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Windows x64 or ARM64 installer, `*-setup.exe`      | Install the matching desktop client, then prepare its backend inside the app                                         |
-| Windows portable ZIP                               | Extract the complete archive into a writable directory; keep its adjacent configuration and runtime files together   |
-| Fixed WebView2 build, where published              | A Windows distribution with its own WebView2 runtime; match the published architecture, not an assumed ARM64 variant |
+| Windows portable EXE                               | Run the matching `*_portable.exe` in a writable directory; retain adjacent configuration and backend files   |
 | macOS `aarch64.dmg` / `x64.dmg`                    | Apple Silicon / Intel respectively; drag the app into Applications                                                   |
-| Linux `amd64.deb` / `arm64.deb` / `armhf.deb`      | Match the host architecture and package manager                                                                      |
-| Linux `x86_64.rpm` / `aarch64.rpm` / `armv7hl.rpm` | Match the host architecture and RPM-based distribution                                                               |
+| Linux `amd64.deb` / `arm64.deb`      | Match the host architecture and package manager                                                                      |
+| Linux `x86_64.rpm` / `aarch64.rpm` | Match the host architecture and RPM-based distribution                                                               |
+| Linux `x86_64.AppImage` / `aarch64.AppImage` | x64 / ARM64; make the file executable and run it from a writable persistent directory |
 | Android APK                                        | Follow the separate Android guide; do not use the desktop backend-directory instructions                             |
 
 Only select assets actually published for that release. Updater archives and signature files are not interchangeable with a first-install DMG or installer. The OS package installs the **client**; the app's Setup Wizard manages the **backend environment**.
+
+### Linux AppImage
+
+Run `chmod +x BAAS.Tauri_*.AppImage`, then launch the matching file. Updates verify its signature and replace that same original file, retaining its permissions; AppImage clients request AppImage updates even on Debian or RPM systems. Keep the file and its parent directory writable. Backend files and `setup.toml` use the selected persistent directory (normally `~/.baas`), or the original AppImage’s directory when an adjacent `setup.toml` selects portable mode. The temporary `APPDIR` mount is rejected as a data directory. Linux client packages support x64 and ARM64.
 
 ### macOS Security
 

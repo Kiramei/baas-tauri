@@ -19,7 +19,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "rpm"],
+    "targets": ["deb", "rpm", "appimage"],
     "linux": {
       "deb": {
         "depends": ["openssl", "libayatana-appindicator3-1"],

@@ -22,6 +22,15 @@ test("protected PR gates always report and release packaging is opt-in", () => {
   expect(Object.keys(baasx.on).sort()).toEqual(["workflow_call", "workflow_dispatch"]);
   expect(quality.permissions).toEqual({ contents: "read" });
   expect(quality.concurrency["cancel-in-progress"]).toBe(true);
+  expect(quality.on.workflow_dispatch.inputs.mode.options).toContain("appimage-package");
+  expect(quality.on.workflow_dispatch.inputs.mode.options).toContain("baasx-package");
+  for (const alias of ["linux-arm", "linux-armv7l", "linux-armhf"]) {
+    expect(quality.on.workflow_dispatch.inputs.target.options).toContain(alias);
+    expect(baasx.on.workflow_dispatch.inputs.target.options).toContain(alias);
+  }
+  const release = workflow("release-baasx");
+  expect(release.jobs["npm-auth"].steps.some((step: any) => step.run?.includes("npm-auth.mjs"))).toBe(true);
+  expect(release.jobs.build.needs).toContain("npm-auth");
 });
 
 test("main source guard uses trusted base workflow without checking out PR code", () => {

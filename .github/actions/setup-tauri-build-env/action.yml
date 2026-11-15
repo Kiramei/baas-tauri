@@ -26,7 +26,7 @@ inputs:
     required: false
     default: "1.3.14"
   cache-variant:
-    description: Cargo profile and build features (release, fixed-webview2, workspace-tests, android-debug).
+    description: Cargo profile and build features (release, workspace-tests, android-debug).
     default: release
     required: false
   save-cache:
