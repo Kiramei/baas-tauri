@@ -306,7 +306,9 @@ mod tests {
             .unwrap();
         assert!(lock.try_lock().is_err());
         let blocked = update(&state.root, &AtomicBool::new(false), &mut |_| {}).unwrap_err();
-        if let Err(error) = ocr_branch {
+        if let Err(error) =
+            super::super::validate_managed_platform(std::env::consts::OS, std::env::consts::ARCH)
+        {
             assert_eq!(blocked, error);
         } else {
             assert!(blocked.message().contains("another installer"));

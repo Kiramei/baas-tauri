@@ -46,12 +46,11 @@ BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_arch
 | --------------------------- | --------------------------------------------- |
 | Windows x64                 | `BAAS.Tauri_*_x64-setup.exe`                  |
 | Windows ARM64               | `BAAS.Tauri_*_arm64-setup.exe`                |
-| Windows x64 固定 WebView2   | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe`   |
-| Windows ARM64 固定 WebView2 | `BAAS.Tauri_*_arm64_fixed_webview2-setup.exe` |
 | macOS Apple Silicon         | `BAAS.Tauri_*_aarch64.dmg`                    |
 | macOS Intel                 | `BAAS.Tauri_*_x64.dmg`                        |
 | Linux Debian/Ubuntu         | `BAAS.Tauri_*_amd64.deb` 或 `*_arm64.deb`     |
 | Linux Fedora/RHEL           | `BAAS.Tauri_*_x86_64.rpm` 或 `*_aarch64.rpm`  |
+| Linux x64 / ARM64 AppImage | `BAAS.Tauri_*_x86_64.AppImage` / `*_aarch64.AppImage` |
 
 文档站中也提供动态下载面板，会读取最新 GitHub Release 并展示可直接下载的安装包。
 

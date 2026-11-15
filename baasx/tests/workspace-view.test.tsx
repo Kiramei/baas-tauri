@@ -1,4 +1,4 @@
-import React from "react";
+import React, { act } from "react";
 import { describe, expect, test } from "bun:test";
 import { PassThrough, Writable } from "node:stream";
 import { render } from "ink";
@@ -6,7 +6,7 @@ import { configChoices, filterChoices, WorkspaceView } from "../src/workspace-vi
 import type { Workspace, WorkspaceSnapshot } from "../src/workspace";
 import { displayWidth, terminalText } from "../src/ui";
 import { MouseContext } from "../src/terminal-components";
-import { MouseBus, type MouseEvent } from "../src/terminal";
+import { MouseBus, terminalSession, type MouseEvent } from "../src/terminal";
 import { reduceInstallationProgress } from "../src/installation";
 import manifest from "../package.json";
 
@@ -109,7 +109,7 @@ function fixture(overrides: Partial<WorkspaceSnapshot> = {}) {
 
 async function mounted(
   target: ReturnType<typeof fixture>,
-  options: { columns?: number; rows?: number } = {}
+  options: { columns?: number; rows?: number; terminal?: boolean } = {}
 ) {
   const frames: string[] = [];
   let rawModeActivations = 0;
@@ -137,13 +137,21 @@ async function mounted(
     ref() {},
     unref() {},
   });
+  const session = options.terminal
+    ? terminalSession(
+        stdin as unknown as NodeJS.ReadStream,
+        stdout as unknown as NodeJS.WriteStream,
+        mouse
+      )
+    : undefined;
+  const input = session?.input ?? stdin;
   const app = render(
     <MouseContext.Provider value={mouse}>
       <WorkspaceView workspace={target.workspace} />
     </MouseContext.Provider>,
     {
       stdout: stdout as unknown as NodeJS.WriteStream,
-      stdin: stdin as unknown as NodeJS.ReadStream,
+      stdin: input as unknown as NodeJS.ReadStream,
       stderr: stdout as unknown as NodeJS.WriteStream,
       debug: true,
       patchConsole: false,
@@ -198,6 +206,25 @@ async function mounted(
       stdin.write(input);
       await settle();
     },
+    async burst(...chunks: string[]) {
+      const environment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+      const previous = environment.IS_REACT_ACT_ENVIRONMENT;
+      environment.IS_REACT_ACT_ENVIRONMENT = true;
+      try {
+        await act(async () => {
+          for (const chunk of chunks) {
+            stdin.write(chunk);
+            // Deliver distinct source events without allowing a React commit between them.
+            input.emit("readable");
+          }
+          await Bun.sleep(0);
+        });
+      } finally {
+        if (previous === undefined) delete environment.IS_REACT_ACT_ENVIRONMENT;
+        else environment.IS_REACT_ACT_ENVIRONMENT = previous;
+      }
+      await settle();
+    },
     async click(label: string, match: (line: string) => boolean = () => true, last = false) {
       const lines = (frames.at(-1) || "").split("\n");
       const y = lines.findIndex((line) => line.includes(label) && match(line));
@@ -215,11 +242,113 @@ async function mounted(
     close() {
       app.unmount();
       app.cleanup();
+      session?.close();
       stdin.destroy();
       stdout.destroy();
     },
   };
 }
+
+test.each([
+  { mode: "one source chunk", command: "/reload" },
+  { mode: "separate events in one batch", command: "/reload" },
+  { mode: "one source chunk", command: "老师👩‍💻é" },
+  { mode: "separate events in one batch", command: "老师👩‍💻é" },
+])("help accepts rapid command input: %j", async ({ mode, command }) => {
+  const target = fixture();
+  const ui = await mounted(target, { terminal: true });
+  try {
+    await ui.send("/help");
+    await ui.send("\r");
+    expect(ui.frame).toContain("命令说明与快捷键");
+    await ui.burst(...(mode === "one source chunk" ? [command + "\r"] : [command, "\r"]));
+    expect(target.commands).toEqual([command.replace(/^\//, "")]);
+    expect(target.reloads).toBe(command === "/reload" ? 1 : 0);
+    expect(ui.frame).not.toContain("命令说明与快捷键");
+  } finally {
+    ui.close();
+  }
+});
+
+test("same-batch Unicode typing and cursor edits preserve grapheme boundaries", async () => {
+  const target = fixture();
+  const ui = await mounted(target, { terminal: true });
+  try {
+    await ui.send("/help");
+    await ui.send("\r");
+    await ui.burst("老", "师", "👩", "‍", "💻", "e", "́", "\x1b[D", "\x7f", "\r");
+    expect(target.commands).toEqual(["老师é"]);
+  } finally {
+    ui.close();
+  }
+});
+
+test("coalesced PageDown and same-batch completion submit the current slash command", async () => {
+  const target = fixture();
+  const ui = await mounted(target, { terminal: true });
+  try {
+    await ui.send("/help");
+    await ui.send("\r");
+    await ui.burst("\x1b[6~/rel\t\r");
+    expect(target.commands).toEqual(["reload"]);
+    expect(target.reloads).toBe(1);
+  } finally {
+    ui.close();
+  }
+});
+
+test("bracketed command paste remains text until a physical Return", async () => {
+  const target = fixture();
+  const ui = await mounted(target, { terminal: true });
+  try {
+    await ui.send("/help");
+    await ui.send("\r");
+    await ui.burst("\x1b[200~/reload\r\x1b[201~");
+    expect(target.commands).toEqual([]);
+    expect(target.reloads).toBe(0);
+    expect(ui.frame).toContain("命令说明与快捷键");
+    await ui.burst("\r");
+    expect(target.commands).toEqual(["reload"]);
+    expect(target.reloads).toBe(1);
+  } finally {
+    ui.close();
+  }
+});
+
+test("framed list search and Return open the current filtered configuration field", async () => {
+  const target = fixture();
+  target.setConfig({ screenshot_method: "adb", control_method: "adb" });
+  const ui = await mounted(target, { terminal: true });
+  try {
+    await ui.send("/config");
+    await ui.send("\r");
+    await ui.burst("screenshot_method\r");
+    expect(ui.frame).toContain("截图方式");
+    expect(ui.frame).toContain("保存 [Ctrl+S]");
+    expect(ui.frame).not.toContain("控制方式");
+  } finally {
+    ui.close();
+  }
+});
+
+test("framed list navigation and Return choose the current task", async () => {
+  const target = fixture({
+    tasks: { alpha: { event_name: "Alpha" }, beta: { event_name: "Beta" } },
+  });
+  const runs: string[] = [];
+  target.workspace.run = async (id) => {
+    runs.push(id);
+  };
+  const ui = await mounted(target, { terminal: true });
+  try {
+    await ui.send("/tasks");
+    await ui.send("\r");
+    await ui.burst("\x1b[B\r");
+    expect(runs).toEqual(["beta"]);
+  } finally {
+    ui.close();
+  }
+});
 
 describe("startup navigation", () => {
   test("clear uses its own action, and packs remain a command without a navigation page", async () => {

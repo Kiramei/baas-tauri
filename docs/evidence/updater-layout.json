@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-14T11:48:32.069Z",
+  "checkedAt": "2026-11-14T18:58:28.100Z",
   "cases": 8,
   "failures": 0,
   "testedSources": {
@@ -17,11 +17,11 @@
     "docs/app/layout.tsx": "fefd0048b1c85f0fa63082422352bcd38cf4f3cb3fcc53bb951a529ed7056314",
     "docs/lib/locale.ts": "793a12cf1116e88a11c0d6a0b74320226bff7e6d4dada0151ba8845ee201b8a2",
     "docs/lib/ui-translations.ts": "cc7c87abbb0e31c1cf8467d608b3ef81dc141a6d034483ec64938011f9f03448",
-    "docs/content/docs/zh/reference/updater-internals.mdx": "b90544433dc9d9fcbc9b6451561833f3b36c09b7373c24f29a83dc6819ad5a90",
-    "docs/content/docs/en/reference/updater-internals.mdx": "2039a521a2d77bb10777f1748f7be4c3a37ccb93894c92ffb84f32b659553fad"
+    "docs/content/docs/zh/reference/updater-internals.mdx": "1a71f29509fd236060e3df287e6bed6e77cca2bdfba3f1644fc668185d71f052",
+    "docs/content/docs/en/reference/updater-internals.mdx": "0e7ef86ff3a9923cf97de1007f43120f35d2cba392d1b270885c69a87fe2c624"
   },
-  "searchIndexPath": "search-index/167bc3a8bbcc47fffb0c5c3954defb0a7fd5fb92afa586c935a066ebb2f3544c.json",
-  "searchIndexSha256": "5611eaaab6eba61f73d8e65c6db6ad5395dca42be1279ba7edfd43829fc251f5",
+  "searchIndexPath": "search-index/77ccd4c36caf082524122f5a4b07a3f1d5dbbdc971efb8c104d2993b0ac21ea8.json",
+  "searchIndexSha256": "fb91790bc04473c5880e1c7d72a34d802d120d339a3316f626aa8bbf0d8f35fa",
   "results": [
     {
       "locale": "zh",

@@ -42,7 +42,7 @@ class Routing(unittest.TestCase):
             "src-tauri/src/platform/windows/portable_transaction.rs": {"native:windows"},
             "src-tauri/tests/portable_client_update.rs": {"native:windows"},
             "src-tauri/src/shm_native/macos.rs": {"native:macos"},
-            "src-tauri/webview2.arm64.json": {"native:windows:arm64"},
+            "src-tauri/src/platform/windows/arm64/adapter.rs": {"native:windows:arm64"},
             "src-tauri/gen/android/app/src/main/python/adapter.py": {"android-tests"},
             "crates/baas-notifier/src/platform/windows.rs": {"native:windows"},
             "crates/baas-notifier/src/platform/android.rs": {"android:arm64", "android-tests"},
@@ -65,21 +65,73 @@ class Routing(unittest.TestCase):
         self.assertFalse(result["android"] or result["frontend"] or result["baasx-platform"])
         self.assertFalse(result["site"] or result["readme"])
 
+    def test_linux_package_runtime_uses_both_linux_client_architectures(self):
+        for path in ("src-tauri/src/platform/linux_package.rs", "src-tauri/tests/linux_client_package.rs"):
+            result = classify([path])
+            self.assertEqual({item["target"] for item in result["desktop"]},
+                             {"x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"})
+            self.assertFalse(result["android"] or result["frontend"] or result["baasx-platform"])
+        full = classify([], full=True)
+        self.assertFalse(any("armv7" in row["target"] for row in full["desktop"]))
+        with self.assertRaisesRegex(ValueError, "No native target"):
+            owners("src-tauri/src/platform/linux/armv7/adapter.rs")
+
+    def test_manual_appimage_packaging_selects_only_two_linux_native_clients(self):
+        selected = plan({"inputs": {"mode": "appimage-package"}}, "workflow_dispatch", "")
+        self.assertEqual({item["target"] for item in selected["desktop"]},
+                         {"x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"})
+        self.assertEqual([name for name, enabled in jobs(selected).items() if enabled], ["client-native"])
+        self.assertFalse(selected["frontend"] or selected["android"] or selected["baasx-platform"] or selected["site"])
+
+    def test_known_terminal_patch_runs_baasx_and_unknown_patches_fail_closed(self):
+        result = classify(["baasx/patches/ink@6.3.1.patch"])
+        self.assertTrue(result["baasx-source"] and result["registry"])
+        self.assertEqual(len(result["baasx-platform"]), 7)
+        self.assertTrue(all(row["js"] and not row["rust"] for row in result["baasx-platform"]))
+        self.assertFalse(result["frontend"] or result["desktop"] or result["android"])
+        unknown = classify(["baasx/patches/shared.patch"])
+        self.assertEqual(unknown["frontend"], ["android", "tauri", "webui"])
+        self.assertEqual(len(unknown["baasx-platform"]), 7)
+        self.assertTrue(unknown["baasx-source"] and unknown["registry"])
+
     def test_targets_and_mixed_changes(self):
-        result = classify(["src-tauri/webview2.arm64.json", "src/android/App.tsx", "baasx/src/platform/windows/process-tree.ts"])
+        result = classify(["src-tauri/src/platform/windows/arm64/adapter.rs", "src/android/App.tsx", "baasx/src/platform/windows/process-tree.ts"])
         self.assertEqual(result["desktop"], [dict(os="windows-11-arm", target="aarch64-pc-windows-msvc")])
         self.assertEqual(result["frontend"], ["android"])
         self.assertEqual({(p["os"], p["rust"], p["js"]) for p in result["baasx-platform"]},
                          {("windows-11-arm", False, True), ("windows-latest", False, True)})
         self.assertFalse(result["site"] or result["android"] or result["baasx-source"] or result["readme"])
         rust = classify(["crates/baasx-runtime/src/lib.rs"])
-        self.assertEqual(len(rust["baasx-platform"]), 6)
+        self.assertEqual(len(rust["baasx-platform"]), 7)
         self.assertTrue(all(p["rust"] and not p["js"] for p in rust["baasx-platform"]))
         self.assertEqual([k for k, run in jobs(rust).items() if run], ["baasx"])
         arm = classify(["src-tauri/src/platform/android/x86_64/adapter.rs"])
         self.assertEqual([target["abi"] for target in arm["android"]], ["x86_64"])
         self.assertFalse(frontend_inputs(["windows"])["bundles"])
         self.assertEqual(frontend_inputs(["android"])["adapters"]["include"], [])
+
+    def test_arm32_baasx_keeps_its_target_and_owns_cross_build_inputs(self):
+        for path in ["baasx/scripts/node-runtime.mjs", "baasx/scripts/build.ts", ".github/actions/setup-linux-arm/action.yml"]:
+            matrix = classify([path])["baasx-platform"]
+            self.assertTrue(any(row.get("target") == "armv7-unknown-linux-gnueabihf" for row in matrix))
+        matrix = classify(["crates/baasx-runtime/src/lib.rs"])["baasx-platform"]
+        self.assertEqual(sum(row.get("target") == "armv7-unknown-linux-gnueabihf" for row in matrix), 1)
+        shared = ".github/actions/setup-linux-arm/action.yml"
+        self.assertEqual(owners(shared), {"baasx-native:linux:arm"})
+        selected = classify([shared])
+        self.assertEqual([name for name, enabled in jobs(selected).items() if enabled], ["baasx"])
+        self.assertEqual(len(selected["baasx-platform"]), 1)
+        self.assertFalse(selected["desktop"] or selected["android"] or selected["frontend"])
+
+    def test_arm32_platform_directory_aliases_have_one_baasx_owner(self):
+        for arch in ["arm", "armv7", "armv7l", "armhf"]:
+            for prefix, layer in [("baasx/src", "js"), ("baasx/tests", "js"), ("baasx/scripts", "native")]:
+                self.assertEqual(owners(f"{prefix}/platform/linux/{arch}/fixture.ts"), {f"baasx-{layer}:linux:arm"})
+            self.assertEqual(owners(f"crates/baasx-runtime/src/platform/linux/{arch}/fixture.rs"), {"baasx-native:linux:arm"})
+            for prefix in ("src-tauri/src", "crates/baas-notifier/src", "src", "tests/frontend"):
+                layer = "ui" if prefix in ("src", "tests/frontend") else "native"
+                with self.assertRaisesRegex(ValueError, f"No {layer} target"):
+                    owners(f"{prefix}/platform/linux/{arch}/fixture.rs")
 
     def test_gate_enforces_exact_results(self):
         for paths in [["docs/content/example.mdx"], ["src/android/App.tsx"], ["crates/baas-cli-runtime/src/lib.rs"]]:

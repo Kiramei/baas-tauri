@@ -35,7 +35,7 @@ pub(crate) fn run(builder: Builder<Wry>) {
             native_window_controls::initialize(app.handle());
             #[cfg(windows)]
             window_material::initialize(app.handle());
-            configure_portable_working_dir().map_err(std::io::Error::other)?;
+            configure_portable_working_dir(app.handle()).map_err(std::io::Error::other)?;
             app.manage(ShortcutRegistry::default());
             install_global_shortcut_plugin(app.handle()).map_err(std::io::Error::other)?;
 

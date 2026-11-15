@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { PassThrough, Writable } from "node:stream";
 import { setAnimationFocused } from "./motion";
-import { displayWidth } from "./ui";
+import { displayWidth, terminalText } from "./ui";
 
 const viewports = new WeakMap<NodeJS.WriteStream, NodeJS.WriteStream>();
 
@@ -185,14 +185,157 @@ export class MouseDecoder {
   }
 }
 
+// eslint-disable-next-line no-control-regex -- A mouse report ends at M/m or a new control key.
+const mouseReportEnd = /[Mm\x00-\x1f\x7f]/;
+
+/** Frame keys and keep bracketed paste as data. */
+class InputDecoder {
+  private pending = "";
+  private paste: string | undefined;
+  private pasteOverflow = false;
+  private discardSequence: "key" | "mouse" | undefined;
+
+  private appendPaste(text: string) {
+    if (this.pasteOverflow) return;
+    if (this.paste!.length + text.length > 8192) {
+      this.paste = "";
+      this.pasteOverflow = true;
+    } else this.paste += text;
+  }
+
+  feed(chunk: string): Array<{ text: string; paste?: boolean }> {
+    this.pending += chunk;
+    let skipLF = false;
+    const events: Array<{ text: string; paste?: boolean }> = [];
+    const emit = (text: string, paste = false) => {
+      if (text) events.push({ text, paste });
+    };
+    while (this.pending) {
+      if (this.paste !== undefined) {
+        const end = this.pending.indexOf("\x1b[201~");
+        if (end < 0) {
+          // Retain only a possible closing-marker prefix between source chunks.
+          let suffix = Math.min(5, this.pending.length);
+          while (suffix && !"\x1b[201~".startsWith(this.pending.slice(-suffix))) suffix--;
+          this.appendPaste(this.pending.slice(0, this.pending.length - suffix));
+          this.pending = this.pending.slice(this.pending.length - suffix);
+          break;
+        }
+        this.appendPaste(this.pending.slice(0, end));
+        if (!this.pasteOverflow) emit(terminalText(this.paste.replace(/\r\n?/g, "\n")), true);
+        this.paste = undefined;
+        this.pasteOverflow = false;
+        this.pending = this.pending.slice(end + 6);
+        continue;
+      }
+      if (this.discardSequence) {
+        const end = this.pending.search(
+          this.discardSequence === "mouse" ? mouseReportEnd : /[^ -?]/
+        );
+        if (end < 0) {
+          this.pending = "";
+          break;
+        }
+        const final = this.pending.charCodeAt(end);
+        this.pending = this.pending.slice(end + (final >= 0x40 && final <= 0x7e ? 1 : 0));
+        this.discardSequence = undefined;
+        continue;
+      }
+      if (skipLF) {
+        skipLF = false;
+        if (this.pending.startsWith("\n")) {
+          this.pending = this.pending.slice(1);
+          continue;
+        }
+      }
+      // LF multiline paste remains text. Unmarked CR is indistinguishable from a Return key.
+      // eslint-disable-next-line no-control-regex -- Frame keys before Ink parses one event per read.
+      const control = this.pending.search(/[\x00-\x09\x0b-\x1f\x7f]/);
+      if (control !== 0) {
+        const text = control < 0 ? this.pending : this.pending.slice(0, control);
+        emit(text === "\n" ? "\r" : text);
+        this.pending = this.pending.slice(text.length);
+        continue;
+      }
+      if (this.pending[0] !== "\x1b") {
+        const key = this.pending[0];
+        emit(key);
+        skipLF = key === "\r";
+        this.pending = this.pending.slice(1);
+        continue;
+      }
+      if (this.pending.startsWith("\x1b[<")) {
+        // Keep malformed SGR reports whole so MouseDecoder can discard their coordinate text.
+        const end = this.pending.slice(3).search(mouseReportEnd);
+        if (end < 0) {
+          if (this.pending.length > 64) {
+            this.pending = "";
+            this.discardSequence = "mouse";
+          }
+          break;
+        }
+        const length = end + 3;
+        if (this.pending[length] === "M" || this.pending[length] === "m") {
+          emit(this.pending.slice(0, length + 1));
+          this.pending = this.pending.slice(length + 1);
+        } else this.pending = this.pending.slice(length);
+        continue;
+      }
+      // Keep CSI/SS3 and Alt sequences whole, including split arrow and mouse reports.
+      // eslint-disable-next-line no-control-regex -- Count terminal escape prefixes.
+      const prefix = /^\x1b+/.exec(this.pending)![0].length;
+      if (this.pending.length === prefix) {
+        if (prefix === 1) break;
+        emit("\x1b\x1b");
+        this.pending = this.pending.slice(2);
+        continue;
+      }
+      let length = prefix + 1;
+      const introducer = this.pending[prefix];
+      if (introducer === "[" || introducer === "O" || introducer === "N") {
+        let final = prefix + 1;
+        if (introducer === "[" && this.pending[final] === "[") final++;
+        while (final < this.pending.length && /[0-?]/.test(this.pending[final])) final++;
+        while (final < this.pending.length && /[ -/]/.test(this.pending[final])) final++;
+        if (final === this.pending.length) {
+          if (final > 64) {
+            this.pending = "";
+            this.discardSequence = "key";
+          }
+          break;
+        }
+        if (/[@-~]/.test(this.pending[final])) length = final + 1;
+        else {
+          // A new control key abandons an incomplete report, especially Ctrl+C.
+          this.pending = this.pending.slice(final);
+          continue;
+        }
+      } else {
+        length = prefix + (this.pending.codePointAt(prefix)! > 0xffff ? 2 : 1);
+      }
+      const key = this.pending.slice(0, length);
+      this.pending = this.pending.slice(length);
+      if (key === "\x1b[200~") this.paste = "";
+      else emit(key);
+    }
+    return events;
+  }
+
+  flush(): string {
+    if (this.paste !== undefined || !["\x1b", "\x1b["].includes(this.pending)) return "";
+    const rest = this.pending;
+    this.pending = "";
+    return rest;
+  }
+}
+
 /** Own the alternate screen and mouse modes for exactly one mounted workspace. */
 export function terminalSession(
   source: NodeJS.ReadStream,
   stdout: NodeJS.WriteStream,
   mouse: MouseBus
 ) {
-  // Ink reads one key event per read(). Preserve source chunks when a slow render
-  // leaves text and a following Enter buffered together.
+  // Ink parses one key event per read(). Keep framed events distinct while rendering.
   const input = new PassThrough({ objectMode: true }) as PassThrough & {
     isTTY: boolean;
     setRawMode(mode: boolean): void;
@@ -212,21 +355,24 @@ export function terminalSession(
   // Enable raw input before the first frame; early Enter must stay CR, not canonical LF.
   if (source.isTTY) source.setRawMode(true);
   const decoder = new MouseDecoder((event) => mouse.dispatch(event), setAnimationFocused);
+  const keys = new InputDecoder();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const feed = (chunk: Buffer | string) => {
     clearTimeout(timer);
-    const result = decoder.feed(String(chunk));
-    if (result) {
-      mouse.cancelCapture();
-      // Some PTYs deliver an isolated Enter as LF or CRLF. Preserve multiline paste.
-      input.write(result === "\n" || result === "\r\n" ? "\r" : result);
+    for (const event of keys.feed(String(chunk))) {
+      const result = event.paste ? event.text : decoder.feed(event.text);
+      if (result) {
+        mouse.cancelCapture();
+        input.write(result);
+      }
     }
     // A lone Esc remains an ordinary key; incomplete mouse reports stay bounded to 64 bytes.
     timer = setTimeout(() => {
-      const rest = decoder.flush();
-      if (rest === "\x1b" || rest === "\x1b[") {
-        mouse.cancelCapture();
-        input.write(rest);
+      for (const rest of [keys.flush(), decoder.flush()]) {
+        if (rest === "\x1b" || rest === "\x1b[") {
+          mouse.cancelCapture();
+          input.write(rest);
+        }
       }
     }, 25);
   };
@@ -236,7 +382,7 @@ export function terminalSession(
   const fullscreen = interactive ? fullscreenOutput(stdout) : undefined;
   if (interactive) {
     setAnimationFocused(true);
-    stdout.write("\x1b[?1049h\x1b[H\x1b[?1002h\x1b[?1006h\x1b[?1004h");
+    stdout.write("\x1b[?1049h\x1b[H\x1b[?1002h\x1b[?1006h\x1b[?1004h\x1b[?2004h");
   }
   let closed = false;
   const close = () => {
@@ -251,7 +397,9 @@ export function terminalSession(
     if (wasPaused) source.pause();
     if (interactive) {
       setAnimationFocused(true);
-      stdout.write("\x1b[?1004l\x1b[?1006l\x1b[?1002l\x1b[?1000l\x1b[0m\x1b[?25h\x1b[?1049l");
+      stdout.write(
+        "\x1b[?2004l\x1b[?1004l\x1b[?1006l\x1b[?1002l\x1b[?1000l\x1b[0m\x1b[?25h\x1b[?1049l"
+      );
     }
   };
   return {

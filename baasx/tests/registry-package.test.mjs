@@ -1,9 +1,9 @@
-import { platforms } from "../scripts/distribution-platforms.mjs";
+import { platformFor, platforms } from "../scripts/distribution-platforms.mjs";
 import { describe, expect, test } from "bun:test";
 import { execFile, execFileSync, spawnSync } from "node:child_process";
 import { promisify } from "node:util";
 import { randomBytes } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
@@ -40,7 +40,12 @@ function fixture(targets = platformFixtures) {
     );
     // A substantial stand-in for the standalone executable must not reach the npm tarball.
     writeFileSync(path.join(stage, "package", platform.binary), randomBytes(128 * 1024));
-    const archive = path.join(assets, `baasx-${manifest.version}-${platform.asset}-bun.tgz`);
+    if (platform.runtime === "node")
+      writeFileSync(path.join(stage, "package/runtime/node"), randomBytes(128 * 1024));
+    const archive = path.join(
+      assets,
+      `baasx-${manifest.version}-${platform.asset}${platform.packageExtension}`
+    );
     execFileSync(tar, ["-czf", archive, "-C", stage, "package"]);
   }
   return { root, assets, output, bundle };
@@ -72,6 +77,85 @@ function pack({ assets, output, bundle }, options = [], env = process.env) {
 const registryTest = process.platform === "win32" ? test.skip : test;
 
 describe("registry package", () => {
+  test("ARMv7l and armhf resolve to one hard-float npm package", () => {
+    const arm = platformFor("linux", "arm");
+    expect(arm).toMatchObject({
+      name: "@kiramei/baasx-linux-arm",
+      cpu: "arm",
+      asset: "Linux-ARMV7L",
+      rustTarget: "armv7-unknown-linux-gnueabihf",
+      runtime: "node",
+      packageExtension: "-node.tgz",
+    });
+    expect(platformFor("linux", "armv7l")).toBe(arm);
+    expect(platformFor("linux", "armhf")).toBe(arm);
+    for (const cpu of ["arm", "armv7l", "armhf"])
+      expect(platformFor(`linux-${cpu}`)).toBe(arm);
+    expect(platforms.filter((p) => p.os === "linux" && p.cpu === "arm")).toHaveLength(1);
+    expect(platforms.some((p) => ["armv7l", "armhf"].includes(p.cpu))).toBe(false);
+    expect(platformFor("linux", "armv6l")).toBeUndefined();
+  });
+
+  test("registry launcher resolves canonical ARM32 and both architecture aliases", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "baasx-arm-launcher-"));
+    try {
+      const bin = path.join(root, "bin");
+      const dist = path.join(root, "dist");
+      const platform = path.join(root, "node_modules/@kiramei/baasx-linux-arm");
+      mkdirSync(bin);
+      mkdirSync(dist);
+      mkdirSync(path.join(platform, "runtime"), { recursive: true });
+      copyFileSync(path.join(project, "registry/baasx.mjs"), path.join(bin, "baasx.mjs"));
+      writeFileSync(
+        path.join(platform, "package.json"),
+        JSON.stringify({ exports: { "./helper": "./runtime/baasx-runtime" } })
+      );
+      const helper = path.join(platform, "runtime/baasx-runtime");
+      writeFileSync(helper, "fixture");
+      writeFileSync(
+        path.join(dist, "baasx-node.mjs"),
+        "console.log(JSON.stringify({helper:process.env.BAASX_RUNTIME_HELPER,args:process.argv.slice(2)}));\n"
+      );
+      const guard = path.join(root, "architecture.cjs");
+      for (const cpu of ["arm", "armv7l", "armhf"]) {
+        writeFileSync(
+          guard,
+          `Object.defineProperty(process,'platform',{value:'linux'});Object.defineProperty(process,'arch',{value:${JSON.stringify(cpu)}});`
+        );
+        const env = { ...process.env };
+        delete env.BAASX_RUNTIME_HELPER;
+        delete env.BAAS_RUNTIME_HELPER;
+        const result = execFileSync(
+          "node",
+          ["--require", guard, path.join(bin, "baasx.mjs"), "--demo", "status"],
+          { encoding: "utf8", env }
+        );
+        expect(JSON.parse(result)).toEqual({ helper: realpathSync(helper), args: ["--demo", "status"] });
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("unpacked package launcher runs the Node bundle without Bun", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "baasx-node-launcher-"));
+    try {
+      mkdirSync(path.join(root, "bin"));
+      mkdirSync(path.join(root, "dist"));
+      const entry = path.join(root, "bin/baasx.mjs");
+      copyFileSync(path.join(project, "bin/baasx.mjs"), entry);
+      writeFileSync(path.join(root, "dist/baasx.js"), "throw new Error('Requires Bun');\n");
+      writeFileSync(
+        path.join(root, "dist/baasx-node.mjs"),
+        "console.log(JSON.stringify({node:typeof Bun==='undefined',args:process.argv.slice(2)}));\n"
+      );
+      const result = execFileSync("node", [entry, "--demo", "status"], { encoding: "utf8" });
+      expect(JSON.parse(result)).toEqual({ node: true, args: ["--demo", "status"] });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("Windows bsdtar archive listings preserve both runtime names in npm packs", () => {
     const host = platformFixtures.find((p) => p.os === process.platform && p.cpu === process.arch);
     if (!host) throw new Error("Unsupported test host");
@@ -144,13 +228,32 @@ describe("registry package", () => {
         }
         const file = path.join(files.root, "registry-info.json");
         writeFileSync(file, JSON.stringify(packages));
+        const ancestorManifest = JSON.stringify({
+          name: "unrelated-workspace",
+          private: true,
+          dependencies: { "never-fetch-outside-fixture": "1.0.0" },
+        });
+        writeFileSync(path.join(files.root, "package.json"), ancestorManifest);
         await promisify(execFile)(
           "node",
           [path.join(project, "scripts/registry-smoke.mjs"), file],
           {
-            env: { ...process.env, BAASX_SMOKE_BUN: process.execPath },
+            env: { ...process.env, TMPDIR: files.root, BAASX_SMOKE_BUN: process.execPath },
           }
         );
+        expect(readFileSync(path.join(files.root, "package.json"), "utf8")).toBe(ancestorManifest);
+        expect(existsSync(path.join(files.root, "bun.lock"))).toBe(false);
+        // npm uses `arm` for both ARMv7l and Debian armhf, and must fetch exactly
+        // one native helper even when package assembly runs on a different CPU.
+        for (const target of ["linux-armv7l", "linux-armhf"]) {
+          await promisify(execFile)("node", [
+            path.join(project, "scripts/registry-smoke.mjs"),
+            file,
+            "--target",
+            target,
+            "--install-only",
+          ]);
+        }
       } finally {
         rmSync(files.root, { recursive: true, force: true });
       }
@@ -168,7 +271,7 @@ describe("registry package", () => {
         rmSync(path.join(stage, "package", "runtime", platform.helper));
         const archive = path.join(
           files.assets,
-          `baasx-${manifest.version}-${platform.asset}-bun.tgz`
+          `baasx-${manifest.version}-${platform.asset}${platform.packageExtension}`
         );
         execFileSync("tar", ["-czf", archive, "-C", stage, "package"]);
         expect(() => pack(files)).toThrow("missing package/runtime/baasx-runtime.exe");

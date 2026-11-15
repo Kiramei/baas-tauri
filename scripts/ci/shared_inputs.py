@@ -153,12 +153,36 @@ def bun_graph(lock):
     return owners
 
 
+def patched_dependency_owners(old, new, snapshots):
+    """Attribute fixed-version patches to every consumer of that exact package."""
+    if not isinstance(old, dict) or not isinstance(new, dict):
+        return UI | JS
+    if any(not isinstance(identity, str) or not isinstance(value, str) or not value
+           for patches in (old, new) for identity, value in patches.items()):
+        return UI | JS
+    scopes = set()
+    for identity in old.keys() | new.keys():
+        if old.get(identity) == new.get(identity):
+            continue
+        consumers = set()
+        for lock, graph in snapshots:
+            for key, entry in lock["packages"].items():
+                if entry[0] == identity:
+                    consumers.update(graph.get(key, set()))
+        if not consumers:
+            return UI | JS
+        scopes.update(consumers)
+    return scopes
+
+
 def bun_owners(old, new):
     old, new = jsonc(old), jsonc(new)
     before, after = bun_graph(old), bun_graph(new)
-    if {k: v for k, v in old.items() if k not in ("packages", "workspaces")} != {k: v for k, v in new.items() if k not in ("packages", "workspaces")}:
+    known = ("packages", "workspaces", "patchedDependencies")
+    if {k: v for k, v in old.items() if k not in known} != {k: v for k, v in new.items() if k not in known}:
         return UI | JS
-    scopes = set()
+    scopes = patched_dependency_owners(old.get("patchedDependencies", {}), new.get("patchedDependencies", {}),
+                                      ((old, before), (new, after)))
     for path in old["workspaces"].keys() | new["workspaces"].keys():
         if old["workspaces"].get(path) != new["workspaces"].get(path):
             scopes.update(workspace_scope(path))
@@ -422,7 +446,7 @@ def root_script_owners(name):
     return UI | JS
 
 
-def manifest_owners(old, new):
+def manifest_owners(old, new, old_lock=None, new_lock=None):
     old, new = json.loads(old, object_pairs_hook=unique_object), json.loads(new, object_pairs_hook=unique_object)
     if not isinstance(old, dict) or not isinstance(new, dict):
         raise ValueError("invalid package manifest")
@@ -436,6 +460,10 @@ def manifest_owners(old, new):
             for script in old[key].keys() | new[key].keys():
                 if old[key].get(script) != new[key].get(script):
                     scopes.update(root_script_owners(script))
+        elif key == "patchedDependencies" and old_lock is not None and new_lock is not None:
+            locks = (jsonc(old_lock), jsonc(new_lock))
+            scopes.update(patched_dependency_owners(old.get(key, {}), new.get(key, {}),
+                                                   tuple((lock, bun_graph(lock)) for lock in locks)))
         else:
             scopes.update(UI | JS)
     return scopes
@@ -492,6 +520,10 @@ def shared_owners(path, base, head):
                 return cargo_owners(old, new)
             return cargo_owners(old, new, old_manifests, new_manifests)
         if path == "package.json":
+            previous = json.loads(old, object_pairs_hook=unique_object)
+            current = json.loads(new, object_pairs_hook=unique_object)
+            if isinstance(previous, dict) and isinstance(current, dict) and previous.get("patchedDependencies") != current.get("patchedDependencies"):
+                return manifest_owners(old, new, blob(base, "bun.lock"), blob(head, "bun.lock"))
             return manifest_owners(old, new)
         if path in MEMBERS:
             name = MEMBERS[path][0]

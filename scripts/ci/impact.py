@@ -31,12 +31,16 @@ RULES = [
     (("baasx/registry/*", "baasx/scripts/*registry*", "baasx/scripts/host-npm.mjs", "baasx/tests/registry-*"), REGISTRY),
     (("baasx/packages/baas-client/src/SecureWebSocket.ts", "src/shared/SweepPlan.ts",
       "src/shared/SweepCounts.ts", "src/shared/ExplorePlan.ts", "src/features/rewardedTaskConfig.ts"), JS | UI),
+    (("baasx/patches/ink@6.3.1.patch",),
+     JS | REGISTRY | {"baasx-js:" + name for name in DESKTOP}),
+    (("baasx/patches/*",),
+     UI | JS | REGISTRY | {"baasx-js:" + name for name in DESKTOP}),
     (("baasx/src/runtime.ts", "baasx/src/terminal.ts"),
      JS | {"baasx-js:" + name for name in DESKTOP}),
     (("baasx/tests/runtime.test.ts", "baasx/tests/*pty*"),
      {"baasx-js:" + name for name in DESKTOP}),
     (("baasx/scripts/check-runtime-alias.mjs",), BAASX_NATIVE),
-    (("baasx/scripts/build.ts", "baasx/bin/*", "baasx/package.json"), JS | REGISTRY),
+    (("baasx/scripts/build.ts", "baasx/scripts/node-runtime.mjs", "baasx/bin/*", "baasx/package.json"), JS | REGISTRY | {"baasx-native:linux:arm"}),
     (("baasx/*",), JS),
     (("crates/baasx-runtime/*", "crates/baas-cli-runtime/*"), BAASX_NATIVE),
     (("crates/baas-updater/src/android*",), ANDROID),
@@ -55,26 +59,28 @@ RULES = [
       "scripts/tests/android*", "scripts/android-dev-hot*", "scripts/android-smoke*"), ANDROID),
     (("tests/fixtures/transport_echo_peer.py", "src-tauri/src/main.rs", "src-tauri/src/commands.rs", "src-tauri/src/shm_native.rs", "src-tauri/src/shm_protocol.rs",
       "src-tauri/capabilities/default.json", "src-tauri/examples/*", "src-tauri/tests/client_release_version.rs"), NATIVE),
-    (("src-tauri/tests/portable_client_update.rs", "src-tauri/src/window_material.rs", "src-tauri/icons/*.ico", "src-tauri/icons/Square*", "src-tauri/icons/StoreLogo*",
-      "scripts/portable-fixed-webview2*"), {"native:windows"}),
+    (("src-tauri/tests/portable_client_update.rs", "src-tauri/src/window_material.rs", "src-tauri/icons/*.ico", "src-tauri/icons/Square*", "src-tauri/icons/StoreLogo*"), {"native:windows"}),
+    (("src-tauri/src/platform/linux_package.rs", "src-tauri/tests/linux_client_package.rs"), {"native:linux", "native:linux:arm64"}),
     (("src-tauri/icons/*macos*", "src-tauri/icons/*.icns", "scripts/*macos*", "scripts/tests/test_macos*"), {"native:macos"}),
     (("src-tauri/*",), NATIVE | ANDROID),
     (("scripts/android-css*", "src/android/*", "src/shared/Android*", "tests/frontend/*Android*", "tests/frontend/MobileNavigation*", "tests/browser/android-*", "src/components/Android*", "tsconfig.ci.android.json"), {"ui:android"}),
     (("src/App.tsx", "src/platform/App.tsx", "src/platform/startup.ts", "src/pages/SettingsPage.tsx", "tsconfig.ci.desktop.json"), {"ui:webui", "ui:tauri"}),
-    (("tests/frontend/CiPolicy.test.ts", "tests/frontend/ReleasePublishing.test.ts", "tests/frontend/ReleaseWorkflows.test.ts"), CONTRACTS),
+    (("tests/frontend/CiPolicy.test.ts", "tests/frontend/ReleasePublishing.test.ts", "tests/frontend/ReleaseWorkflows.test.ts", "tests/frontend/LinuxReleaseArtifacts.test.ts", "tests/frontend/ArchiveSignatures.test.ts"), CONTRACTS),
     (("src/*", "tests/frontend/*", "tests/browser/*", "public/*", "index.html", "components.json",
       "vite.config.*", "tsconfig*.json", "scripts/vite/*", "scripts/i18n*", "scripts/*font*",
       "scripts/fonts-src/*", "scripts/*log-batching*", "scripts/benchmark-pipe*", "scripts/appearance*",
       "scripts/live-game*", "scripts/webkit*", ".github/actions/*font*/*"), UI),
     (("package.json", "bun.lock", "eslint.config.*"), UI | JS),
     (("scripts/docker/*", "scripts/tests/test_docker*"), {"docker"}),
-    ((".github/actions/setup-linux-arm/*",), {"native:linux:armv7", "native:linux:arm64"}),
+    ((".github/actions/setup-linux-arm/*",), {"baasx-native:linux:arm"}),
     ((".github/workflows/baasx-checks.yml", ".github/actions/setup-baasx/*"), JS | REGISTRY | BAASX_NATIVE),
     ((".github/workflows/client-native.yml", ".github/actions/setup-tauri-build-env/*"), NATIVE | ANDROID),
     ((".github/workflows/client-frontend.yml", "scripts/ci/client-frontend.mjs", "scripts/ci/frontend-adapter-inputs.mjs", "scripts/ci/build-frontend-adapter.mjs", "scripts/ci/test_client_frontend.py"), UI | {"ui:" + name for name in DESKTOP}),
     ((".github/workflows/baasx.yml", ".github/workflows/release-baasx.yml"), CONTRACTS | REGISTRY),
     ((".github/actions/setup-bun-deps/*",), UI | JS),
-    (("scripts/ci/*", ".github/workflows/*", ".github/actions/*", "scripts/*updat*", "scripts/*release*", "scripts/tests/test_mirror_upstream_release.py",
+    # Retain ownership for removed commands when a PR diff contains their deletion.
+    (("scripts/portable-fixed-webview2.mjs",), CONTRACTS),
+    (("scripts/ci/*", ".github/workflows/*", ".github/actions/*", "scripts/*updat*", "scripts/*release*", "scripts/normalize-linux-release.mjs", "scripts/archive-signatures.mjs", "scripts/tests/test_mirror_upstream_release.py",
       "scripts/audit-archived-shm.py", "scripts/backend-smoke.py", "scripts/prepare-local-preview.py"), CONTRACTS),
     ((".github/*", ".git*", ".prettier*", "renovate.json", "LICENSE"), set()),
 ]
@@ -100,14 +106,19 @@ def owners(path):
                 if layer.startswith("baasx-") and name == "android":
                     raise ValueError(f"No Android BAASX distribution for {path!r}")
                 arch = path.removeprefix(prefix).split("/", 1)[0]
+                if name == "linux" and not layer.startswith("baasx-") and arch in ("arm", "armv7", "armv7l", "armhf"):
+                    raise ValueError(f"No {layer} target for {path!r}")
                 if layer == "ui":
                     return {"ui:" + ("tauri" if name == "desktop" else os_name) for os_name in systems}
                 if name == "android":
                     return {"android:" + arch, "android-tests"} if arch in ANDROID_TARGETS else ANDROID
-                if arch in (*CPU, "armv7"):
-                    supported = {HOST_OS[row["os"]] + ":" + row["cpu"] for row in DISTRIBUTIONS}
+                if layer.startswith("baasx-") and name == "linux" and arch in ("arm", "armv7", "armv7l", "armhf"):
+                    return {f"{layer}:linux:arm"}
+                if arch in (*CPU, "arm", "armv7", "armv7l", "armhf"):
+                    supported = {HOST_OS[row["os"]] + ":" + row["cpu"] for row in DISTRIBUTIONS
+                                 if layer != "native" or row["cpu"] != "arm"}
                     if layer == "native":
-                        supported.update(("windows:x86", "linux:armv7"))
+                        supported.add("windows:x86")
                     if any(system + ":" + arch not in supported for system in systems):
                         raise ValueError(f"No {layer} target for {path!r}")
                     return {f"{layer}:{system}:{arch}" for system in systems}
@@ -120,11 +131,6 @@ def owners(path):
     for prefix, mode in (("Windows", "windows"), ("Linux", "linux"), ("Mac", "macos")):
         if path.startswith("tests/frontend/" + prefix):
             return {"ui:" + mode}
-    if path.startswith("src-tauri/webview2."):
-        arch = path.split(".")[1]
-        if arch not in CPU:
-            raise ValueError(f"Unknown WebView2 architecture in {path!r}")
-        return {"native:windows:" + arch}
     for patterns, tasks in RULES:
         if any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns):
             return tasks
@@ -148,16 +154,14 @@ def classify(paths, full=False, revisions=None):
     for row in DISTRIBUTIONS:
         name, arch, runner = HOST_OS[row["os"]], row["cpu"], row["runner"]
         # Common desktop Rust is tested on a representative host per OS. ABI-specific
-        # code is tested on its actual target. All shipped BAASX helper ABIs run natively.
+        # code is tested on its actual target. ARM32 BAASX runs through QEMU.
         primary = arch == ("arm64" if name == "macos" else "x64")
         if f"native:{name}:{arch}" in scopes or (primary and "native:" + name in scopes):
             native.append(dict(os=runner, target=CPU[arch] + "-" + RUST_SUFFIX[name]))
         rust = "baasx-native:" + name in scopes or f"baasx-native:{name}:{arch}" in scopes
         js = "baasx-js:" + name in scopes or f"baasx-js:{name}:{arch}" in scopes
         if rust or js:
-            baasx.append(dict(os=runner, rust=rust, js=js))
-    if "native:linux:armv7" in scopes:
-        native.append(dict(os="ubuntu-22.04", target="armv7-unknown-linux-gnueabihf"))
+            baasx.append(dict(os=runner, rust=rust, js=js, **({"target": row["rustTarget"]} if arch == "arm" else {})))
     if "native:windows:x86" in scopes:
         native.append(dict(os="windows-latest", target="i686-pc-windows-msvc"))
     android = [dict(abi=abi, target=target, gradle=gradle) for abi, (target, gradle) in ANDROID_TARGETS.items()
@@ -190,6 +194,9 @@ def plan(event, event_name, head):
             result = classify([])
             result["baasx-package"] = True
             return result
+        if mode == "appimage-package":
+            # An explicit manual packaging request selects only the two native Linux clients.
+            return classify(["src-tauri/src/platform/linux_package.rs"])
         if mode == "contracts":
             return classify(["scripts/ci/impact.py", "baasx/registry/baasx.mjs"])
         if mode == "changes":

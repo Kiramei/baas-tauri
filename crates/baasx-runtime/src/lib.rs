@@ -259,8 +259,17 @@ pub fn inspect(root: &Path) -> UpdaterResult<Inspection> {
     })
 }
 
-/// Install through the desktop updater workflow, including repositories,
-/// managed Python, and dependency synchronization. Never launch a backend.
+/// Check local backend prerequisites before creating any managed files.
+pub fn validate_managed_platform(os: &str, arch: &str) -> UpdaterResult<()> {
+    if os == "linux" && matches!(arch, "arm" | "armv7" | "armv7l" | "armhf") {
+        return Err(UpdaterError::Environment(
+            "Linux ARMv7/armhf supports the BAASX terminal, remote services and scheduling. Managed local setup is unavailable: there is no published ARM32 OCR payload or validated Python/dependency stack. Connect to an existing BAAS service with --server instead.".into(),
+        ));
+    }
+    cpp_branch_for(os, arch).map(|_| ())
+}
+
+/// Install through the desktop updater workflow without launching a backend.
 pub fn install(
     root: &Path,
     channel: impl Into<Option<UpdateChannel>>,
@@ -271,7 +280,7 @@ pub fn install(
         return Err(UpdaterError::Cancelled);
     }
     // Only supported hosts have a published OCR payload.
-    cpp_branch_for(std::env::consts::OS, std::env::consts::ARCH)?;
+    validate_managed_platform(std::env::consts::OS, std::env::consts::ARCH)?;
     install_with(root, channel, cancelled, emit, |root, emit| {
         run_workflow(root, cancelled, emit)
     })
@@ -582,6 +591,22 @@ pub fn launch_spec(root: &Path, pipe: &str) -> UpdaterResult<LaunchSpec> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn arm32_managed_setup_reports_its_actual_limits() {
+        for arch in ["arm", "armv7", "armv7l", "armhf"] {
+            let error = super::validate_managed_platform("linux", arch).unwrap_err();
+            assert!(error.message().contains("ARM32 OCR"));
+            assert!(error.message().contains("--server"));
+        }
+        for (os, arch) in [
+            ("linux", "x86_64"),
+            ("windows", "x86_64"),
+            ("macos", "aarch64"),
+        ] {
+            super::validate_managed_platform(os, arch).unwrap();
+        }
+    }
+
     use super::*;
 
     #[test]

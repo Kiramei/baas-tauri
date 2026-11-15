@@ -3,7 +3,8 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 if (!process.env.BAASX_RUNTIME_HELPER && !process.env.BAAS_RUNTIME_HELPER) {
-  const name = `@kiramei/baasx-${process.platform}-${process.arch}`;
+  const cpu = ["armv7l", "armhf"].includes(process.arch) ? "arm" : process.arch;
+  const name = `@kiramei/baasx-${process.platform}-${cpu}`;
   try {
     process.env.BAASX_RUNTIME_HELPER = require.resolve(`${name}/helper`);
   } catch (error) {

@@ -37,9 +37,7 @@
     "tauri:android:build:release": "bun scripts/android-build-release.mjs",
     "tauri:android:dev": "tauri android dev",
     "tauri:android:dev:hot": "bun scripts/android-dev-hot.mjs",
-    "updater": "bun scripts/updater.mjs",
-    "updater-fixed-webview2": "bun scripts/updater-fixed-webview2.mjs",
-    "portable-fixed-webview2": "bun scripts/portable-fixed-webview2.mjs"
+    "updater": "bun scripts/updater.mjs"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",
@@ -109,5 +107,8 @@
     "vite": "8.0.5",
     "vite-plugin-compression": "^0.5.1"
   },
-  "releaseVersion": "0.0.10"
+  "releaseVersion": "0.0.10",
+  "patchedDependencies": {
+    "ink@6.3.1": "baasx/patches/ink@6.3.1.patch"
+  }
 }

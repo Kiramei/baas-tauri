@@ -1,4 +1,4 @@
-import React from "react";
+import React, { act } from "react";
 import { expect, test } from "bun:test";
 import { PassThrough, Writable } from "node:stream";
 import { render } from "ink";
@@ -7,6 +7,23 @@ import type { EditableField } from "../src/field-editor";
 import { MouseContext } from "../src/terminal-components";
 import { MouseBus } from "../src/terminal";
 import { displayWidth, terminalText } from "../src/ui";
+
+async function update<T>(action: () => T): Promise<T> {
+  const environment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previous = environment.IS_REACT_ACT_ENVIRONMENT;
+  environment.IS_REACT_ACT_ENVIRONMENT = true;
+  let result!: T;
+  try {
+    await act(async () => {
+      result = action();
+      await Bun.sleep(0);
+    });
+    return result;
+  } finally {
+    if (previous === undefined) delete environment.IS_REACT_ACT_ENVIRONMENT;
+    else environment.IS_REACT_ACT_ENVIRONMENT = previous;
+  }
+}
 
 async function mount(
   field: EditableField,
@@ -40,31 +57,32 @@ async function mount(
     ref() {},
     unref() {},
   });
-  const app = render(
-    <MouseContext.Provider value={mouse}>
-      <PriorityEditor
-        field={field}
-        language="zh"
-        width={width}
-        height={height}
-        active={options.active}
-        onSave={async (value) => {
-          writes.push(value);
-          await options.onSave?.(value);
-        }}
-        onCancel={() => cancelled++}
-      />
-    </MouseContext.Provider>,
-    {
-      stdout: stdout as unknown as NodeJS.WriteStream,
-      stdin: stdin as unknown as NodeJS.ReadStream,
-      debug: true,
-      patchConsole: false,
-      maxFps: 1000,
-    }
+  const app = await update(() =>
+    render(
+      <MouseContext.Provider value={mouse}>
+        <PriorityEditor
+          field={field}
+          language="zh"
+          width={width}
+          height={height}
+          active={options.active}
+          onSave={async (value) => {
+            writes.push(value);
+            await options.onSave?.(value);
+          }}
+          onCancel={() => cancelled++}
+        />
+      </MouseContext.Provider>,
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        patchConsole: false,
+        maxFps: 1000,
+      }
+    )
   );
-  const settle = () => Bun.sleep(40);
-  await settle();
+  const settle = () => update(() => {});
   return {
     writes,
     settle,
@@ -75,8 +93,16 @@ async function mount(
       return cancelled;
     },
     async key(text: string) {
-      stdin.write(text);
-      await settle();
+      await update(() => stdin.write(text));
+    },
+    async burst(...keys: string[]) {
+      await update(() => {
+        for (const text of keys) {
+          stdin.write(text);
+          // Drain distinct keys without allowing a React commit between them.
+          stdin.emit("readable");
+        }
+      });
     },
     async click(text: string, rowContains?: string) {
       const lines = frame.split("\n");
@@ -85,8 +111,7 @@ async function mount(
       );
       expect(y).toBeGreaterThanOrEqual(0);
       const x = displayWidth(lines[y].slice(0, lines[y].indexOf(text)));
-      mouse.dispatch({ kind: "press", button: 0, x, y, delta: 0 });
-      await settle();
+      await update(() => mouse.dispatch({ kind: "press", button: 0, x, y, delta: 0 }));
     },
     close() {
       app.unmount();
@@ -111,6 +136,51 @@ const ordered: EditableField = {
     { label: "Disabled", value: "disabled", disabled: true },
   ],
 };
+
+test.each([
+  { keys: [">", "\x13"], value: ["7", 7, "alpha", false] },
+  { keys: [">", ">", "\x13"], value: ["7", "alpha", 7, false] },
+  { keys: ["\x1b[B", ">", "\x13"], value: [7, "alpha", "7", false] },
+  { keys: [" ", " ", "\x13"], value: ["7", "alpha", false, 7] },
+  { keys: [" ", "\x7f", "\x13"], value: ["7", "alpha", false] },
+  { keys: ["/", "Text", "\r", "<", "\x13"], value: ["7", 7, "alpha", false] },
+])("rapid priority input saves the latest typed order: %j", async ({ keys, value }) => {
+  const ui = await mount({
+    ...ordered,
+    value: [7, "7", "alpha", false],
+    options: [...ordered.options!, { label: "Text Seven", value: "7" }],
+  });
+  try {
+    await ui.burst(...keys);
+    expect(ui.writes).toEqual([value]);
+  } finally {
+    ui.close();
+  }
+});
+
+test("a rapid save locks subsequent input and retains the latest draft after failure", async () => {
+  let reject: (reason: Error) => void = () => {};
+  const pending = new Promise<void>((_resolve, fail) => {
+    reject = fail;
+  });
+  let calls = 0;
+  const ui = await mount(ordered, { onSave: () => (++calls === 1 ? pending : Promise.resolve()) });
+  try {
+    await ui.burst(">", "\x13", ">", "\x13", "\x1b");
+    expect(ui.writes).toEqual([["alpha", "beta", 7]]);
+    expect(ui.cancelled).toBe(0);
+    reject(new Error("Save failed"));
+    await ui.settle();
+    expect(ui.frame).toContain("❯ 2. Beta");
+    await ui.key("\x13");
+    expect(ui.writes).toEqual([
+      ["alpha", "beta", 7],
+      ["alpha", "beta", 7],
+    ]);
+  } finally {
+    ui.close();
+  }
+});
 
 test("priority rows show saved order, follow keyboard moves and preserve typed IDs", async () => {
   const ui = await mount(ordered);

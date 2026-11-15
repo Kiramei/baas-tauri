@@ -6,16 +6,33 @@ import { createReadStream } from "node:fs";
 import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { parseArgs } from "node:util";
 import { npmCommand } from "./host-npm.mjs";
-import { platforms } from "./distribution-platforms.mjs";
+import { platformFor, platforms } from "./distribution-platforms.mjs";
 
 // Git Bash's GNU tar interprets "D:" as a remote host. Windows bsdtar
 // takes native drive paths for both input archives and extraction directories.
 const tar =
   process.platform === "win32" ? path.join(process.env.SystemRoot, "System32", "tar.exe") : "tar";
 
-const packages = JSON.parse(await readFile(process.argv[2], "utf8"));
+const { values, positionals } = parseArgs({
+  allowPositionals: true,
+  options: {
+    target: { type: "string" },
+    "install-only": { type: "boolean", default: false },
+  },
+});
+const matching = values.target
+  ? platformFor(values.target)
+  : platformFor(process.platform, process.arch);
+assert.ok(matching, "Unknown smoke test target");
+const host = matching.os === process.platform && matching.cpu === process.arch;
+assert.ok(host || values["install-only"], "A foreign target requires --install-only");
+const packages = JSON.parse(await readFile(positionals[0], "utf8"));
 const scratch = await mkdtemp(path.join(tmpdir(), "baasx-install-smoke-"));
+// A caller may place TMPDIR inside the checkout. Stop Bun discovering the
+// repository's workspace manifest while installing against the fixture registry.
+await writeFile(path.join(scratch, "package.json"), '{"private":true}\n');
 const requested = new Set();
 async function run(command, args, extra = {}, cwd) {
   return new Promise((resolve, reject) => {
@@ -72,8 +89,6 @@ try {
   // actions/setup-node configured a scoped production registry on this runner.
   const config = path.join(scratch, ".npmrc");
   await writeFile(config, `registry=${registry}\n@kiramei:registry=${registry}\n`);
-  const matching = platforms.find((p) => p.os === process.platform && p.cpu === process.arch);
-  assert.ok(matching);
   for (const name of ["@kiramei/baasx"]) {
     const prefix = path.join(scratch, "npm-install-" + name.replaceAll("/", "-"));
     requested.clear();
@@ -85,6 +100,10 @@ try {
       "--ignore-scripts",
       "--no-audit",
       "--no-fund",
+      "--os",
+      matching.os,
+      "--cpu",
+      matching.cpu,
       name,
     ]);
     await run(
@@ -100,6 +119,7 @@ try {
     assert.ok(requested.has(matching.name), "Host helper was not downloaded");
     for (const other of platforms.filter((p) => p !== matching))
       assert.ok(!requested.has(other.name), `Downloaded foreign helper ${other.name}`);
+    if (values["install-only"]) continue;
     if (process.platform === "win32") {
       // Exercise the actual npm-installed command shim through cmd.exe.
       await run(
@@ -140,7 +160,7 @@ try {
     const legacy = path.join(path.dirname(resolved), matching.legacyHelper);
     assert.deepEqual(JSON.parse(await run(legacy, inspectArgs)), JSON.parse(text));
   }
-  if (process.env.BAASX_SMOKE_BUN) {
+  if (process.env.BAASX_SMOKE_BUN && !values["install-only"]) {
     const prefix = path.join(scratch, "bun-install");
     const bin = path.join(prefix, "bin");
     await writeFile(
