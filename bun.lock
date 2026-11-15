@@ -99,6 +99,9 @@
       },
     },
   },
+  "patchedDependencies": {
+    "ink@6.3.1": "baasx/patches/ink@6.3.1.patch",
+  },
   "packages": {
     "@actions/github": ["@actions/github@9.1.1", "", { "dependencies": { "@actions/http-client": "^3.0.2", "@octokit/core": "^7.0.6", "@octokit/plugin-paginate-rest": "^14.0.0", "@octokit/plugin-rest-endpoint-methods": "^17.0.0", "@octokit/request": "^10.0.7", "@octokit/request-error": "^7.1.0", "undici": "^6.23.0" } }, "sha512-tL5JbYOBZHc0ngEnCsaDcryUizIUIlQyIMwy1Wkx93H5HzbBJ7TbiPx2PnFjBwZW0Vh05JmfFZhecE6gglYegA=="],
 

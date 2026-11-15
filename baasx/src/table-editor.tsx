@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
-import { Box, Text, useInput } from "ink";
+import { Box, Text } from "ink";
+import { useCurrentInput, useInputState } from "./input-hooks";
 import { FieldEditor, type EditableField, type FieldEditorProps } from "./field-editor";
 import { HitBox, Marquee } from "./terminal-components";
 import { translate } from "./i18n";
@@ -22,17 +23,20 @@ export function TableEditor({
   active = true,
 }: FieldEditorProps) {
   const t = (value: string) => translate(value, language);
-  const [draft, setDraft] = useState<Record<string, unknown>[]>(
+  const [draft, setDraft, draftRef] = useInputState<Record<string, unknown>[]>(
     () => structuredClone(field.editorValue ?? field.value ?? []) as Record<string, unknown>[]
   );
-  const [selected, setSelected] = useState(0);
-  const [columnIndex, setColumnIndex] = useState(0);
-  const [child, setChild] = useState<{ row: number; column: number }>();
-  const [saving, setSaving] = useState(false);
+  const [selected, setSelected, selectedRef] = useInputState(0);
+  const [columnIndex, setColumnIndex, columnRef] = useInputState(0);
+  const [child, setChild, childRef] = useInputState<{ row: number; column: number } | undefined>(
+    undefined
+  );
+  const [saving, setSaving, savingRef] = useInputState(false);
   const pendingSave = useRef(false);
   const [error, setError] = useState("");
   const columns = field.columns || [];
   const editable = active && !field.readOnly && !saving;
+  const canWrite = () => active && !field.readOnly && !savingRef.current && !pendingSave.current;
   const compact = height < 10;
   const tableHeight = Math.max(
     2,
@@ -51,13 +55,7 @@ export function TableEditor({
   const visibleColumns = columns.slice(firstColumn, firstColumn + visibleCount);
   const cellWidth = Math.max(1, Math.floor(cellsWidth / visibleCount));
   const update = (row: number, column: number, value: unknown) => {
-    if (
-      !editable ||
-      pendingSave.current ||
-      !draft[row] ||
-      !columns[column] ||
-      columns[column].readOnly
-    )
+    if (!canWrite() || !draftRef.current[row] || !columns[column] || columns[column].readOnly)
       return;
     setDraft((previous) =>
       previous.map((entry, index) =>
@@ -69,15 +67,14 @@ export function TableEditor({
   const increment = (row: number, column: number, delta: number) => {
     const definition = columns[column];
     if (
-      !editable ||
-      pendingSave.current ||
+      !canWrite() ||
       !definition ||
       definition.readOnly ||
       definition.type !== "number" ||
-      !draft[row]
+      !draftRef.current[row]
     )
       return;
-    const current = Number(draft[row][definition.key]);
+    const current = Number(draftRef.current[row][definition.key]);
     if (!Number.isFinite(current)) return;
     const value = Math.min(
       definition.max ?? Number.MAX_SAFE_INTEGER,
@@ -92,9 +89,9 @@ export function TableEditor({
   };
   const edit = (row: number, column: number) => {
     if (
-      !editable ||
-      pendingSave.current ||
-      !draft[row] ||
+      !canWrite() ||
+      childRef.current ||
+      !draftRef.current[row] ||
       !columns[column] ||
       columns[column].readOnly
     )
@@ -104,12 +101,12 @@ export function TableEditor({
     setChild({ row, column });
   };
   const save = async () => {
-    if (!editable || pendingSave.current) return;
+    if (!canWrite()) return;
     pendingSave.current = true;
     setError("");
     try {
       setSaving(true);
-      await onSave(structuredClone(draft));
+      await onSave(structuredClone(draftRef.current));
     } catch (reason) {
       setError(t((reason as Error).message));
     } finally {
@@ -118,12 +115,16 @@ export function TableEditor({
     }
   };
   const moveRow = (delta: number) => {
-    if (active && !saving)
-      setSelected((previous) => Math.max(0, Math.min(draft.length - 1, previous + delta)));
+    if (active && !savingRef.current && !pendingSave.current)
+      setSelected((previous) =>
+        Math.max(0, Math.min(draftRef.current.length - 1, previous + delta))
+      );
   };
-  useInput(
+  useCurrentInput(
     (input, key) => {
-      if (saving) return;
+      if (!active || childRef.current || savingRef.current || pendingSave.current) return;
+      const selected = selectedRef.current;
+      const columnIndex = columnRef.current;
       if (key.escape || (key.ctrl && input === "c")) {
         onCancel();
         return;
