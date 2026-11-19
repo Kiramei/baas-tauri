@@ -325,6 +325,7 @@
     "errorTitle": "Ошибка установки",
     "exit": "Отменить установку",
     "finished": "Завершение",
+    "legacyMigrationFallback": "Нет доступа к прежней установке или её резервной копии. Выберите папку, чтобы продолжить установку.",
     "legacyMigrationNo": "Нет",
     "legacyMigrationPrompt": "Найдены настройки прежней версии BAAS. Перенести их сейчас?",
     "legacyMigrationTitle": "Перенос BAAS",

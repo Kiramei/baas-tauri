@@ -267,6 +267,7 @@ export type TranslationKey =
   | "installer.errorTitle"
   | "installer.exit"
   | "installer.finished"
+  | "installer.legacyMigrationFallback"
   | "installer.legacyMigrationNo"
   | "installer.legacyMigrationPrompt"
   | "installer.legacyMigrationTitle"

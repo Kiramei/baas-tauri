@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "BAAS Tauri",
-  "version": "0.0.11",
+  "version": "0.0.12-0.post.1",
   "identifier": "io.github.kiramei.baas-tauri",
   "build": {
     "frontendDist": "../dist",
@@ -64,7 +64,7 @@
     "category": "Utility",
     "createUpdaterArtifacts": true,
     "android": {
-      "versionCode": 11501
+      "versionCode": 11503
     }
   }
 }

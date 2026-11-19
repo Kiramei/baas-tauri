@@ -325,6 +325,7 @@
     "errorTitle": "Setup error",
     "exit": "Cancel Installation",
     "finished": "Finished",
+    "legacyMigrationFallback": "The old installation or its backup could not be accessed. Choose a folder to continue setup.",
     "legacyMigrationNo": "No",
     "legacyMigrationPrompt": "Detected a legacy BAAS configuration. Migrate the old installation now?",
     "legacyMigrationTitle": "Migrate BAAS",

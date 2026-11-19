@@ -12,6 +12,11 @@ use std::{
 const OFFER: &str = ".baas.legacy";
 const PENDING: &str = ".baas.legacy.pending";
 
+/// Shared user data directory used by both desktop clients.
+pub fn migration_directory(local_data: &Path) -> PathBuf {
+    local_data.join("BAAS").join("legacy-ui-migration")
+}
+
 /// The part of the handoff that may be returned to the desktop UI.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,12 +35,12 @@ pub(crate) struct Preferences {
 }
 
 /// Check for a published handoff, constrained to the executable directory in portable mode.
-pub fn available(home: &Path, required_root: Option<&Path>) -> UpdaterResult<bool> {
-    let path = home.join(OFFER);
-    if !path.exists() && !home.join(".baas.legacy.lock").exists() {
+pub fn available(directory: &Path, required_root: Option<&Path>) -> UpdaterResult<bool> {
+    if !is_directory(directory)? {
         return Ok(false);
     }
-    let _lock = lock(home)?;
+    let _lock = lock(directory)?;
+    let path = directory.join(OFFER);
     if !is_directory(&path)? {
         return Ok(false);
     }
@@ -45,15 +50,21 @@ pub fn available(home: &Path, required_root: Option<&Path>) -> UpdaterResult<boo
 }
 
 /// Filesystem location of the consumed offer during installation.
-pub fn pending_path(home: &Path) -> PathBuf {
-    home.join(PENDING)
+pub fn pending_path(directory: &Path) -> PathBuf {
+    directory.join(PENDING)
 }
 
 /// Read an accepted handoff for an interrupted installation.
-pub fn pending(home: &Path) -> UpdaterResult<Option<LegacyAppearance>> {
-    let path = pending_path(home);
+pub fn pending(
+    directory: &Path,
+    required_root: Option<&Path>,
+) -> UpdaterResult<Option<LegacyAppearance>> {
+    if !is_directory(directory)? {
+        return Ok(None);
+    }
+    let path = pending_path(directory);
     if is_directory(&path)? {
-        Ok(Some(load(&path)?.appearance))
+        Ok(Some(check_migration(&path, required_root)?))
     } else {
         Ok(None)
     }
@@ -61,33 +72,51 @@ pub fn pending(home: &Path) -> UpdaterResult<Option<LegacyAppearance>> {
 
 /// Move the offered snapshot out of the discovery path or discard it.
 pub fn decide(
-    home: &Path,
+    directory: &Path,
     accept: bool,
     required_root: Option<&Path>,
 ) -> UpdaterResult<Option<LegacyAppearance>> {
-    let _lock = lock(home)?;
-    let offer = home.join(OFFER);
+    if !is_directory(directory)? {
+        return Ok(None);
+    }
+    let _lock = lock(directory)?;
+    let offer = directory.join(OFFER);
     if !is_directory(&offer)? {
-        return if accept { pending(home) } else { Ok(None) };
+        return if accept { pending(directory, required_root) } else { Ok(None) };
     }
     if !accept {
         fs::remove_dir_all(offer)?;
         return Ok(None);
     }
 
-    let prefs = load(&offer)?;
-    if required_root.is_some_and(|root| !same_installation(&prefs.appearance.install_path, root)) {
+    let appearance = check_migration(&offer, required_root)?;
+    fs::rename(offer, pending_path(directory))?;
+    Ok(Some(appearance))
+}
+
+fn check_migration(snapshot: &Path, required_root: Option<&Path>) -> UpdaterResult<LegacyAppearance> {
+    let prefs = load(snapshot)?;
+    let root = &prefs.appearance.install_path;
+    if required_root.is_some_and(|required| !same_installation(root, required)) {
         return Err(UpdaterError::Config(
             "The legacy installation is outside the portable BAAS directory.".into(),
         ));
     }
-    if !prefs.appearance.install_path.join("window.py").is_file() {
+    if !root.join("window.py").is_file() {
         return Err(UpdaterError::Config(
             "The legacy BAAS installation could not be found.".into(),
         ));
     }
-    fs::rename(offer, pending_path(home))?;
-    Ok(Some(prefs.appearance))
+    fs::read_dir(snapshot.join("config"))?;
+    fs::read_dir(root)?;
+    if is_directory(&root.join("config"))? {
+        fs::read_dir(root.join("config"))?;
+    }
+    tempfile::Builder::new()
+        .prefix(".baas-migration-check-")
+        .tempdir_in(root)?
+        .close()?;
+    Ok(prefs.appearance)
 }
 
 /// Compare native paths without changing the spelling used by the legacy install.
@@ -124,10 +153,10 @@ pub(crate) fn finish(
     credential: Option<(&Path, &str)>,
     cancelled: &AtomicBool,
 ) -> UpdaterResult<()> {
-    let home = pending
+    let directory = pending
         .parent()
         .ok_or_else(|| UpdaterError::Config("The legacy handoff path is invalid.".into()))?;
-    let _lock = lock(home)?;
+    let _lock = lock(directory)?;
     let prefs = load(pending)?;
     if prefs.appearance.install_path.canonicalize()? != root.canonicalize()? {
         return Err(UpdaterError::Config(
@@ -147,7 +176,6 @@ pub(crate) fn finish(
     let retired = root.join("config");
     let previous = staging.path().join("previous");
     let had_config = is_directory(&retired)?;
-    remove_legacy_launchers(root)?;
     if had_config {
         fs::rename(&retired, &previous)?;
     }
@@ -174,16 +202,17 @@ pub(crate) fn finish(
             mirrorc_credentials::store(directory, cdk).map_err(UpdaterError::Config)?;
         }
     }
+    remove_legacy_launchers(root)?;
     // Retire the handoff in a single rename before deleting its contents.
     let consumed = tempfile::Builder::new()
         .prefix(".baas.legacy-")
-        .tempdir_in(home)?;
+        .tempdir_in(directory)?;
     fs::rename(pending, consumed.path().join("consumed"))?;
     consumed.close()?;
     Ok(())
 }
 
-fn lock(home: &Path) -> io::Result<File> {
+fn lock(directory: &Path) -> io::Result<File> {
     let mut options = OpenOptions::new();
     options.create(true).read(true).write(true).truncate(false);
     #[cfg(unix)]
@@ -191,8 +220,8 @@ fn lock(home: &Path) -> io::Result<File> {
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(0o600);
     }
-    let lock = options.open(home.join(".baas.legacy.lock"))?;
-    lock.lock()?;
+    let lock = options.open(directory.join(".baas.legacy.lock"))?;
+    lock.try_lock()?;
     Ok(lock)
 }
 
@@ -265,7 +294,7 @@ mod tests {
 
     fn fixture() -> (tempfile::TempDir, PathBuf, PathBuf) {
         let workspace = tempfile::tempdir().unwrap();
-        let home = workspace.path().join("home");
+        let home = migration_directory(&workspace.path().join("data"));
         let root = workspace.path().join("BlueArchiveAutoScript");
         let offer = home.join(OFFER);
         fs::create_dir_all(offer.join("config/default_config")).unwrap();
@@ -318,7 +347,7 @@ mod tests {
         );
         assert!(root.join("BlueArchiveAutoScript.exe").exists());
         assert!(root.join("config/extra").is_dir());
-        assert!(pending(&home).unwrap().is_some());
+        assert!(pending(&home, None).unwrap().is_some());
 
         let credentials = home.join("native-credentials");
         finish(
@@ -332,7 +361,7 @@ mod tests {
             mirrorc_credentials::load(&credentials).unwrap(),
             "fixture-only"
         );
-        assert!(pending(&home).unwrap().is_none());
+        assert!(pending(&home, None).unwrap().is_none());
         assert_eq!(
             fs::read_to_string(root.join("config/default_config/config.json")).unwrap(),
             "first"
@@ -351,8 +380,42 @@ mod tests {
         let (_workspace, home, root) = fixture();
         assert!(decide(&home, false, None).unwrap().is_none());
         assert!(!available(&home, None).unwrap());
-        assert!(pending(&home).unwrap().is_none());
+        assert!(pending(&home, None).unwrap().is_none());
         assert!(root.join("config/extra").exists());
         assert!(root.join("BlueArchiveAutoScript.exe").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unwritable_installation_keeps_the_offer_and_pending_snapshot_intact() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let (_workspace, directory, root) = fixture();
+        let set_mode = |mode| fs::set_permissions(&root, fs::Permissions::from_mode(mode)).unwrap();
+        set_mode(0o555);
+        let denied_offer = decide(&directory, true, None);
+        set_mode(0o755);
+        assert!(matches!(denied_offer, Err(UpdaterError::Io(_))));
+        assert!(directory.join(OFFER).exists());
+        assert!(!pending_path(&directory).exists());
+
+        decide(&directory, true, None).unwrap().unwrap();
+        set_mode(0o555);
+        let denied_pending = pending(&directory, None);
+        set_mode(0o755);
+        assert!(matches!(denied_pending, Err(UpdaterError::Io(_))));
+        assert!(pending(&directory, None).unwrap().is_some());
+        assert!(root.join("config/extra").is_dir());
+        assert!(root.join("BlueArchiveAutoScript.exe").exists());
+    }
+
+    #[test]
+    fn a_busy_handoff_can_be_skipped_without_waiting_for_the_writer() {
+        let (_workspace, directory, _root) = fixture();
+        let writer = lock(&directory).unwrap();
+        assert!(available(&directory, None).is_err());
+        assert!(decide(&directory, true, None).is_err());
+        drop(writer);
+        assert!(available(&directory, None).unwrap());
     }
 }
