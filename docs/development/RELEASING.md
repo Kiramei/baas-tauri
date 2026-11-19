@@ -28,6 +28,8 @@ node scripts/set-release-version.mjs 0.0.9.post2 --dry-run
 node scripts/check-release-version.mjs 0.0.9.post2
 ```
 
+BAAS Tauri 的 QQ 中文摘要放在 `release-notes/<公开版本>.md`。QQ 最多展示三条含中文的列表项，每条最多 65 个字符。没有对应摘要时，QQ 使用默认发版提示。
+
 BAASX 的版本写入 `baasx/package.json`，并同步 `bun.lock` 的工作区版本。发行说明放在 `baasx/release-notes/<版本>.md`。
 
 将准备提交通过 PR 推广到 `main`，再在 `main` 上的发布提交创建对应标签。发布工作流会校验标签来源和版本清单。

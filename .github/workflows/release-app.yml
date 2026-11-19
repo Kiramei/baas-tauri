@@ -560,6 +560,8 @@ jobs:
       - name: Generate release notes
         shell: bash
         run: |
+          set -euo pipefail
+
           if [ -z "${UPDATE_LOGS:-}" ]; then
             echo "No update logs found, using default message"
             UPDATE_LOGS="More new features are now supported. Check for detailed changelog soon."
@@ -567,7 +569,19 @@ jobs:
             echo "Using found update logs"
           fi
 
-          cat > release.txt << EOF
+          qq_notes_file="$RELEASE_SOURCE_ROOT/release-notes/$VERSION.md"
+          qq_notes=""
+          if [[ -f "$qq_notes_file" ]]; then
+            qq_notes=$(<"$qq_notes_file")
+          fi
+
+          {
+            if [[ "$qq_notes" =~ [^[:space:]] ]]; then
+              printf '## QQ 更新说明\n\n%s\n\n' "$qq_notes"
+            fi
+            cat << EOF
+          ## Release Notes
+
           $UPDATE_LOGS
 
           ## Download
@@ -600,6 +614,7 @@ jobs:
 
           Created at ${{ env.BUILDTIME }}.
           EOF
+          } > release.txt
 
       - name: Publish Release
         env:
