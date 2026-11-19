@@ -226,19 +226,52 @@ pub fn inject_tray_icon(app: &mut App) -> Result<TrayMenuItems, Box<dyn Error>> 
         TrayIconEvent::Click {
             button: MouseButton::Right,
             button_state: MouseButtonState::Up,
+            rect,
             ..
         } => {
             let tray = tray.clone();
             let menu = menu.clone();
             // AppKit tracks the menu in a nested event loop. Leave Tauri's tray callback first.
             dispatch2::DispatchQueue::main().exec_async(move || {
-                // macOS 27 consumes left clicks while the status item has a menu attached.
-                let result = tray.set_menu(Some(menu)).and_then(|()| {
-                    let shown = tray.with_inner_tray_icon(|icon| icon.show_menu());
-                    let detached = tray.set_menu(None::<Menu<tauri::Wry>>);
-                    shown.and(detached)
+                let app = tray.app_handle();
+                let Some(window) = app.get_webview_window("main") else {
+                    return;
+                };
+                // Anchor below the status item and keep the menu detached from it.
+                let result = app.cursor_position().and_then(|cursor| {
+                    let window_scale = window.scale_factor()?;
+                    // Tao reports the cursor in primary-display pixels; the tray and window
+                    // bounds use their own display scales.
+                    let primary_scale = app
+                        .primary_monitor()?
+                        .map_or(window_scale, |monitor| monitor.scale_factor());
+                    let cursor = cursor.to_logical::<f64>(primary_scale);
+                    let tray_scale = app
+                        .monitor_from_point(cursor.x, cursor.y)?
+                        .map_or(primary_scale, |monitor| monitor.scale_factor());
+                    let tray_origin = rect.position.to_logical::<f64>(tray_scale);
+                    let tray_size = rect.size.to_logical::<f64>(tray_scale);
+                    let window_origin = window.inner_position()?.to_logical::<f64>(window_scale);
+                    let position = tauri::LogicalPosition::new(
+                        tray_origin.x - window_origin.x,
+                        tray_origin.y + tray_size.height - window_origin.y,
+                    );
+                    window.popup_menu_at(&menu, position)
                 });
-                if let Err(error) = result {
+                // tray-icon highlights the native button on right-down. The detached menu
+                // does not reset that state on dismissal.
+                let reset_highlight = tray.with_inner_tray_icon(|icon| {
+                    let Some(main_thread) = objc2::MainThreadMarker::new() else {
+                        return;
+                    };
+                    if let Some(button) = icon
+                        .ns_status_item()
+                        .and_then(|item| item.button(main_thread))
+                    {
+                        button.highlight(false);
+                    }
+                });
+                if let Err(error) = result.and(reset_highlight) {
                     system_log("WARN", "tray", format!("Unable to show tray menu: {error}"));
                 }
             });

@@ -312,6 +312,7 @@ dependencies = [
  "libc",
  "minisign-verify",
  "minreq",
+ "objc2",
  "rand 0.8.6",
  "rsa",
  "serde",
