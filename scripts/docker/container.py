@@ -24,6 +24,9 @@ except ModuleNotFoundError:  # The image deliberately supports Python 3.9.
 STABLE_REPOSITORY = "https://github.com/pur1fying/blue_archive_auto_script.git"
 OCR_REPOSITORY = "https://github.com/pur1fying/BAAS_Cpp_prebuild.git"
 OCR_DIRECTORY = Path("core/ocr/baas_ocr_client/bin")
+ARM64_OCR = Path("/opt/baas-ocr")
+ARM64_ARCHITECTURES = {"aarch64", "arm64"}
+ELF_MACHINES = {"x86_64": 62, "amd64": 62, "aarch64": 183, "arm64": 183}
 
 
 def no_update_enabled(app_dir: Path) -> bool:
@@ -113,8 +116,13 @@ def prepare_service(app_dir: Path, repo_url: Optional[str], branch: str) -> None
 
 
 def missing_ocr_files(directory: Path):
+    architecture = platform.machine().lower()
+    libraries = ["libBAAS_ipc.so"]
+    if architecture not in ARM64_ARCHITECTURES:
+        libraries += ["libonnxruntime.so.1", "libopencv_world.so.409"]
+    binaries = ["BAAS_ocr_server", *libraries]
     required = [
-        "BAAS_ocr_server", "libBAAS_ipc.so", "libonnxruntime.so.1", "libopencv_world.so.409",
+        *binaries,
         "resource/global_setting.json", "resource/static.json", "resource/ocr_models/configs.txt",
     ]
     try:
@@ -131,6 +139,15 @@ def missing_ocr_files(directory: Path):
     except (OSError, ValueError, KeyError, TypeError):
         return ["resource/static.json (valid OCR model catalog required)"]
     missing = sorted({name for name in required if not (directory / name).is_file() or (directory / name).stat().st_size == 0})
+    machine = ELF_MACHINES.get(architecture)
+    if machine is not None:
+        for name in binaries:
+            if name in missing:
+                continue
+            with (directory / name).open("rb") as binary:
+                header = binary.read(20)
+            if len(header) != 20 or header[:6] != b"\x7fELF\x02\x01" or int.from_bytes(header[18:20], "little") != machine:
+                missing.append(f"{name} (expected a Linux {architecture} ELF binary)")
     if not missing and not os.access(directory / "BAAS_ocr_server", os.X_OK):
         missing.append("BAAS_ocr_server (executable permission required)")
     return missing
@@ -147,8 +164,13 @@ def prepare_ocr(app_dir: Path, repo_url: Optional[str] = None, branch: Optional[
             "OCR is missing or incomplete while no_update is enabled: " + ", ".join(missing[:5]) +
             ". Preinstall the complete OCR package or temporarily disable no_update."
         )
+    architecture = platform.machine().lower()
+    if architecture in ARM64_ARCHITECTURES and not repo_url and not branch:
+        print("[INFO] Installing the ARM64 OCR package bundled with the image.", flush=True)
+        install_ocr(ARM64_OCR, directory)
+        return
     if not branch:
-        if platform.machine().lower() not in {"x86_64", "amd64"}:
+        if architecture not in {"x86_64", "amd64"}:
             raise RuntimeError("No default OCR prebuild for this architecture; set BAAS_OCR_REPO_URL and BAAS_OCR_BRANCH")
         branch = "linux-x64"
     if branch.startswith("-"):
@@ -165,30 +187,33 @@ def prepare_ocr(app_dir: Path, repo_url: Optional[str] = None, branch: Optional[
         binary = checkout / "BAAS_ocr_server"
         if binary.is_file():
             binary.chmod(binary.stat().st_mode | 0o111)
-        missing = missing_ocr_files(checkout)
-        if missing:
-            raise RuntimeError("OCR prebuild is incomplete: " + ", ".join(missing[:5]))
-        directory.mkdir(parents=True, exist_ok=True)
-        # Runtime files come from one validated checkout. Keep writable user
-        # configuration and OCR output; do not import another Git repository.
-        for source in checkout.iterdir():
-            if source.name in {".git", "config", "output"}:
-                continue
-            target = directory / source.name
-            if target.is_symlink():
-                target.unlink()
-            if source.is_dir():
-                shutil.copytree(source, target, dirs_exist_ok=True, symlinks=True)
-            else:
-                shutil.copy2(source, target, follow_symlinks=False)
-        missing = missing_ocr_files(directory)
-        if missing:
-            raise RuntimeError("Installed OCR prebuild is incomplete: " + ", ".join(missing[:5]))
-        config_directory = directory / "config"
-        config_directory.mkdir(exist_ok=True)
-        settings = config_directory / "global_setting.json"
-        if not settings.exists():
-            shutil.copy2(directory / "resource/global_setting.json", settings)
+        install_ocr(checkout, directory)
+
+
+def install_ocr(package: Path, directory: Path) -> None:
+    missing = missing_ocr_files(package)
+    if missing:
+        raise RuntimeError("OCR prebuild is incomplete: " + ", ".join(missing[:5]))
+    directory.mkdir(parents=True, exist_ok=True)
+    # Keep writable user configuration and OCR output.
+    for source in package.iterdir():
+        if source.name in {".git", "config", "output"}:
+            continue
+        target = directory / source.name
+        if target.is_symlink():
+            target.unlink()
+        if source.is_dir():
+            shutil.copytree(source, target, dirs_exist_ok=True, symlinks=True)
+        else:
+            shutil.copy2(source, target, follow_symlinks=False)
+    missing = missing_ocr_files(directory)
+    if missing:
+        raise RuntimeError("Installed OCR prebuild is incomplete: " + ", ".join(missing[:5]))
+    config_directory = directory / "config"
+    config_directory.mkdir(exist_ok=True)
+    settings = config_directory / "global_setting.json"
+    if not settings.exists():
+        shutil.copy2(directory / "resource/global_setting.json", settings)
     print("[INFO] OCR binary, libraries and model resources are installed; backend will run its OCR self-tests.", flush=True)
 
 

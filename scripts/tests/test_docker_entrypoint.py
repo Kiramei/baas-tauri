@@ -26,6 +26,9 @@ class DockerStartupTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.app = self.root / "app"
         self.app.mkdir()
+        machine = patch.object(container.platform, "machine", return_value="x86_64")
+        machine.start()
+        self.addCleanup(machine.stop)
 
     def setup_config(self, text):
         (self.app / "setup.toml").write_text(text)
@@ -47,12 +50,12 @@ class DockerStartupTests(unittest.TestCase):
         self.git(repo, "commit", "-m", "Initial fixture")
         return repo
 
-    def make_ocr_repository(self):
+    def make_ocr_repository(self, machine=62):
         repo = self.root / "ocr-source"
         repo.mkdir()
         self.git(repo, "init", "-b", "linux-x64")
         for name in ("BAAS_ocr_server", "libBAAS_ipc.so", "libonnxruntime.so.1", "libopencv_world.so.409"):
-            (repo / name).write_text("fixture only; never executed")
+            (repo / name).write_bytes(b"\x7fELF\x02\x01" + bytes(12) + machine.to_bytes(2, "little"))
         models = repo / "resource/ocr_models"
         models.mkdir(parents=True)
         (models / "configs.txt").write_text("fixture")
@@ -67,6 +70,31 @@ class DockerStartupTests(unittest.TestCase):
         self.git(repo, "add", ".")
         self.git(repo, "commit", "-m", "OCR fixture")
         return repo
+
+    def test_bundled_arm64_ocr_replaces_wrong_architecture_without_network(self):
+        x64 = self.make_ocr_repository()
+        installed = self.app / container.OCR_DIRECTORY
+        shutil.copytree(x64, installed)
+        (installed / "BAAS_ocr_server").chmod(0o755)
+        (installed / "config").mkdir()
+        settings = installed / "config/global_setting.json"
+        settings.write_text("existing settings")
+
+        x64.rename(self.root / "x64-ocr")
+        bundled = self.make_ocr_repository(machine=183)
+        (bundled / "BAAS_ocr_server").chmod(0o755)
+        (bundled / "libonnxruntime.so.1").unlink()
+        (bundled / "libopencv_world.so.409").unlink()
+        with patch.object(container, "ARM64_OCR", bundled), \
+             patch.object(container.platform, "machine", return_value="aarch64"), \
+             patch.object(container.subprocess, "run") as run:
+            self.assertIn("BAAS_ocr_server (expected a Linux aarch64 ELF binary)",
+                          container.missing_ocr_files(installed))
+            container.prepare_ocr(self.app)
+            container.prepare_ocr(self.app)
+            self.assertEqual(container.missing_ocr_files(installed), [])
+            run.assert_not_called()
+        self.assertEqual(settings.read_text(), "existing settings")
 
     def test_ocr_first_install_includes_libraries_resources_and_executable(self):
         repo = self.make_ocr_repository()

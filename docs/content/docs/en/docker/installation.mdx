@@ -12,7 +12,7 @@ Pull and start without cloning the repository. Choose an image registry and cont
 
 The named volume `baas-webui-data` retains the container's `/app` data. Preserve and back it up before replacing the container.
 
-The current `latest` image targets `linux/amd64`. ARM devices need an emulator that supports that architecture. Initial startup prepares the backend and OCR. Use `docker logs --tail=100 baas-webui` or `podman logs --tail=100 baas-webui` for the chosen engine. To update, pull the new image and recreate the container with the same options.
+Multi-platform WebUI image tags include `linux/amd64` and `linux/arm64`. Docker or Podman selects the native image automatically. Older tags may have only `linux/amd64`. Initial startup prepares the backend and OCR. Use `docker logs --tail=100 baas-webui` or `podman logs --tail=100 baas-webui` for the chosen engine. To update, pull the new image and recreate the container with the same options.
 
 To restore Podman containers after a system reboot, enable `podman-restart.service` or manage the container with systemd.
 

@@ -12,7 +12,7 @@ import { WebuiImageCommands } from "@/components/WebuiImageCommands";
 
 命名卷 `baas-webui-data` 保存容器的 `/app` 数据，更新容器前应保留和备份该卷。
 
-当前 `latest` 镜像面向 `linux/amd64`；ARM 设备需要可运行该架构的模拟环境。首次启动会准备后端和 OCR，使用所选工具的 `docker logs --tail=100 baas-webui` 或 `podman logs --tail=100 baas-webui` 查看日志。更新时拉取新镜像，再使用相同参数重建容器。
+多架构 WebUI 镜像标签包含 `linux/amd64` 和 `linux/arm64`，Docker 或 Podman 会自动选择本机架构。旧标签可能只包含 `linux/amd64`。首次启动会准备后端和 OCR，可用 `docker logs --tail=100 baas-webui` 或 `podman logs --tail=100 baas-webui` 查看日志。更新时拉取新镜像，再用相同参数重建容器。
 
 Podman 如需在系统重启后恢复容器，可启用 `podman-restart.service` 或使用 systemd 管理容器。
 
