@@ -179,6 +179,17 @@ body {
   background: var(--chrome-background);
 }
 
+/* The macOS WebView should scroll inside panels without moving the document. */
+html[data-window-platform="macos"],
+html[data-window-platform="macos"] body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html[data-window-platform="macos"] {
+  background-color: var(--chrome-background);
+}
+
 /* Solid desktop and browser surfaces also cover menus rendered in body portals. */
 html[data-window-platform="linux"],
 html[data-window-platform="webui"] {

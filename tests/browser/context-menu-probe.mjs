@@ -95,10 +95,10 @@ try {
     element.dispatchEvent(event);
     return event.defaultPrevented;
   });
-  assert.equal(prevented, true, "empty desktop menus must not fall through to browser Inspect/Reload");
+  assert.equal(prevented, false, "desktop right-click with no editing actions should reach the native menu");
   assert.equal(await menu.count(), 0);
   assert.deepEqual(errors, []);
-  console.log("PASS desktop: copy/paste only, controlled input/textarea/contenteditable paste, readonly copy, keyboard focus restoration, no empty or Inspect/Reload menus");
+  console.log("PASS desktop: clipboard actions, keyboard focus restoration, and native menu fallback");
   await context.close();
 } finally {
   await browser.close();

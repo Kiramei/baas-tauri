@@ -306,6 +306,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "directories",
+ "dispatch2",
  "gdkx11",
  "gtk",
  "libc",
