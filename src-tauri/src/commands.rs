@@ -13,6 +13,7 @@ use baas_updater::{
         backend_pid_path, launch_backend_command, launch_backend_pipe_command,
         launch_backend_shm_command, validate_backend_shm_support, HttpSourceProbe,
     },
+    legacy_ui::{self, LegacyAppearance},
     repo::{repository_branch, repository_urls, SourceSelector},
     GitBackend, RepositoryKind, UpdateChannel, WorkflowOptions,
 };
@@ -77,6 +78,8 @@ pub struct UpdaterStartupState {
     pub install_path: PathBuf,
     pub portable: bool,
     pub baas_root_exists_non_empty: bool,
+    pub legacy_migration_available: bool,
+    pub legacy_migration_pending: Option<LegacyAppearance>,
 }
 
 /// Partial configuration update request used by the setup wizard.
@@ -106,6 +109,7 @@ pub struct MirrorCValidateRequest {
 pub struct UpdaterWorkflowRequest {
     pub install_path: Option<PathBuf>,
     pub launch: Option<bool>,
+    pub legacy_migration: Option<bool>,
 }
 
 /// Backend endpoint information emitted after a managed backend is ready.
@@ -593,7 +597,7 @@ pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, 
     let stored_install_path = if portable {
         None
     } else {
-        read_stored_install_path(&app, portable)?.filter(|path| path_exists_non_empty(path))
+        read_stored_install_path(&app, false)?.filter(|path| path_exists_non_empty(path))
     };
     let install_path = if portable {
         PathBuf::from(".")
@@ -605,6 +609,35 @@ pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, 
     let manager = config_manager_for_install_path(&app, &install_path, portable)?;
     let config = public_updater_config(&manager.config, &mirrorc_dir(&app)?)?;
     let baas_root_exists_non_empty = portable || stored_install_path.is_some();
+    let has_previous_setup = if portable {
+        // Portable storage sets base_dir to "." even on its first launch.
+        read_client_storage(&app, true)?.is_some_and(|value| {
+            value
+                .get("baasAutoPassword")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|password| !password.is_empty())
+        })
+    } else {
+        stored_install_path.is_some()
+    };
+    let (legacy_migration_available, legacy_migration_pending) =
+        if let Ok(home) = app.path().home_dir() {
+            let portable_root = portable.then(|| current_exe_dir(&app)).flatten();
+            let pending = legacy_ui::pending(&home)
+                .map_err(|error| error.message())?
+                .filter(|prefs| {
+                    portable_root
+                        .as_ref()
+                        .is_none_or(|root| legacy_ui::same_installation(&prefs.install_path, root))
+                });
+            let available = pending.is_none()
+                && !has_previous_setup
+                && legacy_ui::available(&home, portable_root.as_deref())
+                    .map_err(|error| error.message())?;
+            (available, pending)
+        } else {
+            (false, None)
+        };
 
     Ok(UpdaterStartupState {
         config_path: manager.config_path,
@@ -613,7 +646,22 @@ pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, 
         install_path,
         portable,
         baas_root_exists_non_empty,
+        legacy_migration_available,
+        legacy_migration_pending,
     })
+}
+
+/// Consume the desktop handoff after the user chooses whether to migrate.
+#[tauri::command]
+pub fn updater_decide_legacy_migration(
+    app: AppHandle,
+    accept: bool,
+) -> Result<Option<LegacyAppearance>, String> {
+    let portable_root = is_portable_install(&app)
+        .then(|| current_exe_dir(&app))
+        .flatten();
+    let home = app.path().home_dir().map_err(|error| error.to_string())?;
+    legacy_ui::decide(&home, accept, portable_root.as_deref()).map_err(|error| error.message())
 }
 
 /// Performs the updater update config operation.
@@ -1125,17 +1173,52 @@ pub fn updater_start_workflow(
         ),
     );
     let portable = is_portable_install(&app);
-    let initial_config_manager = ensure_default_config(&app)?;
-    let install_path = request
-        .install_path
-        .or_else(|| non_empty_path(&initial_config_manager.config.paths.baas_root_path))
-        .unwrap_or_else(default_install_path);
-    let install_path = if portable {
-        PathBuf::from(".")
+    let legacy_migration = if request.legacy_migration.unwrap_or(false) {
+        let home = app.path().home_dir().map_err(|error| error.to_string())?;
+        let pending = legacy_ui::pending(&home).map_err(|error| error.message())?;
+        if let Some(prefs) = pending {
+            if portable
+                && !current_exe_dir(&app)
+                    .is_some_and(|root| legacy_ui::same_installation(&prefs.install_path, &root))
+            {
+                return Err(
+                    "The legacy installation is outside the portable BAAS directory.".into(),
+                );
+            }
+            Some((legacy_ui::pending_path(&home), prefs.install_path))
+        } else {
+            None
+        }
     } else {
-        install_path
+        None
     };
-    let mut config_manager = ensure_config_for_install_path(&app, Some(&install_path))?;
+    let (install_path, mut config_manager) = if let Some((_, path)) = &legacy_migration {
+        let config_path = if portable {
+            portable_config_path(&app)?
+        } else {
+            path.join("setup.toml")
+        };
+        validate_persistent_client_path(&app, &config_path)?;
+        let mut manager = load_config_recovering_invalid(config_path)?;
+        manager.config.paths.baas_root_path = persisted_baas_root_path(path, portable);
+        let install_path = if portable {
+            PathBuf::from(".")
+        } else {
+            path.clone()
+        };
+        (install_path, manager)
+    } else {
+        let initial_config_manager = ensure_default_config(&app)?;
+        let install_path = if portable {
+            PathBuf::from(".")
+        } else {
+            request.install_path
+                .or_else(|| non_empty_path(&initial_config_manager.config.paths.baas_root_path))
+                .unwrap_or_else(default_install_path)
+        };
+        let manager = ensure_config_for_install_path(&app, Some(&install_path))?;
+        (install_path, manager)
+    };
     backend.stop_for_config(&config_manager.config)?;
     let mut next_config = config_manager.config.clone();
     next_config.paths.baas_root_path = persisted_baas_root_path(&install_path, portable);
@@ -1179,6 +1262,7 @@ pub fn updater_start_workflow(
         WorkflowOptions {
             config_path: Some(config_manager.config_path),
             mirrorc_credential_dir: Some(credential_dir),
+            legacy_migration_dir: legacy_migration.map(|(snapshot, _)| snapshot),
             install_path: Some(install_path),
             launch: request.launch.unwrap_or(true),
             pipe_name,
@@ -1848,12 +1932,7 @@ fn storage_file_path(app: &AppHandle, portable: bool) -> Result<PathBuf, String>
 
 /// Returns the read stored install path result.
 fn read_stored_install_path(app: &AppHandle, portable: bool) -> Result<Option<PathBuf>, String> {
-    let path = storage_file_path(app, portable)?;
-    if !path.exists() {
-        return Ok(None);
-    }
-    let content = fs::read_to_string(path).map_err(|error| error.to_string())?;
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) else {
+    let Some(value) = read_client_storage(app, portable)? else {
         return Ok(None);
     };
     Ok(value
@@ -1863,6 +1942,15 @@ fn read_stored_install_path(app: &AppHandle, portable: bool) -> Result<Option<Pa
         .filter(|value| !value.is_empty())
         .map(PathBuf::from)
         .filter(|path| validate_persistent_client_path(app, path).is_ok()))
+}
+
+fn read_client_storage(app: &AppHandle, portable: bool) -> Result<Option<serde_json::Value>, String> {
+    let path = storage_file_path(app, portable)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(path).map_err(|error| error.to_string())?;
+    Ok(serde_json::from_str(&content).ok())
 }
 
 /// Handles the default install path workflow.

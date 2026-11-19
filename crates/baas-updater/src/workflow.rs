@@ -14,6 +14,7 @@ use crate::{
         uv_venv_command, validate_backend_shm_support, with_cpython_install_mirror,
         with_environment_source_failover,
     },
+    legacy_ui, mirrorc_credentials,
     mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp, supports_mirror_package},
     repo::{
         GitExecutor, GitHttpSourceProbe, GitSourceProbe, GitUpdateGuard, RealGitExecutor,
@@ -444,6 +445,7 @@ fn environment_ranking_dir(config: &UpdaterConfig) -> PathBuf {
 struct TerminalWorkflowState {
     manager: Option<ConfigManager>,
     private_mirrorc_cdk: Option<String>,
+    legacy_migration: bool,
     main_job: Option<RepositoryJob>,
     cpp_job: Option<RepositoryJob>,
     ranking_dir: Option<PathBuf>,
@@ -516,7 +518,7 @@ pub fn run_terminal_workflow_flow(
 ) {
     let (completion_tx, completion_rx) = mpsc::channel::<TaskCompletion>();
     let state = Arc::new(Mutex::new(TerminalWorkflowState::default()));
-    let workflow_plan = terminal_workflow_plan();
+    let workflow_plan = terminal_workflow_plan_with_migration(options.legacy_migration_dir.is_some());
     let _ = renderer_tx.send(RendererEvent::WorkflowPlanned(workflow_plan.clone()));
     let context = TerminalStageContext {
         inner: &inner,
@@ -576,13 +578,21 @@ pub fn run_terminal_workflow_flow(
         return;
     }
 
-    if !run_terminal_dependency_stage(
-        &context,
-        Arc::clone(&state),
-        options.launch,
-        options.pipe_name.as_deref(),
-        options.shm_name.as_deref(),
-    ) {
+    let completed = run_terminal_dependency_stage(&context, Arc::clone(&state))
+        && match terminal_config(&state) {
+            Ok(config) => {
+                run_terminal_legacy_migration(&context, &options, &state, &config)
+                    && run_terminal_launch_stage(
+                        &context,
+                        config,
+                        options.launch,
+                        options.pipe_name.as_deref(),
+                        options.shm_name.as_deref(),
+                    )
+            }
+            Err(_) => false,
+        };
+    if !completed {
         fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
         return;
     }
@@ -592,7 +602,11 @@ pub fn run_terminal_workflow_flow(
 
 /// Handles the terminal workflow plan workflow.
 pub fn terminal_workflow_plan() -> WorkflowPlan {
-    WorkflowBuilder::new()
+    terminal_workflow_plan_with_migration(false)
+}
+
+pub(crate) fn terminal_workflow_plan_with_migration(legacy_migration: bool) -> WorkflowPlan {
+    let plan = WorkflowBuilder::new()
         .thread_task(
             "updater-config",
             "updater-config",
@@ -700,18 +714,29 @@ pub fn terminal_workflow_plan() -> WorkflowPlan {
             "Clean UV Cache",
             "Release this installation's package cache after dependencies are ready.",
             "uv cache clean",
+        );
+    let plan = if legacy_migration {
+        plan.thread_task(
+            "legacy-migration",
+            "legacy-migration",
+            "Migrate Legacy Configuration",
+            "Restore the legacy profiles before starting the backend.",
+            "restore legacy config snapshot",
         )
-        .serial(vec![
-            WorkflowTask::new(
-                "launch-backend",
-                "launch-backend",
-                "Launch Backend",
-                "Start the backend service and wait for it to accept connections.",
-                "spawn backend service",
-            )
-            .without_running_region_limit(),
-        ])
-        .build()
+    } else {
+        plan
+    };
+    plan.serial(vec![
+        WorkflowTask::new(
+            "launch-backend",
+            "launch-backend",
+            "Launch Backend",
+            "Start the backend service and wait for it to accept connections.",
+            "spawn backend service",
+        )
+        .without_running_region_limit(),
+    ])
+    .build()
 }
 
 /// Handles the planned thread task workflow.
@@ -856,12 +881,22 @@ fn terminal_config_task(
             spinner.set_detail("applying selected install path");
             manager.config.paths.baas_root_path = path.to_string_lossy().to_string();
         }
-        let private_mirrorc_cdk = args
-            .options
-            .mirrorc_credential_dir
-            .as_deref()
-            .map(crate::mirrorc_credentials::load)
-            .transpose()?;
+        let legacy_migration = args.options.legacy_migration_dir.as_deref();
+        let private_mirrorc_cdk = if let Some(path) = legacy_migration {
+            let prefs = legacy_ui::load(path).map_err(|error| error.message())?;
+            let cdk = prefs.mirrorc_cdk.unwrap_or_default().trim().to_owned();
+            manager.config.general.no_update = false;
+            if !cdk.is_empty() {
+                manager.config.general.channel = crate::UpdateChannel::Stable;
+            }
+            Some(cdk)
+        } else {
+            args.options
+                .mirrorc_credential_dir
+                .as_deref()
+                .map(mirrorc_credentials::load)
+                .transpose()?
+        };
         let mut update_config = manager.config.clone();
         if let Some(cdk) = &private_mirrorc_cdk {
             update_config.general.mirrorc_cdk.clone_from(cdk);
@@ -878,11 +913,19 @@ fn terminal_config_task(
         let cpp_job = repository_job(&update_config, RepositoryKind::Cpp);
         register_cleanup_paths(&args.cleanup_state, &main_job, &cpp_job)
             .map_err(|error| error.message())?;
+        if legacy_migration.is_some() && use_mirrorc(&update_config, RepositoryKind::Main) {
+            // Reserve the Git staging path too, since a rejected CDK can switch sources.
+            update_config.general.mirrorc_cdk.clear();
+            let git_job = repository_job(&update_config, RepositoryKind::Main);
+            register_cleanup_paths(&args.cleanup_state, &git_job, &cpp_job)
+                .map_err(|error| error.message())?;
+        }
         let mut state = args
             .state
             .lock()
             .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
         state.private_mirrorc_cdk = private_mirrorc_cdk;
+        state.legacy_migration = legacy_migration.is_some();
         state.manager = Some(manager);
         state.main_job = Some(main_job);
         state.cpp_job = Some(cpp_job);
@@ -1056,7 +1099,7 @@ fn terminal_repo_thread_task(
     if cancelled.load(Ordering::Relaxed) {
         return Err("repository task cancelled".to_string());
     }
-    let (mut config, job, ranking_path) = {
+    let (mut config, mut job, ranking_path, legacy_migration) = {
         let state = args
             .state
             .lock()
@@ -1082,6 +1125,7 @@ fn terminal_repo_thread_task(
             config,
             job,
             ranking_dir.join(format!("{}.json", args.kind.as_str())),
+            state.legacy_migration,
         )
     };
     if let Some(git_backend) = args.git_backend_override {
@@ -1095,6 +1139,7 @@ fn terminal_repo_thread_task(
             ),
         );
     }
+    let mut rejected_legacy_cdk = false;
     let skipped = config.general.no_update;
     let outcome = if skipped {
         output.line(
@@ -1113,38 +1158,21 @@ fn terminal_repo_thread_task(
                 args.kind.as_str()
             ),
         );
-        let outcome = if !use_mirrorc(&config, args.kind)
-            && config.general.git_backend != GitBackend::Git2
-            && RealGitExecutor.has_cli()
-        {
-            let executor = TerminalGitExecutor {
-                args: &args,
-                output: &output,
-                cancelled: &cancelled,
-            };
-            let result = RepoManager::new(executor)
-                .sync(
-                    &RepoSyncOptions {
-                        kind: args.kind,
-                        channel: config.general.channel,
-                        target_dir: job.target_dir.clone(),
-                        ranking_path: Some(ranking_path.clone()),
-                        git_backend: config.general.git_backend,
-                    },
-                    &GitSourceProbe,
-                    &output,
-                )
-                .map_err(|error| error.message())?;
-            RepositoryOutcome {
-                kind: args.kind,
-                status: result.status,
-                sha: result.sha,
+        let result = terminal_sync_repository(&args, &config, &job, &ranking_path, &output, &cancelled);
+        let outcome = match result {
+            Err(UpdaterError::MirrorCCredential { code, .. }) if legacy_migration => {
+                output.line(
+                    OutputStyle::Warning,
+                    &format!("MirrorC rejected the legacy CDK (code {code}). Continuing with Git."),
+                );
+                rejected_legacy_cdk = true;
+                config.general.mirrorc_cdk.clear();
+                job = repository_job(&config, args.kind);
+                terminal_sync_repository(&args, &config, &job, &ranking_path, &output, &cancelled)
             }
-        } else {
-            RealWorkflowServices
-                .update_repository(args.kind, &config, &job.target_dir, &ranking_path, &output)
-                .map_err(|error| error.message())?
-        };
+            result => result,
+        }
+        .map_err(|error| error.message())?;
         output.line(
             OutputStyle::Success,
             &format!("{} repository ready", args.kind.as_str()),
@@ -1156,13 +1184,66 @@ fn terminal_repo_thread_task(
         .lock()
         .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
     match args.kind {
-        RepositoryKind::Main => state.main_outcome = Some(outcome),
+        RepositoryKind::Main => {
+            state.main_outcome = Some(outcome);
+            state.main_job = Some(job);
+            if rejected_legacy_cdk {
+                state.private_mirrorc_cdk = Some(String::new());
+                if let Some(manager) = &mut state.manager {
+                    manager.config.general.get_remote_sha_method.clear();
+                }
+            }
+        }
         RepositoryKind::Cpp => state.cpp_outcome = Some(outcome),
     }
     Ok(if skipped {
         ThreadTaskOutcome::Skipped
     } else {
         ThreadTaskOutcome::Success
+    })
+}
+
+fn terminal_sync_repository(
+    args: &TerminalRepoArgs,
+    config: &UpdaterConfig,
+    job: &RepositoryJob,
+    ranking_path: &Path,
+    output: &ThreadOutput,
+    cancelled: &AtomicBool,
+) -> UpdaterResult<RepositoryOutcome> {
+    let executor = TerminalGitExecutor {
+        args,
+        output,
+        cancelled,
+    };
+    executor.check_cancelled()?;
+    if use_mirrorc(config, args.kind)
+        || config.general.git_backend == GitBackend::Git2
+        || !executor.has_cli()
+    {
+        return RealWorkflowServices.update_repository(
+            args.kind,
+            config,
+            &job.target_dir,
+            ranking_path,
+            output,
+        );
+    }
+    let result = RepoManager::new(executor).sync(
+        &RepoSyncOptions {
+            kind: args.kind,
+            channel: config.general.channel,
+            target_dir: job.target_dir.clone(),
+            ranking_path: Some(ranking_path.to_owned()),
+            git_backend: config.general.git_backend,
+        },
+        &GitSourceProbe,
+        output,
+    )?;
+    Ok(RepositoryOutcome {
+        kind: args.kind,
+        status: result.status,
+        sha: result.sha,
     })
 }
 
@@ -1455,9 +1536,6 @@ fn run_terminal_environment_prepare_stage(
 fn run_terminal_dependency_stage(
     context: &TerminalStageContext<'_>,
     state: Arc<Mutex<TerminalWorkflowState>>,
-    launch: bool,
-    pipe_name: Option<&str>,
-    shm_name: Option<&str>,
 ) -> bool {
     let config = match terminal_config(&state) {
         Ok(config) => config,
@@ -1495,7 +1573,7 @@ fn run_terminal_dependency_stage(
                 return false;
             }
         }
-        return run_terminal_launch_stage(context, config, launch, pipe_name, shm_name);
+        return true;
     }
 
     let requirements = match requirements_path(&config) {
@@ -1594,7 +1672,42 @@ fn run_terminal_dependency_stage(
         return false;
     }
 
-    run_terminal_launch_stage(context, config, launch, pipe_name, shm_name)
+    true
+}
+
+fn run_terminal_legacy_migration(
+    context: &TerminalStageContext<'_>,
+    options: &WorkflowOptions,
+    state: &Mutex<TerminalWorkflowState>,
+    config: &UpdaterConfig,
+) -> bool {
+    let Some(snapshot) = options.legacy_migration_dir.clone() else {
+        return true;
+    };
+    let cdk = match state.lock() {
+        Ok(state) => state.private_mirrorc_cdk.clone().unwrap_or_default(),
+        Err(_) => return false,
+    };
+    let root = config.baas_root();
+    let credential_dir = options.mirrorc_credential_dir.clone();
+    spawn_thread_task(
+        context.inner,
+        context.session_id,
+        planned_thread_task(context.workflow_plan, "legacy-migration"),
+        context.renderer_tx,
+        context.completion_tx,
+        (snapshot, root, credential_dir, cdk),
+        |_, cancelled, (snapshot, root, credential_dir, cdk)| {
+            if cancelled.load(Ordering::Relaxed) {
+                return Err("Legacy migration cancelled".into());
+            }
+            let credential = credential_dir.as_deref().map(|dir| (dir, cdk.as_str()));
+            legacy_ui::finish(&snapshot, &root, credential, &cancelled)
+                .map_err(|error| error.message())
+        },
+    )
+    .is_ok()
+        && wait_for_task(context.completion_rx, "legacy-migration")
 }
 
 struct TerminalUvCacheCleanArgs {
@@ -2402,6 +2515,58 @@ mod tests {
         assert!(!use_mirrorc(&config, RepositoryKind::Main));
     }
 
+    #[test]
+    fn migration_passes_the_legacy_cdk_to_the_repository_installer() {
+        let workspace = tempfile::tempdir().unwrap();
+        let root = workspace.path().join("legacy-install");
+        let snapshot = workspace.path().join("snapshot");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(snapshot.join("config")).unwrap();
+        fs::write(
+            snapshot.join("baas.preference.json"),
+            serde_json::json!({"installPath": root, "mirrorcCdk": "fixture-only"}).to_string(),
+        )
+        .unwrap();
+        let setup = root.join("setup.toml");
+        ConfigManager::load_from(&setup)
+            .unwrap()
+            .update(|config| {
+                config.general.channel = crate::UpdateChannel::Dev;
+                config.general.no_update = true;
+            })
+            .unwrap();
+        let state = Arc::new(Mutex::new(TerminalWorkflowState::default()));
+        let (tx, _rx) = mpsc::channel();
+        terminal_config_task(
+            ThreadOutput {
+                task_id: "updater-config".into(),
+                region_id: "updater-config".into(),
+                tx,
+            },
+            Arc::new(AtomicBool::new(false)),
+            TerminalConfigArgs {
+                options: WorkflowOptions {
+                    config_path: Some(setup),
+                    install_path: Some(root.clone()),
+                    legacy_migration_dir: Some(snapshot),
+                    ..WorkflowOptions::default()
+                },
+                state: Arc::clone(&state),
+                cleanup_state: new_workflow_cleanup_state(),
+            },
+        )
+        .unwrap();
+        let state = state.lock().unwrap();
+        let general = &state.manager.as_ref().unwrap().config.general;
+        assert_eq!(state.private_mirrorc_cdk.as_deref(), Some("fixture-only"));
+        assert_eq!(general.channel, crate::UpdateChannel::Stable);
+        assert!(!general.no_update);
+        assert!(general.mirrorc_cdk.is_empty());
+        let job = state.main_job.as_ref().unwrap();
+        assert_eq!(job.target_dir, root);
+        assert!(!job.needs_move);
+    }
+
     /// Handles the mirrorc cleanup removes extra git metadata workflow.
     #[test]
     fn mirrorc_cleanup_removes_extra_git_metadata() {
@@ -2453,6 +2618,17 @@ mod tests {
         assert_eq!(plan.nodes.len() as u8, compile.step_total);
         assert!(launch.running_region_unlimited);
         assert_eq!(launch.running_region_max_lines, None);
+    }
+
+    #[test]
+    fn migration_restores_profiles_after_install_and_before_launch() {
+        assert!(terminal_workflow_plan().node("legacy-migration").is_none());
+        let plan = terminal_workflow_plan_with_migration(true);
+        let cleanup = plan.node("uv-cache-clean").unwrap();
+        let migration = plan.node("legacy-migration").unwrap();
+        let launch = plan.node("launch-backend").unwrap();
+        assert!(cleanup.stage < migration.stage);
+        assert!(migration.stage < launch.stage);
     }
 
     #[test]

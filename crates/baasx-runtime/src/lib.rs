@@ -438,6 +438,7 @@ fn run_workflow(
         pipe_name: None,
         shm_name: None,
         mirrorc_credential_dir: Some(root.join(".baas-updater")),
+        legacy_migration_dir: None,
     };
     let worker = thread::spawn(move || {
         run_terminal_workflow_flow(state, session_id, tx, options, new_workflow_cleanup_state())
