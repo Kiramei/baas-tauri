@@ -31,7 +31,7 @@ Reuse **Source Dispatch**: a push to `main` starts branch synchronization; manua
 gh workflow run source-dispatch.yml --ref main -f operation=branches
 ```
 
-Promote Main as a user or with an App token. A merge performed using a workflow's `GITHUB_TOKEN` does not start the following push workflow. The App's Dev update does not repeat product builds: Code Quality listens for pushes only on `baasx-dev`, and the synchronization workflow listens only on Main. See [GITHUB_TOKEN event behavior](https://docs.github.com/en/actions/concepts/security/github_token#when-github_token-triggers-workflow-runs).
+Promote Main as a user or with an App token. A merge performed using a workflow's `GITHUB_TOKEN` does not start the following push workflow. The App's Dev update does not repeat product builds: Code Quality runs for pull requests and manual dispatches. Source Dispatch synchronizes branches from Main. See [GITHUB_TOKEN event behavior](https://docs.github.com/en/actions/concepts/security/github_token#when-github_token-triggers-workflow-runs).
 
 ## Synchronization checks and recovery
 

@@ -1,7 +1,7 @@
 {
   "device": "MuMu at 127.0.0.1:16384",
   "reportedAbis": ["x86_64", "arm64-v8a", "x86"],
-  "apk": "android-dev: src-tauri/gen/android/app/build/outputs/apk/arm64/debug/app-arm64-debug.apk",
+  "apk": "src-tauri/gen/android/app/build/outputs/apk/arm64/debug/app-arm64-debug.apk",
   "sha256": "94E0565429B262C83762ABCF7B303CA0380577DBAD8CB45B4FD5751964D8E578",
   "applicationId": "io.github.kiramei.baas_tauri.dev",
   "versionName": "0.0.8-rc",

@@ -190,15 +190,12 @@ baas-tauri/
 
 ## Branches and Android
 
-| Branch                                                                  | Purpose                                                               |
-| ----------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| [`main`](https://github.com/Kiramei/baas-tauri/tree/main)               | Release line and published documentation.                             |
-| [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev)                 | Desktop, WebUI and documentation development.                         |
-| [`baasx-dev`](https://github.com/Kiramei/baas-tauri/tree/baasx-dev)     | baasx automation terminal for BAAS, task workspace and command packs. |
-| [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | Native Android development.                                           |
+| Branch | Purpose |
+| --- | --- |
+| [`main`](https://github.com/Kiramei/baas-tauri/tree/main) | Releases and published documentation. |
+| [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev) | Desktop, Android, WebUI, BAASX and documentation development. |
 
-The Android implementation is also integrated into `dev`; `android-dev` remains
-available for native Android development. The latest debug candidate has scoped
+The latest debug candidate has scoped
 Android 12 ARM64 physical-device validation with root Shizuku: cold game startup
 through the mail flow, preview fullscreen entry/return, Activity recreation, and
 configuration ZIP round trips. Android 15 shell-mode input, the full gesture

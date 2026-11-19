@@ -33,7 +33,7 @@ Deno 的 `-A` 为启动器授予全部权限。安装后需将 Deno 和其全局
 
 Linux ARM32 可配合 ARM32 Node.js 使用 npm、pnpm、Yarn 或 cnpm，或选择下方独立归档。Bun 不支持 ARM32。ARM32 支持终端工作台、演示模式、远程配置编辑、任务与调度控制、日志，以及通过 `--server`／`--pipe` 连接已有服务。目前不支持托管本地安装和本地识别：上游没有 ARM32 OCR 预构建，后端的 Python／依赖／OCR 整体环境也尚未在 ARM32 验证。本地 OCR 当前支持 Linux x64、macOS ARM64 和 Windows x64。
 
-独立版本发布后，可从 [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-v) 的 `baasx-v<版本>` 下载归档。桌面客户端的 Latest 安装包为另一发行物。
+独立版本发布后，可从 [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-) 的 `baasx-<版本>` 下载归档。桌面客户端的 Latest 安装包为另一发行物。
 
 ## 原生发行包
 
@@ -117,10 +117,10 @@ baasx --demo --lang zh
 
 ## 从源码启动
 
-源码开发分支为 `baasx-dev`。以下固定版本示例需要 Node.js（含 npm）、Git、Rust 工具链和本机 C/C++ 构建工具，再执行：
+源码开发分支为 `dev`。以下固定版本示例需要 Node.js（含 npm）、Git、Rust 工具链和本机 C/C++ 构建工具，再执行：
 
 ```sh
-git clone --branch baasx-dev https://github.com/Kiramei/baas-tauri.git
+git clone --branch dev https://github.com/Kiramei/baas-tauri.git
 cd baas-tauri
 npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun install --frozen-lockfile
 npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx --demo --lang zh
