@@ -1,6 +1,6 @@
 [package]
 name = "baas-shortcut"
-version = "0.0.10"
+version = "0.0.11"
 description = "Global shortcut adapter for baas-tauri"
 edition = "2021"
 
