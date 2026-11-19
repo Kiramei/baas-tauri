@@ -49,7 +49,8 @@ snapshot.entries;
 | Command | Application arguments | Behavior |
 | ------- | --------------------- | -------- |
 | `updater_get_storage_state` | None | Storage paths and portable state. |
-| `updater_get_startup_state` | None | Setup configuration and startup state. The local credential status is `config.general.mirrorc_cdk_configured`. |
+| `updater_get_startup_state` | None | Setup configuration and startup state. The local credential status is `config.general.mirrorc_cdk_configured`. Desktop also reports `legacyMigrationAvailable` and `legacyMigrationPending`. |
+| `updater_decide_legacy_migration` | `{ accept }` | Desktop only. Accepting stages the legacy handoff for installation and returns its path, language and theme. Declining discards the handoff and returns `null`. |
 | `updater_path_exists_non_empty` | `{ path }` | Desktop filesystem check; Android returns `false`. |
 | `updater_update_config` | `{ request }` | Partial setup update; fields include `baasRootPath`, `channel`, `runtimePath`, `noUpdate`, `gitBackend` and `transport`. |
 | `updater_validate_mirrorc_cdk` | `{ request: { cdk?, channel? } }` | Checks a stable backend CDK and returns its status and expiry. Omit `cdk` to check the credential saved on this device. |
@@ -60,7 +61,7 @@ snapshot.entries;
 | `updater_get_commit_history` | `{ request: { channel?, limit?, refresh? } }` | Reads backend commit metadata on desktop and Android. The channel defaults to the configured channel; the limit defaults to 100 and is clamped to 1–500. |
 | `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | One remote-revision source probe. |
 | `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | Multiple source probes; reports can complete out of order. |
-| `updater_start_workflow` | `{ request: { installPath?, launch? } }` | Starts an updater terminal session. |
+| `updater_start_workflow` | `{ request: { installPath?, launch?, legacyMigration? } }` | Starts an updater terminal session. On desktop, `legacyMigration: true` uses the accepted handoff when available. |
 | `updater_select_channel` | `{ channel }` | Registered only on Android. Persists the initial backend channel (`stable` by default, or `dev`) and releases the waiting bootstrap. Returns `channel` and `channelSelected: true`. |
 | `updater_restart_backend` | None | Registered only on Android. Requests a bootstrap restart and ensures the Android backend service is running. `restartScheduled` reports whether the restart request was accepted, not that installation or reconnection completed. |
 | `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | Requests cancellation; inspect the abort report and cleanup limits. |
