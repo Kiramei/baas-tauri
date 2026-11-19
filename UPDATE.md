@@ -1,3 +1,23 @@
+## 0.0.11
+
+> Desktop migration and interaction fixes.
+
+### New Features
+
+- Desktop setup can import a handoff exported by the legacy PyQt UI. It uses the existing backend directory and restores language, theme, and all profile folders before launching the backend.
+- During migration, the installer uses the saved MirrorChyan credential and falls back to Git if MirrorChyan rejects it. The configuration snapshot remains available for retry if installation fails.
+
+### Fixes
+
+- Restored desktop context menus and text-editing clipboard actions. Android retains touch text selection.
+- Fixed macOS tray interactions after using the menu and restored hidden windows from the Dock.
+- Kept page overscroll contained while allowing individual panels to scroll.
+
+### Upgrade Notes
+
+- The in-place migration prompt requires a handoff exported by a compatible legacy PyQt build.
+- Linux downloads include signed AppImages for x64 and ARM64, alongside the DEB and RPM installers.
+
 ## 0.0.10
 
 > Android updates, stable backend defaults, local MirrorChyan credentials, and platform-specific client improvements.

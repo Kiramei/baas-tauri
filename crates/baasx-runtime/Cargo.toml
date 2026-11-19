@@ -1,6 +1,6 @@
 [package]
 name = "baasx-runtime"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2024"
 description = "Headless managed backend installer and launch specifications for BAASX"
 

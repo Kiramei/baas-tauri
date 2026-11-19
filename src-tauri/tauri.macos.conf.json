@@ -56,7 +56,7 @@
           "y": 180
         }
       },
-      "bundleVersion": "2.5.1",
+      "bundleVersion": "2.15.1",
       "infoPlist": "packages/macos/release-version.plist"
     }
   }
