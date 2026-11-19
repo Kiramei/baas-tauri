@@ -8,7 +8,7 @@
 - 候选版：`0.0.9.rc0`、`0.0.9.rc1`
 - 正式版后的修订：`0.0.9.post0`、`0.0.9.post2`
 
-Git 标签可以带一个 `v` 前缀，也可以不带，例如 `v0.0.9.post2` 和 `0.0.9.post2`。应用界面和资产文件名使用不带 `v` 的公开版本。历史的 `v0.0.8-rc`、`v0.0.8-rc1` 等标签继续兼容读取，不重命名或覆盖；新发布不再使用连字符候选版命名。
+BAAS Tauri 新标签使用公开版本，例如 `0.0.11` 或 `0.0.11.rc1`。BAASX 使用 `baasx-X.Y.Z`，例如 `baasx-0.1.6`。两个产品的新标签都省略 `v`，历史标签仍兼容读取。
 
 顺序是先比较 `major`、`minor`、`patch`，再比较同一基准的 `rcN < 正式版 < postN`；`N` 也按数值比较。因此 `rc10 > rc2`，`0.0.9.post2 > 0.0.9`，但 `0.0.9.post2 < 0.0.10.rc0`。
 
@@ -26,10 +26,11 @@ node scripts/set-release-version.mjs 0.0.9.post2 --dry-run
 
 ```sh
 node scripts/check-release-version.mjs 0.0.9.post2
-node scripts/check-release-version.mjs v0.0.9.post2
 ```
 
-发布工作流还会检查标签提交属于 `main`。版本准备和校验均不会执行发布。
+BAASX 的版本写入 `baasx/package.json`，并同步 `bun.lock` 的工作区版本。发行说明放在 `baasx/release-notes/<版本>.md`。
+
+将准备提交通过 PR 推广到 `main`，再在 `main` 上的发布提交创建对应标签。发布工作流会校验标签来源和版本清单。
 
 ## 原生版本与公开版本
 
