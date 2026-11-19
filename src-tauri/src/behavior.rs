@@ -195,10 +195,9 @@ pub fn inject_tray_icon(app: &mut App) -> Result<TrayMenuItems, Box<dyn Error>> 
         .ok_or("Missing application tray icon")?
         .clone();
 
-    TrayIconBuilder::new()
+    let tray = TrayIconBuilder::new()
         .icon(tray_icon)
         .icon_as_template(cfg!(target_os = "macos"))
-        .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => {
@@ -213,19 +212,73 @@ pub fn inject_tray_icon(app: &mut App) -> Result<TrayMenuItems, Box<dyn Error>> 
                 }
             }
             _ => {}
-        })
-        .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-            } = event
-            {
+        });
+    #[cfg(not(target_os = "macos"))]
+    let tray = tray.menu(&menu);
+
+    tray.on_tray_icon_event(move |tray, event| match event {
+        TrayIconEvent::Click {
+            button: MouseButton::Left,
+            button_state: MouseButtonState::Up,
+            ..
+        } => toggle_main_window(tray.app_handle()),
+        #[cfg(target_os = "macos")]
+        TrayIconEvent::Click {
+            button: MouseButton::Right,
+            button_state: MouseButtonState::Up,
+            rect,
+            ..
+        } => {
+            let tray = tray.clone();
+            let menu = menu.clone();
+            // AppKit tracks the menu in a nested event loop. Leave Tauri's tray callback first.
+            dispatch2::DispatchQueue::main().exec_async(move || {
                 let app = tray.app_handle();
-                toggle_main_window(app);
-            }
-        })
-        .build(app)?;
+                let Some(window) = app.get_webview_window("main") else {
+                    return;
+                };
+                // Anchor below the status item and keep the menu detached from it.
+                let result = app.cursor_position().and_then(|cursor| {
+                    let window_scale = window.scale_factor()?;
+                    // Tao reports the cursor in primary-display pixels; the tray and window
+                    // bounds use their own display scales.
+                    let primary_scale = app
+                        .primary_monitor()?
+                        .map_or(window_scale, |monitor| monitor.scale_factor());
+                    let cursor = cursor.to_logical::<f64>(primary_scale);
+                    let tray_scale = app
+                        .monitor_from_point(cursor.x, cursor.y)?
+                        .map_or(primary_scale, |monitor| monitor.scale_factor());
+                    let tray_origin = rect.position.to_logical::<f64>(tray_scale);
+                    let tray_size = rect.size.to_logical::<f64>(tray_scale);
+                    let window_origin = window.inner_position()?.to_logical::<f64>(window_scale);
+                    let position = tauri::LogicalPosition::new(
+                        tray_origin.x - window_origin.x,
+                        tray_origin.y + tray_size.height - window_origin.y,
+                    );
+                    window.popup_menu_at(&menu, position)
+                });
+                // tray-icon highlights the native button on right-down. The detached menu
+                // does not reset that state on dismissal.
+                let reset_highlight = tray.with_inner_tray_icon(|icon| {
+                    let Some(main_thread) = objc2::MainThreadMarker::new() else {
+                        return;
+                    };
+                    if let Some(button) = icon
+                        .ns_status_item()
+                        .and_then(|item| item.button(main_thread))
+                    {
+                        button.highlight(false);
+                    }
+                });
+                if let Err(error) = result.and(reset_highlight) {
+                    system_log("WARN", "tray", format!("Unable to show tray menu: {error}"));
+                }
+            });
+        }
+        _ => {}
+    })
+    .build(app)?;
     Ok(TrayMenuItems {
         language,
         show_item: show_i,

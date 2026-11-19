@@ -6,6 +6,19 @@ import { installFrontendSystemLogging } from "@/shared/SystemLogService";
 
 installFrontendSystemLogging();
 
+if (__WITH_ANDROID__) {
+  window.addEventListener(
+    "contextmenu",
+    (event) => {
+      // Let the WebView handle touch text selection and block physical secondary clicks.
+      if (event.button !== 2 || (event as PointerEvent).pointerType === "touch") return;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    { capture: true }
+  );
+}
+
 if (!Object.hasOwn) {
   Object.hasOwn = (object: object, property: PropertyKey) =>
     Object.prototype.hasOwnProperty.call(object, property);
