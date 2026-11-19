@@ -325,6 +325,7 @@
     "errorTitle": "설치 오류",
     "exit": "설치 취소",
     "finished": "종료 시간",
+    "legacyMigrationFallback": "이전 설치 또는 백업에 접근할 수 없습니다. 설정을 계속할 폴더를 선택하세요.",
     "legacyMigrationNo": "아니요",
     "legacyMigrationPrompt": "이전 BAAS 설정이 발견되었습니다. 지금 마이그레이션할까요?",
     "legacyMigrationTitle": "BAAS 마이그레이션",

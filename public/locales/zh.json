@@ -325,6 +325,7 @@
     "errorTitle": "安装出错",
     "exit": "取消安装",
     "finished": "结束时间",
+    "legacyMigrationFallback": "无法访问旧版安装目录或备份。请选择一个目录继续安装。",
     "legacyMigrationNo": "否",
     "legacyMigrationPrompt": "检测到旧 UI 配置，是否直接进行迁移安装？",
     "legacyMigrationTitle": "迁移 BAAS",

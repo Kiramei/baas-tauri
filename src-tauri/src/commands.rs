@@ -620,24 +620,24 @@ pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, 
     } else {
         stored_install_path.is_some()
     };
-    let (legacy_migration_available, legacy_migration_pending) =
-        if let Ok(home) = app.path().home_dir() {
+    let (legacy_migration_available, legacy_migration_pending) = if has_previous_setup {
+        (false, None)
+    } else {
+        let discover = || -> Result<_, String> {
+            let directory = legacy_migration_directory()?;
             let portable_root = portable.then(|| current_exe_dir(&app)).flatten();
-            let pending = legacy_ui::pending(&home)
-                .map_err(|error| error.message())?
-                .filter(|prefs| {
-                    portable_root
-                        .as_ref()
-                        .is_none_or(|root| legacy_ui::same_installation(&prefs.install_path, root))
-                });
+            let pending = legacy_ui::pending(&directory, portable_root.as_deref())
+                .map_err(|error| error.message())?;
             let available = pending.is_none()
-                && !has_previous_setup
-                && legacy_ui::available(&home, portable_root.as_deref())
+                && legacy_ui::available(&directory, portable_root.as_deref())
                     .map_err(|error| error.message())?;
-            (available, pending)
-        } else {
-            (false, None)
+            Ok((available, pending))
         };
+        discover().unwrap_or_else(|error| {
+            system_log("WARNING", "updater", format!("Skipping legacy migration: {error}"));
+            (false, None)
+        })
+    };
 
     Ok(UpdaterStartupState {
         config_path: manager.config_path,
@@ -660,8 +660,18 @@ pub fn updater_decide_legacy_migration(
     let portable_root = is_portable_install(&app)
         .then(|| current_exe_dir(&app))
         .flatten();
-    let home = app.path().home_dir().map_err(|error| error.to_string())?;
-    legacy_ui::decide(&home, accept, portable_root.as_deref()).map_err(|error| error.message())
+    let directory = legacy_migration_directory()?;
+    legacy_ui::decide(&directory, accept, portable_root.as_deref()).map_err(|error| {
+        let message = error.message();
+        system_log("WARNING", "updater", format!("Could not use legacy migration: {message}"));
+        message
+    })
+}
+
+fn legacy_migration_directory() -> Result<PathBuf, String> {
+    directories::BaseDirs::new()
+        .map(|dirs| legacy_ui::migration_directory(dirs.data_local_dir()))
+        .ok_or_else(|| "Cannot locate the user application data directory".into())
 }
 
 /// Performs the updater update config operation.
@@ -1174,21 +1184,16 @@ pub fn updater_start_workflow(
     );
     let portable = is_portable_install(&app);
     let legacy_migration = if request.legacy_migration.unwrap_or(false) {
-        let home = app.path().home_dir().map_err(|error| error.to_string())?;
-        let pending = legacy_ui::pending(&home).map_err(|error| error.message())?;
-        if let Some(prefs) = pending {
-            if portable
-                && !current_exe_dir(&app)
-                    .is_some_and(|root| legacy_ui::same_installation(&prefs.install_path, &root))
-            {
-                return Err(
-                    "The legacy installation is outside the portable BAAS directory.".into(),
-                );
-            }
-            Some((legacy_ui::pending_path(&home), prefs.install_path))
+        let directory = legacy_migration_directory()?;
+        let portable_root = if portable {
+            Some(current_exe_dir(&app).ok_or("Cannot locate the portable BAAS directory")?)
         } else {
             None
-        }
+        };
+        let pending = legacy_ui::pending(&directory, portable_root.as_deref())
+            .map_err(|error| error.message())?
+            .ok_or("The legacy BAAS snapshot could not be found")?;
+        Some((legacy_ui::pending_path(&directory), pending.install_path))
     } else {
         None
     };

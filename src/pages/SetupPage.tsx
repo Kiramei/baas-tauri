@@ -127,6 +127,7 @@ const SetupPage = () => {
     config: UpdaterConfig | null;
     migrate: boolean;
   } | null>(null);
+  const migrationAttemptRef = useRef<{ path: string; fallbackPath: string } | null>(null);
   const workflowStartedRef = useRef(false);
   const terminalLogData = useGlobalLogStore((state) => state.terminalLogData);
   const { t } = useAppTranslation();
@@ -161,7 +162,7 @@ const SetupPage = () => {
   );
 
   const startInstall = useCallback(
-    async (path = installPath, nextConfig = config, migrate = migrating) => {
+    async (path = installPath, nextConfig = config, migrate = false) => {
       const targetPath = portable ? "." : path || installPath;
       abortingRef.current = false;
       workflowStartedRef.current = false;
@@ -172,7 +173,7 @@ const SetupPage = () => {
       setStarted(true);
       if (!migrate) StorageUtil.set("base_dir", targetPath);
     },
-    [config, installPath, migrating, portable]
+    [config, installPath, portable]
   );
 
   const startWorkflowWhenTerminalReady = useCallback(async () => {
@@ -181,9 +182,7 @@ const SetupPage = () => {
     const pendingWorkflow = pendingWorkflowRef.current;
     const { path, config: requestConfig, migrate } = pendingWorkflow;
     try {
-      if (migrate) {
-        await StorageUtil.setDurable("base_dir", path);
-      } else {
+      if (!migrate) {
         StorageUtil.set("base_dir", path);
         await persistConfig(path, requestConfig);
       }
@@ -321,6 +320,12 @@ const SetupPage = () => {
     } finally {
       setStarted(false);
       setSetupPhase(true);
+      const migration = migrationAttemptRef.current;
+      if (migration) {
+        migrationAttemptRef.current = null;
+        setMigrating(false);
+        setInstallPath(migration.fallbackPath);
+      }
     }
   }, []);
 
@@ -376,14 +381,32 @@ const SetupPage = () => {
   useEffect(() => {
     const unlisten = listen<BackendReadyPayload>("updater://backend-ready", (event) => {
       if (abortingRef.current || !workflowStartedRef.current) return;
-      setBackendReady(event.payload);
-      if (autoEnterAfterInstall) void enterBackend(event.payload, true);
+      const ready = async () => {
+        const migration = migrationAttemptRef.current;
+        if (migration) {
+          // Commit the migrated install path only after the backend is ready.
+          await StorageUtil.setDurable("base_dir", migration.path);
+          if (abortingRef.current || migrationAttemptRef.current !== migration) return;
+          migrationAttemptRef.current = null;
+          setMigrating(false);
+        }
+        setBackendReady(event.payload);
+        if (autoEnterAfterInstall) void enterBackend(event.payload, true);
+      };
+      void ready().catch((error) => {
+        if (!abortingRef.current) {
+          showWorkflowFailure({
+            step: "configuration",
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
     });
 
     return () => {
       unlisten.then((f) => f());
     };
-  }, [autoEnterAfterInstall, enterBackend]);
+  }, [autoEnterAfterInstall, enterBackend, showWorkflowFailure]);
 
   useEffect(() => {
     if (setupCompletedRef.current) return;
@@ -411,22 +434,35 @@ const SetupPage = () => {
         );
         setPortable(startup.portable);
         setInstallPath(root);
+        setConfig(startup.config);
         let migration = startup.legacyMigrationPending;
+        let showManualSetup = false;
         if (startup.legacyMigrationAvailable) {
           const accept = await ask(t("installer.legacyMigrationPrompt"), {
             title: t("installer.legacyMigrationTitle"),
             okLabel: t("installer.legacyMigrationYes"),
             cancelLabel: t("installer.legacyMigrationNo"),
           });
-          migration = await invoke<LegacyAppearance | null>("updater_decide_legacy_migration", {
-            accept,
-          });
+          try {
+            migration = await invoke<LegacyAppearance | null>("updater_decide_legacy_migration", {
+              accept,
+            });
+            showManualSetup = accept && migration === null;
+          } catch {
+            migration = null;
+            showManualSetup = true;
+          }
         }
-        setConfig(startup.config);
+        if (showManualSetup) {
+          toast.warning(t("installer.legacyMigrationFallback"));
+          return;
+        }
 
         if (migration) {
+          const path = startup.portable ? "." : migration.installPath;
+          migrationAttemptRef.current = { path, fallbackPath: root };
           setMigrating(true);
-          setInstallPath(startup.portable ? "." : migration.installPath);
+          setInstallPath(path);
           const { language, theme } = migration;
           if (theme === "light" || theme === "dark") {
             setTheme(theme);
@@ -435,7 +471,7 @@ const SetupPage = () => {
           if (language && (await loadLocale(language))) {
             setUISettings((settings) => ({ ...settings, lang: language }));
           }
-          await startInstall(startup.portable ? "." : migration.installPath, startup.config, true);
+          await startInstall(path, startup.config, true);
         } else if (startup.baasRootExistsNonEmpty && root) {
           await startInstall(root, startup.config);
         }
@@ -552,7 +588,7 @@ const SetupPage = () => {
       </InstallerLayout>
       <Modal
         isOpen={failure !== null}
-        onClose={() => setFailure(null)}
+        onClose={migrating ? () => void returnToSetup() : () => setFailure(null)}
         title={t("installer.errorTitle")}
         width={72}
       >

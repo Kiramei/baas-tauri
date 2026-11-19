@@ -325,6 +325,7 @@
     "errorTitle": "セットアップエラー",
     "exit": "キャンセル",
     "finished": "終了時刻",
+    "legacyMigrationFallback": "旧版のインストール先またはバックアップにアクセスできません。セットアップを続けるフォルダーを選択してください。",
     "legacyMigrationNo": "いいえ",
     "legacyMigrationPrompt": "旧版 BAAS の設定が見つかりました。今すぐ移行しますか？",
     "legacyMigrationTitle": "BAAS の移行",

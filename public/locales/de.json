@@ -325,6 +325,7 @@
     "errorTitle": "Installationsfehler",
     "exit": "Installation abbrechen",
     "finished": "Beendet",
+    "legacyMigrationFallback": "Die bisherige Installation ist nicht zugänglich. Wählen Sie einen Ordner für die Einrichtung.",
     "legacyMigrationNo": "Nein",
     "legacyMigrationPrompt": "Eine ältere BAAS-Konfiguration wurde gefunden. Jetzt migrieren?",
     "legacyMigrationTitle": "BAAS migrieren",
