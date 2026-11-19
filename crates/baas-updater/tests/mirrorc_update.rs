@@ -1,5 +1,5 @@
 use baas_updater::{
-    NoopOutput, OutputSink, RepositoryKind, UpdateChannel, UpdateStatus, UpdaterResult,
+    NoopOutput, OutputSink, RepositoryKind, UpdateChannel, UpdateStatus, UpdaterError, UpdaterResult,
     mirrorc::{MirrorCClient, MirrorHttp, MirrorUpdateRequest},
 };
 use serde_json::{Value, json};
@@ -176,7 +176,10 @@ fn cdk_errors_never_download_or_modify_existing_files_even_at_the_latest_version
             },
             &NoopOutput,
         );
-        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(UpdaterError::MirrorCCredential { code: actual, .. }) if actual == code
+        ));
         assert_eq!(http.downloads.get(), 0);
         assert_eq!(fs::read_to_string(&sentinel).unwrap(), "untouched");
     }

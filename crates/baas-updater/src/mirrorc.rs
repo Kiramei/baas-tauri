@@ -323,7 +323,14 @@ impl<H: MirrorHttp> MirrorCClient<H> {
             request.cdk,
         )?;
         if !latest.is_success() {
-            return Err(mirrorc_error(&latest));
+            let error = mirrorc_error(&latest);
+            if latest.cdk_state().is_some() {
+                return Err(UpdaterError::MirrorCCredential {
+                    code: latest.code,
+                    message: error.message(),
+                });
+            }
+            return Err(error);
         }
         if request.current_version.is_empty()
             && latest.update_type == Some(MirrorUpdateType::Incremental)
