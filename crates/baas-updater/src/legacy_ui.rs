@@ -212,7 +212,16 @@ pub(crate) fn finish(
     Ok(())
 }
 
-fn lock(directory: &Path) -> io::Result<File> {
+struct HandoffLock(File);
+
+impl Drop for HandoffLock {
+    fn drop(&mut self) {
+        // Release the lock even if a concurrently spawned child inherited the descriptor.
+        let _ = self.0.unlock();
+    }
+}
+
+fn lock(directory: &Path) -> io::Result<HandoffLock> {
     let mut options = OpenOptions::new();
     options.create(true).read(true).write(true).truncate(false);
     #[cfg(unix)]
@@ -222,7 +231,7 @@ fn lock(directory: &Path) -> io::Result<File> {
     }
     let lock = options.open(directory.join(".baas.legacy.lock"))?;
     lock.try_lock()?;
-    Ok(lock)
+    Ok(HandoffLock(lock))
 }
 
 fn is_directory(path: &Path) -> io::Result<bool> {
