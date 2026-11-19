@@ -105,6 +105,55 @@ test("Linux releases build each native 64-bit target once with signed DEB, RPM a
 });
 
 const shellTest = process.platform === "win32" ? test.skip : test;
+
+shellTest("app release notes publish a versioned QQ summary before the full changelog and downloads", () => {
+  const source = fs.mkdtempSync(path.join(os.tmpdir(), "app-release-notes-"));
+  const notesDirectory = path.join(source, "release-notes");
+  const summary = fs.readFileSync(new URL("../../release-notes/0.0.11.md", import.meta.url), "utf8").trim();
+  const items = summary.split("\n");
+  expect(items).toHaveLength(3);
+  for (const item of items) {
+    expect(item).toMatch(/^- .*\p{Script=Han}/u);
+    expect([...item.slice(2)].length).toBeLessThanOrEqual(65);
+  }
+  const script = step(app, "update_tag", "Generate release notes").run!
+    .replace(/\$\{\{ env\.([A-Z_]+) \}\}/g, (_, name) => `\${${name}}`);
+  const updateLogs = "> Desktop migration and interaction fixes.\n\n### Fixes\n\n- Example fix.";
+
+  try {
+    fs.mkdirSync(notesDirectory);
+    fs.writeFileSync(path.join(notesDirectory, "0.0.11.md"), summary);
+    fs.writeFileSync(path.join(notesDirectory, "0.0.9.md"), "  \n");
+    for (const [version, expectedPrefix] of [
+      ["0.0.11", `## QQ 更新说明\n\n${summary}\n\n`],
+      ["0.0.10", ""],
+      ["0.0.9", ""],
+    ]) {
+      const downloadUrl = `https://example.invalid/download/${version}`;
+      const result = Bun.spawnSync(["bash", "-c", script], {
+        cwd: source,
+        env: {
+          ...process.env,
+          RELEASE_SOURCE_ROOT: source,
+          VERSION: version,
+          DOWNLOAD_URL: downloadUrl,
+          BUILDTIME: "fixture time",
+          UPDATE_LOGS: updateLogs,
+        },
+        stderr: "pipe",
+      });
+      expect(result.exitCode, result.stderr.toString()).toBe(0);
+      const releaseNotes = fs.readFileSync(path.join(source, "release.txt"), "utf8");
+      expect(releaseNotes).toStartWith(
+        `${expectedPrefix}## Release Notes\n\n${updateLogs}\n\n## Download\n`
+      );
+      expect(releaseNotes).toContain(`${downloadUrl}/BAAS.Tauri_${version}_x64-setup.exe`);
+    }
+  } finally {
+    fs.rmSync(source, { recursive: true, force: true });
+  }
+});
+
 test("manual native verification can package AppImages without release writes or signing credentials", () => {
   const native = workflow("client-native");
   const quality = workflow("code-quality") as Workflow & { on: { workflow_dispatch: { inputs: Record<string, { default: unknown }> } } };
