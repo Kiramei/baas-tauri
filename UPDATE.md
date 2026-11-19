@@ -1,3 +1,13 @@
+## 0.0.11.post1
+
+> Keep desktop setup available when a legacy migration directory cannot be accessed.
+
+### Fixes
+
+- Both desktop UIs use the platform's per-user application data directory to share migration snapshots.
+- Desktop setup continues without migration when the snapshot or old installation cannot be accessed. If a migration fails after it starts, return to setup to choose another installation folder.
+- The installer checks the legacy directory before starting an in-place installation and saves the new install path after the backend is ready.
+
 ## 0.0.11
 
 > Desktop migration and interaction fixes.

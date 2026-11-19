@@ -325,6 +325,7 @@
     "errorTitle": "Erreur d’installation",
     "exit": "Annuler l'installation",
     "finished": "Fin",
+    "legacyMigrationFallback": "L’ancienne installation ou sa sauvegarde est inaccessible. Choisissez un dossier pour poursuivre.",
     "legacyMigrationNo": "Non",
     "legacyMigrationPrompt": "Une ancienne configuration BAAS a été détectée. La migrer maintenant ?",
     "legacyMigrationTitle": "Migrer BAAS",
