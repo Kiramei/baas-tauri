@@ -4,7 +4,7 @@ use crate::{
     WorkflowOptions,
     workflow::{
         WorkflowCleanupState, cleanup_workflow_state, new_workflow_cleanup_state,
-        run_terminal_workflow_flow, terminal_workflow_plan,
+        run_terminal_workflow_flow, terminal_workflow_plan_with_migration,
     },
 };
 use baas_term::{
@@ -109,7 +109,8 @@ impl UpdaterTermManager {
 
         let session_id = Uuid::new_v4().to_string();
         let (renderer_tx, renderer_rx) = mpsc::channel();
-        let workflow_plan = terminal_workflow_plan();
+        let workflow_plan =
+            terminal_workflow_plan_with_migration(options.legacy_migration_dir.is_some());
         let (initial_rows, initial_cols) = {
             let mut state = self
                 .inner

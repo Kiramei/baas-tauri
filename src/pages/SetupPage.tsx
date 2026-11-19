@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { exit } from "@tauri-apps/plugin-process";
 import { CheckCircle2, Copy, Loader2, RotateCcw } from "lucide-react";
 import { useAppTranslation } from "@/shared/useAppTranslation";
 import { toast } from "sonner";
 
 import StorageUtil from "@/shared/StorageManager";
+import { loadLocale } from "@/shared/I18nTranslator";
 import { waitForNormal, useWebSocketStore } from "@/store/WebsocketStore";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { reloadWithoutPrompt } from "@/shared/reload";
@@ -19,7 +21,8 @@ import TermViewer from "@/components/updater/TermViewer.tsx";
 import PathSelector from "@/components/updater/PathSelector";
 import InstallerLayout from "@/components/updater/InstallerLayout";
 import InstallPreflight from "@/components/updater/InstallPreflight";
-import { useUISetting } from "@/context/UISettingsProvider";
+import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider";
+import { useTheme } from "@/context/ThemeProvider";
 import { normalizeTransportMode } from "@/transport/factory";
 import { shouldCancelInstallerFromEscape } from "@/shared/InstallerCancelShortcut";
 
@@ -44,6 +47,14 @@ interface StartupState {
   installPath: string;
   portable: boolean;
   baasRootExistsNonEmpty: boolean;
+  legacyMigrationAvailable?: boolean;
+  legacyMigrationPending?: LegacyAppearance | null;
+}
+
+interface LegacyAppearance {
+  installPath: string;
+  language?: string | null;
+  theme?: string | null;
 }
 
 interface BackendReadyPayload {
@@ -103,6 +114,7 @@ const SetupPage = () => {
   const [installPath, setInstallPath] = useState("");
   const [installDisplayPath, setInstallDisplayPath] = useState("");
   const [portable, setPortable] = useState(false);
+  const [migrating, setMigrating] = useState(false);
   const [setupPhase, setSetupPhase] = useState(true);
   const [failure, setFailure] = useState<FailureInfo | null>(null);
   const [backendReady, setBackendReady] = useState<BackendReadyPayload | null>(null);
@@ -110,10 +122,16 @@ const SetupPage = () => {
   const enteringRef = useRef(false);
   const setupCompletedRef = useRef(false);
   const abortingRef = useRef(false);
-  const pendingWorkflowRef = useRef<{ path: string; config: UpdaterConfig | null } | null>(null);
+  const pendingWorkflowRef = useRef<{
+    path: string;
+    config: UpdaterConfig | null;
+    migrate: boolean;
+  } | null>(null);
   const workflowStartedRef = useRef(false);
   const terminalLogData = useGlobalLogStore((state) => state.terminalLogData);
   const { t } = useAppTranslation();
+  const { setTheme } = useTheme();
+  const setUISettings = useSetUISettings();
   const autoEnterAfterInstall = useUISetting(
     (settings) => settings.autoEnterAfterInstall !== false
   );
@@ -143,33 +161,38 @@ const SetupPage = () => {
   );
 
   const startInstall = useCallback(
-    async (path = installPath, nextConfig = config) => {
+    async (path = installPath, nextConfig = config, migrate = migrating) => {
       const targetPath = portable ? "." : path || installPath;
       abortingRef.current = false;
       workflowStartedRef.current = false;
-      pendingWorkflowRef.current = { path: targetPath, config: nextConfig };
+      pendingWorkflowRef.current = { path: targetPath, config: nextConfig, migrate };
       setFailure(null);
       setBackendReady(null);
       setSetupPhase(false);
       setStarted(true);
-      StorageUtil.set("base_dir", targetPath);
+      if (!migrate) StorageUtil.set("base_dir", targetPath);
     },
-    [config, installPath, portable]
+    [config, installPath, migrating, portable]
   );
 
   const startWorkflowWhenTerminalReady = useCallback(async () => {
     if (workflowStartedRef.current || !pendingWorkflowRef.current) return;
     workflowStartedRef.current = true;
     const pendingWorkflow = pendingWorkflowRef.current;
-    const { path, config: requestConfig } = pendingWorkflow;
-    StorageUtil.set("base_dir", path);
+    const { path, config: requestConfig, migrate } = pendingWorkflow;
     try {
-      await persistConfig(path, requestConfig);
+      if (migrate) {
+        await StorageUtil.setDurable("base_dir", path);
+      } else {
+        StorageUtil.set("base_dir", path);
+        await persistConfig(path, requestConfig);
+      }
       if (abortingRef.current || pendingWorkflowRef.current !== pendingWorkflow) return;
       await invoke("updater_start_workflow", {
         request: {
           installPath: path,
           launch: true,
+          legacyMigration: migrate,
         },
       });
     } catch (error) {
@@ -388,19 +411,43 @@ const SetupPage = () => {
         );
         setPortable(startup.portable);
         setInstallPath(root);
+        let migration = startup.legacyMigrationPending;
+        if (startup.legacyMigrationAvailable) {
+          const accept = await ask(t("installer.legacyMigrationPrompt"), {
+            title: t("installer.legacyMigrationTitle"),
+            okLabel: t("installer.legacyMigrationYes"),
+            cancelLabel: t("installer.legacyMigrationNo"),
+          });
+          migration = await invoke<LegacyAppearance | null>("updater_decide_legacy_migration", {
+            accept,
+          });
+        }
         setConfig(startup.config);
 
-        if (startup.baasRootExistsNonEmpty && root) {
+        if (migration) {
+          setMigrating(true);
+          setInstallPath(startup.portable ? "." : migration.installPath);
+          const { language, theme } = migration;
+          if (theme === "light" || theme === "dark") {
+            setTheme(theme);
+            setUISettings((settings) => ({ ...settings, theme }));
+          }
+          if (language && (await loadLocale(language))) {
+            setUISettings((settings) => ({ ...settings, lang: language }));
+          }
+          await startInstall(startup.portable ? "." : migration.installPath, startup.config, true);
+        } else if (startup.baasRootExistsNonEmpty && root) {
           await startInstall(root, startup.config);
         }
       } catch (error) {
+        setConfig((current) => current ?? {});
         setFailure({
           step: "startup",
           message: error instanceof Error ? error.message : String(error),
         });
       }
     })();
-  }, [startInstall]);
+  }, [setTheme, setUISettings, startInstall, t]);
 
   return (
     <>
@@ -425,7 +472,7 @@ const SetupPage = () => {
               path={installPath}
               displayPath={installDisplayPath}
               setPath={setInstallPath}
-              disabled={portable}
+              disabled={portable || migrating}
             />
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
               {portable ? t("installer.portableHint") : t("installer.directoryHint")}
