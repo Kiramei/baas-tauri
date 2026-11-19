@@ -172,6 +172,11 @@ shellTest("Docker recovery resolves existing main-ancestor tags and keeps defaul
     for (const tag of cases) {
       for (const [ref, input, event] of [["refs/heads/main", tag, "workflow_dispatch"], [`refs/tags/${tag}`, "", "push"]]) {
         const { result, output } = run(ref, input, event);
+        if (event === "push" && tag.startsWith("v")) {
+          expect(result.exitCode, tag).not.toBe(0);
+          expect(output).toEqual({});
+          continue;
+        }
         expect(result.exitCode, new TextDecoder().decode(result.stderr)).toBe(0);
         expect(output).toEqual({ "release-tag": tag, "image-version": tag.replace(/^v/, ""), "source-sha": sha, "source-short-sha": sha.slice(0, 7), "publish-image": "true", "publish-latest": String(!tag.includes(".rc")) });
       }

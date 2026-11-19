@@ -36,9 +36,9 @@ export function validateAssets(kind, tag, names) {
     );
     if (!historical) expected.push("updater-signatures-aarch64.json", "updater-signatures-x64.json");
   } else if (kind === "baasx") {
-    const version = tag.replace(/^baasx-v/, "");
-    const numbers = /^(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.+-]+)?$/.exec(version);
-    if (!numbers) throw new Error("Invalid BAASX release version");
+    const version = /^baasx-v?([0-9][0-9A-Za-z.+-]*)$/.exec(tag)?.[1];
+    const numbers = /^(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.+-]+)?$/.exec(version ?? "");
+    if (!numbers) throw new Error("Invalid BAASX release tag");
     const [major, minor, patch] = numbers.slice(1, 4).map(Number);
     const legacy = major === 0 && (minor < 1 || (minor === 1 && patch <= 4));
     const published = legacy

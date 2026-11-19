@@ -30,7 +30,7 @@ Failed attempts consumed 1892 job-seconds including successful siblings (Linux 1
 | #97 [Code Quality](https://github.com/Kiramei/baas-tauri/actions/runs/42848104613) | pull_request / codex/qq-release-notifications | 8 | 633 | 3 | 1056 | 464 | 423 | 0.0 |
 | #97 [Validate Documentation Export](https://github.com/Kiramei/baas-tauri/actions/runs/42848104575) | pull_request / codex/qq-release-notifications | 2 | 18 | 3 | 12 | 0 | 0 | 0.0 |
 | #97 [baasx CI](https://github.com/Kiramei/baas-tauri/actions/runs/42848104729) | pull_request / codex/qq-release-notifications | 3 | 316 | 3 | 185 | 271 | 313 | 126.6 |
-| #98 [baasx CI](https://github.com/Kiramei/baas-tauri/actions/runs/42850124381) | push / baasx-dev | 3 | 396 | 2 | 204 | 180 | 393 | 126.6 |
+| #98 [baasx CI](https://github.com/Kiramei/baas-tauri/actions/runs/42850124381) | push / former BAASX branch | 3 | 396 | 2 | 204 | 180 | 393 | 126.6 |
 | #98 [baasx CI](https://github.com/Kiramei/baas-tauri/actions/runs/42850026168) | push / dev | 3 | 374 | 2 | 204 | 194 | 372 | 91.3 |
 | #98 [Main Branch Source](https://github.com/Kiramei/baas-tauri/actions/runs/42850140991) | pull_request_target / dev | 1 | 5 | 2 | 3 | 0 | 0 | 0.0 |
 | #98 [baasx CI](https://github.com/Kiramei/baas-tauri/actions/runs/42850141494) | pull_request / dev | 3 | 356 | 2 | 184 | 300 | 354 | 126.6 |
@@ -51,7 +51,7 @@ The [workflow inventory](https://api.github.com/repos/Kiramei/baas-tauri/actions
 
 ## Reproduction
 
-Using the [Actions REST API](https://docs.github.com/en/rest/actions/workflow-runs) for Kiramei/baas-tauri, read pulls/{n} for the final head and actions/runs?head_sha={sha} for workflow IDs. Match PR number when present, otherwise match exact final head, source ref and event. Include dev and baasx-dev pushes for #98. Enumerate attempts from 1 through run_attempt and read actions/runs/{id}/attempts/{a}/jobs. Use per_page=100 until every page is read. Read actions/runs/{id}/artifacts once per run and pulls/{n}/files for the replay paths.
+Using the [Actions REST API](https://docs.github.com/en/rest/actions/workflow-runs) for Kiramei/baas-tauri, read pulls/{n} for the final head and actions/runs?head_sha={sha} for workflow IDs. Match PR number when present, otherwise match exact final head, source ref and event. Include both #98 push runs listed in the table. Enumerate attempts from 1 through run_attempt and read actions/runs/{id}/attempts/{a}/jobs. Use per_page=100 until every page is read. Read actions/runs/{id}/artifacts once per run and pulls/{n}/files for the replay paths.
 
 For each executed job, subtract started_at from completed_at in UTC and assign OS from runner labels. Sum overlaps for resource time. For run elapsed time, subtract workflow creation from its last relevant job completion. For first feedback delay, subtract creation from the first job start. An automated feedback or merge gate takes longer than its first job start. Timestamps have one-second precision. No billing rates or cost percentages were applied.
 

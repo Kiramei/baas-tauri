@@ -1,11 +1,7 @@
 name: Check Release Tag
-description: Validate release tags with an optional v prefix, mapped native versions and release branch ancestry.
+description: Validate canonical app release tags, mapped native versions and main ancestry.
 
 inputs:
-  branch:
-    description: Release source branch.
-    required: false
-    default: main
   allow-non-tag:
     description: Skip checks when the workflow is not running on a tag.
     required: false
@@ -16,8 +12,6 @@ runs:
   steps:
     - name: Check if tag is from release branch
       shell: bash
-      env:
-        RELEASE_BRANCH: ${{ inputs.branch }}
       run: |
         set -euo pipefail
 
@@ -32,17 +26,15 @@ runs:
           exit 1
         fi
         TAG_REF="${GITHUB_REF_NAME:-${GITHUB_REF##*/}}"
-        # Public versions use x.y.z, x.y.z.rcN or x.y.z.postN. A tag may
-        # have one leading v; legacy -rc spellings cannot create a release.
+        if [[ "$TAG_REF" == v* ]]; then
+          echo "::error::New app release tags must omit the v prefix."
+          exit 1
+        fi
         node scripts/check-release-version.mjs "$TAG_REF"
-        echo "Checking if tag ${TAG_REF} is from ${RELEASE_BRANCH} branch..."
+        git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
+        TAG_COMMIT="$(git rev-parse --verify "${GITHUB_REF}^{commit}")"
 
-        git fetch origin "$RELEASE_BRANCH" --tags
-        TAG_COMMIT="$(git rev-list -n 1 "${TAG_REF}")"
-
-        if git merge-base --is-ancestor "${TAG_COMMIT}" "origin/${RELEASE_BRANCH}"; then
-          echo "Tag ${TAG_REF} is from ${RELEASE_BRANCH} branch."
-        else
-          echo "::error::Tag ${TAG_REF} is not from ${RELEASE_BRANCH} branch."
+        if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+          echo "::error::App release tags must point to commits on main."
           exit 1
         fi

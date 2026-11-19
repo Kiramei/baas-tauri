@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 260
     concurrency:
-      group: ${{ startsWith(inputs.tag-name, 'baasx-v') && 'release-baasx-publication' || 'release-app-publication' }}
+      group: ${{ startsWith(inputs.tag-name, 'baasx-') && 'release-baasx-publication' || 'release-app-publication' }}
       queue: max
     steps:
       - name: Checkout repository

@@ -57,14 +57,17 @@ test("updater documentation pins inspected sources without claiming a runtime up
   expect(devIntegration.verificationKind).toContain("code inspection");
   expect(devIntegration.runtimeUpdateExecuted).toBe(false);
   expect(devIntegration.sources.map(source => source.file)).toEqual(["scripts/ci/release-contract.mjs"]);
-  for (const source of new Map([...integration.sources, ...packaging.sources, ...devIntegration.sources].map(source => [source.file, source])).values()) {
+  const releasePolicy = audit.mainReleasePolicySupplement;
+  expect(releasePolicy.verificationKind).toContain("code inspection");
+  expect(releasePolicy.runtimeUpdateExecuted).toBe(false);
+  for (const source of new Map([...integration.sources, ...packaging.sources, ...devIntegration.sources, ...releasePolicy.sources].map(source => [source.file, source])).values()) {
     expect(source.gitContentVerified).toBe(true);
     expect(source.revision).toMatch(/^[a-f0-9]{40}$/);
     expect(sha(read(source.file))).toBe(source.sha256);
   }
   // Preserve the historical pinned audit; later source inspections supersede
   // only the pages they reviewed.
-  for (const [file, expected] of Object.entries({ ...audit.testedPages, ...mirror.testedPages, ...integration.testedPages, ...packaging.testedPages }))
+  for (const [file, expected] of Object.entries({ ...audit.testedPages, ...mirror.testedPages, ...integration.testedPages, ...packaging.testedPages, ...releasePolicy.testedPages }))
     expect(sha(read(file))).toBe(expected);
   expect(audit.historySupplement.revision).toBe("7cb82895bcb78adb82b8f185199f51ef18b57cfa");
   expect(audit.historySupplement.sources).toHaveLength(3);

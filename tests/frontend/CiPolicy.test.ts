@@ -15,7 +15,7 @@ test("protected PR gates always report and release packaging is opt-in", () => {
   expect(quality.on.pull_request).not.toHaveProperty("branches");
   expect(quality.on.pull_request.types).toContain("ready_for_review");
   expect(quality.on.pull_request).not.toHaveProperty("paths");
-  expect(quality.on.push.branches).toEqual(["baasx-dev"]);
+  expect(quality.on.push).toBeUndefined();
   expect(workflow("release-baasx").jobs.build.uses).toBe("./.github/workflows/baasx.yml");
   expect(workflow("release-baasx").jobs.build.with?.target).toBeUndefined();
   expect(baasx.on.workflow_call.inputs.target.default).toBe("all");
@@ -31,6 +31,11 @@ test("protected PR gates always report and release packaging is opt-in", () => {
   const release = workflow("release-baasx");
   expect(release.jobs["npm-auth"].steps.some((step: any) => step.run?.includes("npm-auth.mjs"))).toBe(true);
   expect(release.jobs.build.needs).toContain("npm-auth");
+  expect(release.on.push.tags).toEqual(["baasx-[0-9]*.[0-9]*.[0-9]*"]);
+  expect(release.jobs.validate.steps.at(-1).run).toContain("merge-base --is-ancestor HEAD origin/main");
+  for (const name of ["release-app", "release-docker"]) {
+    expect(workflow(name).on.push.tags).toEqual(["[0-9]*.[0-9]*.[0-9]*"]);
+  }
 });
 
 test("main source guard uses trusted base workflow without checking out PR code", () => {

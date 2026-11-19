@@ -89,7 +89,7 @@ test("READMEs link localized user guides without exposing private validation dat
     for (const page of ["guide/android", "guide/webui", "features/plugins", "reference/troubleshooting"])
       expect(urls).toContain(`https://baas.kiramei.moe/docs/${locale}/${page}/`);
     expect(content).not.toMatch(/docs\/(?:ANDROID_[A-Z_0-9]+|refresh-audit|repository-cleanup)\.md/);
-    for (const branch of ["main", "dev", "android-dev"])
+    for (const branch of ["main", "dev"])
       expect(urls).toContain(`https://github.com/Kiramei/baas-tauri/tree/${branch}`);
     expect(content).not.toMatch(/(?:[a-z]:[\\/]+(?:workspace|users)[\\/]|\.cache\/|\.codex_tmp|file:\/\/)/i);
     expect(content).not.toContain("fix/android-trusted-display-and-insets");
