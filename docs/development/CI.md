@@ -6,7 +6,7 @@ The measured baseline covers 18 GitHub runs and 19 attempts. The implementation 
 
 Code Quality compares GitHub’s PR merge tree with its exact base parent, including both sides of a rename. It sends the resulting paths to the ownership rules in `scripts/ci/impact.py`. Each selected module has its own workflow. All PRs report the existing **Dev quality gate** and **Dev documentation gate** checks. On a source-only PR the documentation gate verifies the docs workflow was skipped. On a README-only PR the source gate verifies the build workflows were skipped. The separate base-controlled **Main branch source** check continues to validate promotion PRs.
 
-Direct pushes to baasx-dev use the before/after tree diff. On main, wiki-pages only deploys site inputs and Source Dispatch mirrors the repository. Creating an app version tag builds the complete signed client release and Docker image. A `baasx-v*` tag builds the independent BAASX release. Tag builds assemble complete distributions regardless of the last commit’s changed paths.
+On `main`, wiki-pages deploys site inputs and Source Dispatch mirrors the repository. App and BAASX release tags must point to commits on `main`. App tags use `X.Y.Z`, `X.Y.Z.rcN`, or `X.Y.Z.postN` and build the signed client and Docker image. BAASX tags use `baasx-X.Y.Z` (with a SemVer prerelease suffix when applicable) and build the standalone BAASX release. Tag builds assemble complete distributions regardless of the last commit’s changed paths.
 
 | Changed input | Selected verification |
 |---|---|
@@ -44,7 +44,7 @@ Using complete PR file lists, not an API `head_sha` identity assumption:
 |---|---|---|
 | #95 | CLI Linux/macOS/Windows packaging 828 job seconds, in addition to docs/quality | Detector, README checks, docs export and both gates. No CLI matrix/package upload. |
 | #97 | 2,724 job seconds across matching workflows | Detector, release and registry contracts, lightweight release-note check and both gates. No native matrices or site export. |
-| #98, head 8a0ada2 | Three distinct push/PR CLI runs for the same reported head; the main merge tree can differ | dev push has no generic build; baasx-dev push checks the actual push delta; main PR checks the merge delta plus trusted source guard. For the observed release/notes-only change these routes select release/registry contracts and the Markdown check. |
+| #98, head 8a0ada2 | Three distinct push/PR CLI runs for the same reported head; the main merge tree can differ | Under current routing, the promotion PR checks its merge delta plus the trusted source guard. For the observed release/notes-only change, it selects release and registry contracts and the Markdown check. |
 
 These are expected selections. Runner-seconds removed from a historical matrix are measured baseline resource use; the new wall time and future savings require real PR samples. Full release assembly remains available, so this replay does not claim reduced release time.
 

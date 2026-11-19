@@ -77,7 +77,7 @@ jobs:
         with:
           prefix-key: baasx-debug-${{ matrix.os }}
           key: ${{ runner.os }}-${{ runner.arch }}-1.95.0-helper
-          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/baasx-dev' }}
+          save-if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
       - if: matrix.rust
         run: cargo test --locked -p baasx-runtime -p baas-cli-runtime ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
       - name: Verify the Windows legacy helper forwards commands

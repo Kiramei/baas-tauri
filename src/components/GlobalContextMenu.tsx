@@ -106,13 +106,16 @@ const GlobalContextMenu: React.FC = () => {
     if (__WITH_ANDROID__) return;
     const onContextMenu = (event: MouseEvent) => {
       if (event.defaultPrevented) return;
-      event.preventDefault();
-      if (event.target instanceof Element && event.target.closest("[data-context-menu]")) return;
+      if (event.target instanceof Element && event.target.closest("[data-context-menu]")) {
+        event.preventDefault();
+        return;
+      }
       const selectedText = getSelectedText(event.target);
       if (!selectedText && !getEditableElement(event.target)) {
         close();
         return;
       }
+      event.preventDefault();
       const selection = window.getSelection();
       focusBeforeMenu.current =
         document.activeElement instanceof HTMLElement ? document.activeElement : null;

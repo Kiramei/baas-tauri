@@ -83,7 +83,7 @@ bun run dev
 
 ### BAASX
 
-`baasx-dev` 分支包含 `baasx` 自动化终端，直接连接 BAAS 后端 Service，无需启动桌面端。支持配置档、任务与调度编辑、类型化配置、实时日志、本地环境安装与更新，以及独立指令包。安装后的命令名为 `baasx`，npm 包名为 `@kiramei/baasx`，源码位于 `baasx/`。
+`baasx/` 包含 `baasx` 自动化终端，直接连接 BAAS 后端 Service，无需启动桌面端。支持配置档、任务与调度编辑、类型化配置、实时日志、本地环境安装与更新，以及独立指令包。安装后的命令名为 `baasx`，npm 包名为 `@kiramei/baasx`，源码位于 `baasx/`。
 
 ```bash
 bun install --frozen-lockfile
@@ -158,14 +158,11 @@ baas-tauri/
 
 ## 分支与 Android
 
-| 分支                                                                    | 用途                                       |
-| ----------------------------------------------------------------------- | ------------------------------------------ |
-| [`main`](https://github.com/Kiramei/baas-tauri/tree/main)               | 发布版本与线上文档。                       |
-| [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev)                 | 桌面端、WebUI 和文档开发。                 |
-| [`baasx-dev`](https://github.com/Kiramei/baas-tauri/tree/baasx-dev)     | baasx 自动化终端、任务工作台与独立指令包。 |
-| [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | 原生 Android 开发。                        |
+| 分支 | 用途 |
+| --- | --- |
+| [`main`](https://github.com/Kiramei/baas-tauri/tree/main) | 发版与线上文档。 |
+| [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev) | 桌面端、Android、WebUI、BAASX 和文档开发。 |
 
-Android 实现也已集成到 `dev`，`android-dev` 继续保留用于原生 Android 开发。
 最新 debug 候选已在 Android 12 ARM64 真机的 root Shizuku 模式下完成限定验证：
 游戏冷启动至邮件流程、预览横屏进入/返回、Activity 重建及配置 ZIP 往返。
 Android 15 shell 模式输入、完整手势矩阵、release 构建及整体提速尚未通过验收，

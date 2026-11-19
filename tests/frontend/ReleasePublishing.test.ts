@@ -104,8 +104,10 @@ test("client and BAASX release generations retain independent asset contracts", 
     const selected = version === "0.1.4" ? platforms.filter(platform => ["Linux-X64", "macOS-ARM64", "Windows-X64"].includes(platform.asset)) : platforms;
     const names = ["SHA256SUMS", ...selected.flatMap(platform => [".tar.gz", platform.packageExtension].map(extension => `baasx-${version}-${platform.asset}${extension}`))];
     expect(names).toHaveLength(count);
-    expect(() => validateAssets("baasx", `baasx-v${version}`, names)).not.toThrow();
-    expect(() => validateAssets("baasx", `baasx-v${version}`, [...names, "archive.sig"])).toThrow("signature assets");
+    for (const tag of [`baasx-${version}`, `baasx-v${version}`]) {
+      expect(() => validateAssets("baasx", tag, names)).not.toThrow();
+      expect(() => validateAssets("baasx", tag, [...names, "archive.sig"])).toThrow("signature assets");
+    }
   }
 });
 

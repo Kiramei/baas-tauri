@@ -21,11 +21,7 @@ pub(crate) fn run(builder: Builder<Wry>) {
                 "single_instance",
                 "Existing application instance activated",
             );
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            behavior::show_main_window(app);
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
@@ -61,6 +57,8 @@ pub(crate) fn run(builder: Builder<Wry>) {
         .expect("error while building tauri application");
 
     app.run(|app, event| match event {
+        #[cfg(target_os = "macos")]
+        RunEvent::Reopen { .. } => behavior::show_main_window(app),
         RunEvent::ExitRequested { .. } | RunEvent::Exit => {
             system_log(
                 "INFO",

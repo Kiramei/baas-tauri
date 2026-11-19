@@ -3,8 +3,6 @@ name: Code Quality
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, edited]
-  push:
-    branches: [baasx-dev]
   workflow_dispatch:
     inputs:
       mode:
@@ -47,8 +45,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          # PR merge parent + head are sufficient. New branch pushes need their merge base.
-          fetch-depth: ${{ github.event_name == 'push' && '0' || '2' }}
+          # The PR merge tree and its first parent are sufficient for impact analysis.
+          fetch-depth: 2
           persist-credentials: false
       - id: paths
         run: python3 scripts/ci/impact.py plan

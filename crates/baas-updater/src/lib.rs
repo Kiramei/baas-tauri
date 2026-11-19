@@ -16,6 +16,8 @@ pub mod constants;
 #[cfg(not(target_os = "android"))]
 pub mod environ;
 pub mod history;
+#[cfg(not(target_os = "android"))]
+pub mod legacy_ui;
 pub mod mirrorc;
 pub mod mirrorc_credentials;
 pub mod repo;
@@ -38,6 +40,13 @@ pub enum UpdaterError {
     Git(String),
     /// MirrorC API or package application failed.
     MirrorC(String),
+    /// MirrorC rejected the supplied CDK before downloading a package.
+    MirrorCCredential {
+        /// Response code identifying the credential failure.
+        code: i32,
+        /// Redacted API error returned by the existing MirrorC client.
+        message: String,
+    },
     /// UV, Python, or launched process failed.
     Environment(String),
     /// Workflow orchestration failed.
@@ -54,7 +63,7 @@ impl UpdaterError {
             Self::Io(_) => "io",
             Self::Network(_) => "network",
             Self::Git(_) => "git",
-            Self::MirrorC(_) => "mirrorc",
+            Self::MirrorC(_) | Self::MirrorCCredential { .. } => "mirrorc",
             Self::Environment(_) => "environment",
             Self::Workflow(_) => "workflow",
             Self::Cancelled => "cancelled",
@@ -70,7 +79,8 @@ impl UpdaterError {
             | Self::Git(message)
             | Self::MirrorC(message)
             | Self::Environment(message)
-            | Self::Workflow(message) => message.clone(),
+            | Self::Workflow(message)
+            | Self::MirrorCCredential { message, .. } => message.clone(),
             Self::Cancelled => "operation cancelled".to_string(),
         }
     }
@@ -248,6 +258,10 @@ pub struct WorkflowOptions {
     /// Native private directory for the optional user credential, separate from shared setup.toml.
     #[serde(skip)]
     pub mirrorc_credential_dir: Option<PathBuf>,
+    /// Accepted PyQt desktop snapshot, kept until install files and profiles are ready.
+    #[cfg(not(target_os = "android"))]
+    #[serde(skip)]
+    pub legacy_migration_dir: Option<PathBuf>,
     /// Optional override for the BAAS installation directory.
     pub install_path: Option<PathBuf>,
     /// Whether the workflow should launch the backend after syncing.
@@ -267,6 +281,8 @@ impl Default for WorkflowOptions {
         Self {
             config_path: None,
             mirrorc_credential_dir: None,
+            #[cfg(not(target_os = "android"))]
+            legacy_migration_dir: None,
             install_path: None,
             launch: true,
             pipe_name: None,

@@ -3,8 +3,8 @@ name: Release baasx
 on:
   push:
     tags:
-      - "baasx-v[0-9]*.[0-9]*.[0-9]*"
-  # Release reruns require an existing baasx-v* tag. Auth-only checks also allow branches.
+      - "baasx-[0-9]*.[0-9]*.[0-9]*"
+  # Release reruns require an existing baasx-<version> tag. Auth-only checks also allow branches.
   workflow_dispatch:
     inputs:
       auth_only:
@@ -66,16 +66,16 @@ jobs:
           const parsed = version.match(semver);
           const invalidPrerelease = parsed?.[4]?.split(".").some(id => /^0\d+$/.test(id));
           if (process.env.RELEASE_REF_TYPE !== "tag" || !parsed || invalidPrerelease ||
-              process.env.RELEASE_TAG !== `baasx-v${version}`) {
-            throw new Error(`Select the existing baasx-v${version} tag; baasx releases use baasx/package.json, not the desktop version.`);
+              process.env.RELEASE_TAG !== `baasx-${version}`) {
+            throw new Error(`Select the existing baasx-${version} tag; baasx releases use baasx/package.json, not the desktop version.`);
           }
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\nprerelease=${Boolean(parsed[4])}\n`);
           NODE
-      - name: Require the baasx release branch
+      - name: Require the tag commit on main
         run: |
-          git fetch --no-tags origin baasx-dev:refs/remotes/origin/baasx-dev
-          if ! git merge-base --is-ancestor HEAD origin/baasx-dev; then
-            echo "::error::baasx release tags must point to commits on baasx-dev."
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::baasx release tags must point to commits on main."
             exit 1
           fi
 

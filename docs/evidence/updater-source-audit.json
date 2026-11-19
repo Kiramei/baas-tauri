@@ -1183,5 +1183,62 @@
         "gitContentVerified": true
       }
     ]
+  },
+  "mainReleasePolicySupplement": {
+    "checkedAt": "2026-11-19T13:17:18.855165+00:00",
+    "verificationKind": "code inspection and local release workflow fixtures",
+    "runtimeUpdateExecuted": false,
+    "scope": [
+      "Refresh pins changed by desktop setup migration, desktop startup integration and release tag validation",
+      "Release tag fixtures check canonical naming and main ancestry"
+    ],
+    "sources": [
+      {
+        "file": "src-tauri/src/commands.rs",
+        "revision": "e1cbc6349a230ed583a42924cb54b91d71c9487b",
+        "sha256": "44053684fbd5f11fa3d1cfd59c91559b831605d87240362843470e098242fdde",
+        "gitContentVerified": true
+      },
+      {
+        "file": "crates/baas-updater/src/mirrorc.rs",
+        "revision": "e1cbc6349a230ed583a42924cb54b91d71c9487b",
+        "sha256": "789be6b03cfe455579a06a43f93dba2f759a9c0a5eeb071285917aa04da168f1",
+        "gitContentVerified": true
+      },
+      {
+        "file": "crates/baas-updater/src/workflow.rs",
+        "revision": "e1cbc6349a230ed583a42924cb54b91d71c9487b",
+        "sha256": "ca01f3ef771c00fc508d62ef0bffbaa7b46931f9044aca50085f7e6fe3698e17",
+        "gitContentVerified": true
+      },
+      {
+        "file": ".github/workflows/release-app.yml",
+        "revision": "e1cbc6349a230ed583a42924cb54b91d71c9487b",
+        "sha256": "b9a5091b44955abc1c2deefa2bf05d296562c3b7b4e9c77198d4196ebe742ea9",
+        "gitContentVerified": true
+      },
+      {
+        "file": "scripts/ci/release-contract.mjs",
+        "revision": "e1cbc6349a230ed583a42924cb54b91d71c9487b",
+        "sha256": "82c7f65dcfc31216fa258ee8acb5f0f3347cf41cd6f9b53e81a595e2b0eb9bbc",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/src/lib.rs",
+        "revision": "e1cbc6349a230ed583a42924cb54b91d71c9487b",
+        "sha256": "e0d58e98df905dfed534d1224c0602799f0e4988e69f9dd3d14b985fe2914856",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src-tauri/src/platform/desktop.rs",
+        "revision": "e1cbc6349a230ed583a42924cb54b91d71c9487b",
+        "sha256": "f0fba252e86200f7c2da405be4acfa806bc4a3687364cdb3b6578a98ef5d37a1",
+        "gitContentVerified": true
+      }
+    ],
+    "testedPages": {
+      "README.md": "0db7d55472dcce4b7c3590e37df2b9d28f11e13c3cfd7941bf5a571e8bca7726",
+      "README_zh.md": "aa0f86648587f041b5bc6ae3049803e2a640e2934206198678e4108472bd9c00"
+    }
   }
 }
