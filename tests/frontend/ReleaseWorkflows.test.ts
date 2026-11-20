@@ -203,7 +203,10 @@ shellTest("Docker recovery resolves existing main-ancestor tags and keeps defaul
     git("commit", "--allow-empty", "-m", "not in main");
     git("tag", "9.9.9");
     git("checkout", "main");
-    git("commit", "--allow-empty", "-m", "new recovery workflow on main");
+    fs.mkdirSync(path.join(source, "scripts/docker"), { recursive: true });
+    fs.writeFileSync(path.join(source, "scripts/docker/ocr-arm64.cmake"), "# ARM64 fixture\n");
+    git("add", "scripts/docker");
+    git("commit", "-m", "new ARM64 image source on main");
     const mainSha = git("rev-parse", "HEAD");
     git("clone", "--bare", source, path.join(root, "remote.git"));
     git("remote", "add", "origin", path.join(root, "remote.git"));
@@ -227,13 +230,13 @@ shellTest("Docker recovery resolves existing main-ancestor tags and keeps defaul
           continue;
         }
         expect(result.exitCode, new TextDecoder().decode(result.stderr)).toBe(0);
-        expect(output).toEqual({ "release-tag": tag, "image-version": tag.replace(/^v/, ""), "source-sha": sha, "source-short-sha": sha.slice(0, 7), "publish-image": "true", "publish-latest": String(!tag.includes(".rc")) });
+        expect(output).toEqual({ "release-tag": tag, "image-version": tag.replace(/^v/, ""), "source-sha": sha, "source-short-sha": sha.slice(0, 7), platforms: "linux/amd64", "publish-image": "true", "publish-latest": String(!tag.includes(".rc")) });
       }
     }
     for (const [branch, publish] of [["main", "true"], ["dev", "false"]]) {
       const { result, output } = run(`refs/heads/${branch}`);
       expect(result.exitCode).toBe(0);
-      expect(output).toEqual({ "release-tag": "", "image-version": "", "source-sha": mainSha, "source-short-sha": mainSha.slice(0, 7), "publish-image": publish, "publish-latest": publish });
+      expect(output).toEqual({ "release-tag": "", "image-version": "", "source-sha": mainSha, "source-short-sha": mainSha.slice(0, 7), platforms: "linux/amd64,linux/arm64", "publish-image": publish, "publish-latest": publish });
     }
     for (const tag of ["baasx-v0.0.10", "refs/tags/0.0.10", "refs/heads/main", "0.0.10-rc1", " 0.0.10", "0.0.10\n", "0.0.10$(touch injected)", "0.0.10;touch injected", "--help", "vv0.0.10", "0.0.42", "9.9.9"]) {
       const { result, output } = run("refs/heads/main", tag);
@@ -258,6 +261,7 @@ test("Docker recovery pins validated source and runtime for build, version metad
   expect(step(docker, "prepare", "Checkout validated image source").with!.ref).toBe("${{ steps.source.outputs.source-sha }}");
   expect(step(docker, "prepare", "Check selected release version").run).toBe('node scripts/check-release-version.mjs "$RELEASE_TAG"');
   expect(step(docker, "build-and-push", "Checkout repository").with!.ref).toBe("${{ needs.prepare.outputs.source-sha }}");
+  expect(step(docker, "build-and-push", "Build and publish Docker image").with!.platforms).toBe("${{ needs.prepare.outputs.platforms }}");
   expect(docker.jobs["build-and-push"].env!.PUBLISH_LATEST).toBe("${{ needs.prepare.outputs.publish-latest }}");
   for (const name of ["Extract GitHub Container Registry metadata", "Extract Docker Hub metadata"]) {
     const tags = step(docker, "build-and-push", name).with!.tags;

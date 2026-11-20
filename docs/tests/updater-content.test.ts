@@ -60,7 +60,11 @@ test("updater documentation pins inspected sources without claiming a runtime up
   const releasePolicy = audit.mainReleasePolicySupplement;
   expect(releasePolicy.verificationKind).toContain("code inspection");
   expect(releasePolicy.runtimeUpdateExecuted).toBe(false);
-  for (const source of new Map([...integration.sources, ...packaging.sources, ...devIntegration.sources, ...releasePolicy.sources].map(source => [source.file, source])).values()) {
+  const desktopFollowup = audit.desktopReleaseFollowupSupplement;
+  expect(desktopFollowup.verificationKind).toContain("code inspection");
+  expect(desktopFollowup.runtimeUpdateExecuted).toBe(false);
+  const checkedSources = [...integration.sources, ...packaging.sources, ...devIntegration.sources, ...releasePolicy.sources, ...desktopFollowup.sources];
+  for (const source of new Map(checkedSources.map(source => [source.file, source])).values()) {
     expect(source.gitContentVerified).toBe(true);
     expect(source.revision).toMatch(/^[a-f0-9]{40}$/);
     expect(sha(read(source.file))).toBe(source.sha256);
