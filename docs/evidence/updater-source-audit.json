@@ -1240,5 +1240,28 @@
       "README.md": "0db7d55472dcce4b7c3590e37df2b9d28f11e13c3cfd7941bf5a571e8bca7726",
       "README_zh.md": "aa0f86648587f041b5bc6ae3049803e2a640e2934206198678e4108472bd9c00"
     }
+  },
+  "desktopReleaseFollowupSupplement": {
+    "checkedAt": "2026-11-20T03:51:26.980Z",
+    "verificationKind": "code inspection and pinned Git-content comparison",
+    "runtimeUpdateExecuted": false,
+    "scope": [
+      "Desktop migration discovery can recover from an inaccessible handoff and rechecks an accepted installation directory before starting",
+      "The release workflow loads the QQ summary from the selected source checkout"
+    ],
+    "sources": [
+      {
+        "file": "src-tauri/src/commands.rs",
+        "revision": "0552a9e56b21f44007089fa5ddff973cb3e6535d",
+        "sha256": "127e39614322775e88931c1d12d1ca095505a2795a587d797d4c1826532395df",
+        "gitContentVerified": true
+      },
+      {
+        "file": ".github/workflows/release-app.yml",
+        "revision": "0552a9e56b21f44007089fa5ddff973cb3e6535d",
+        "sha256": "11e89fd6749b9d83b4638ebf9dccc12bf163956a96f68077db8490ec991ab11c",
+        "gitContentVerified": true
+      }
+    ]
   }
 }
