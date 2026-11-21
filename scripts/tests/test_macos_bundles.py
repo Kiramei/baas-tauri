@@ -127,6 +127,23 @@ class BundleValidationTests(unittest.TestCase):
             VERIFY.verify_bundles(TARGET, self.root / "bundle", self.assets, VERSION)
             tool.assert_not_called()
 
+    def test_dmg_layout_requires_finder_metadata_and_the_configured_background(self):
+        mountpoint = self.root / "mount"
+        (mountpoint / ".background").mkdir(parents=True)
+        background = mountpoint / ".background/background.png"
+        source = ROOT / "src-tauri/packages/macos/background.png"
+        shutil.copyfile(source, background)
+
+        with self.assertRaisesRegex(VERIFY.VerificationError, r"\.DS_Store"):
+            VERIFY.verify_dmg_layout(mountpoint)
+
+        (mountpoint / ".DS_Store").write_bytes(b"fixture Finder metadata")
+        VERIFY.verify_dmg_layout(mountpoint)
+
+        background.write_bytes(b"wrong background")
+        with self.assertRaisesRegex(VERIFY.VerificationError, "differs from the configured image"):
+            VERIFY.verify_dmg_layout(mountpoint)
+
     def test_wrong_architecture_and_universal_binary_are_rejected(self):
         for architecture in ("x86_64", "arm64 x86_64"):
             with self.subTest(architecture=architecture):
@@ -289,9 +306,16 @@ class NativeMacBundleTests(unittest.TestCase):
         return status, output.getvalue()
 
     def test_real_signed_app_archive_and_dmg_pass(self):
-        status, output = self.verify()
+        # The fixture is a plain hdiutil image without Finder styling.
+        with mock.patch.object(VERIFY, "verify_dmg_layout"):
+            status, output = self.verify()
         self.assertEqual(status, 0, output)
         self.assertIn("Verified built app, updater archive, and DMG", output)
+
+    def test_real_dmg_without_finder_layout_fails(self):
+        status, output = self.verify()
+        self.assertEqual(status, 1, output)
+        self.assertIn(".DS_Store", output)
 
     def test_correctly_signed_macho_without_bundle_seal_fails(self):
         self.command(["codesign", "--verify", self.app / "Contents/MacOS/baas-fixture"])

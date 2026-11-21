@@ -181,6 +181,8 @@ jobs:
         shell: bash
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
+          # Tauri otherwise skips writing the Finder layout when CI=true.
+          TAURI_BUNDLER_DMG_IGNORE_CI: "${{ runner.os == 'macOS' && 'true' || 'false' }}"
           # This key signs updater archives. The macOS config signs the .app
           # ad hoc before Tauri creates the DMG, archive and updater signature.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
