@@ -130,8 +130,9 @@ class BundleValidationTests(unittest.TestCase):
     def test_dmg_layout_requires_finder_metadata_and_the_configured_background(self):
         mountpoint = self.root / "mount"
         (mountpoint / ".background").mkdir(parents=True)
-        background = mountpoint / ".background/background.png"
-        source = ROOT / "src-tauri/packages/macos/background.png"
+        config = json.loads(VERIFY.MACOS_CONFIG.read_text(encoding="utf-8"))
+        source = VERIFY.MACOS_CONFIG.parent / config["bundle"]["macOS"]["dmg"]["background"]
+        background = mountpoint / ".background" / source.name
         shutil.copyfile(source, background)
 
         with self.assertRaisesRegex(VERIFY.VerificationError, r"\.DS_Store"):
@@ -347,6 +348,53 @@ class NativeMacBundleTests(unittest.TestCase):
         with redirect_stdout(io.StringIO()):
             with self.assertRaisesRegex(VERIFY.VerificationError, "Wrong architecture"):
                 VERIFY.verify_app(self.app, other_arch)
+
+
+LAYOUT_SCRIPT = ROOT / "scripts/fix-macos-dmg-layout.py"
+LAYOUT_SPEC = importlib.util.spec_from_file_location("fix_macos_dmg_layout", LAYOUT_SCRIPT)
+LAYOUT = importlib.util.module_from_spec(LAYOUT_SPEC)
+LAYOUT_SPEC.loader.exec_module(LAYOUT)
+
+
+def iloc_record(name, x, y):
+    return (
+        len(name).to_bytes(4, "big") + name.encode("utf-16-be") + b"Ilocblob" + (16).to_bytes(4, "big")
+        + x.to_bytes(4, "big") + y.to_bytes(4, "big") + b"\xff" * 8
+    )
+
+
+class DmgLayoutFixTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.store = Path(temporary.name) / ".DS_Store"
+
+    def test_hidden_item_sits_between_the_configured_icons(self):
+        config = json.loads(LAYOUT.MACOS_CONFIG.read_text(encoding="utf-8"))["bundle"]["macOS"]["dmg"]
+        x, y = LAYOUT.hidden_item_position()
+        width, height = config["windowSize"]["width"], config["windowSize"]["height"]
+        self.assertTrue(0 < x < width and 0 < y < height)
+
+    def test_background_location_is_patched_in_place(self):
+        original = b"\x00Bud1" + iloc_record("BAAS.app", 160, 140) + iloc_record(".background", 860, 100) + b"tail"
+        self.store.write_bytes(original)
+
+        patched = LAYOUT.patch_icon_locations(self.store, LAYOUT.HIDDEN_ITEMS, (280, 140))
+
+        self.assertEqual(patched, [".background"])
+        expected = b"\x00Bud1" + iloc_record("BAAS.app", 160, 140) + iloc_record(".background", 280, 140) + b"tail"
+        self.assertEqual(self.store.read_bytes(), expected)
+
+    def test_missing_background_location_is_left_untouched(self):
+        original = b"\x00Bud1" + iloc_record("BAAS.app", 160, 140)
+        self.store.write_bytes(original)
+        self.assertEqual(LAYOUT.patch_icon_locations(self.store, LAYOUT.HIDDEN_ITEMS, (280, 140)), [])
+        self.assertEqual(self.store.read_bytes(), original)
+
+    def test_ambiguous_background_location_is_rejected(self):
+        self.store.write_bytes(iloc_record(".background", 860, 100) * 2)
+        with self.assertRaisesRegex(LAYOUT.LayoutError, "Several icon locations"):
+            LAYOUT.patch_icon_locations(self.store, LAYOUT.HIDDEN_ITEMS, (280, 140))
 
 
 if __name__ == "__main__":

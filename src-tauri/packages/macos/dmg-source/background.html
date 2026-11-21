@@ -1,0 +1,163 @@
+<!doctype html>
+<!--
+  Source of the macOS DMG installer background (../background.tiff).
+  Canvas: 560x330 pt. Finder icons sit at (160,140) and (400,140); keep those in
+  sync with bundle.macOS.dmg in src-tauri/tauri.macos.conf.json. The window is
+  32 pt taller than the canvas (title bar); the bottom 28 pt may sit under
+  Finder's path bar, so keep only decoration there.
+
+  Regenerate (macOS, after `bun gen:fonts` has produced the
+  subset fonts in public/fonts):
+    CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    for s in 1 2; do "$CHROME" --headless=new --hide-scrollbars --allow-file-access-from-files \
+      --force-device-scale-factor=$s --window-size=560,330 --virtual-time-budget=2000 \
+      --screenshot="$PWD/bg@${s}x.png" "file://$PWD/background.html"; done
+    mv bg@1x.png background.png; mv bg@2x.png background@2x.png
+    tiffutil -cathidpicheck background.png background@2x.png -out ../background.tiff
+    rm background.png background@2x.png
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Blueaka"; src: url("../../../../public/fonts/Blueaka-Subset.woff2") format("woff2"); }
+  @font-face { font-family: "Rubik"; src: url("../../../../public/fonts/Rubik-Subset.woff2") format("woff2"); }
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 560px; height: 330px; overflow: hidden; position: relative;
+    font-family: "Rubik", "PingFang SC", -apple-system, system-ui, sans-serif;
+    color: #1a1c1f;
+    background: linear-gradient(180deg, #fbfcfd 0%, #f2f6f8 55%, #e9eff2 100%);
+  }
+  /* soft aurora blobs */
+  .blob { position: absolute; border-radius: 50%; filter: blur(60px); }
+  .b1 { width: 300px; height: 190px; left: -90px; top: 150px; background: rgba(64, 214, 214, 0.22); }
+  .b2 { width: 320px; height: 210px; right: -110px; top: -70px; background: rgba(120, 190, 255, 0.20); }
+  .b3 { width: 260px; height: 140px; left: 150px; top: 90px; background: rgba(110, 230, 225, 0.12); }
+
+  /* thin flowing lines */
+  .waves { position: absolute; inset: 0; }
+
+  /* subtle film grain */
+  .grain {
+    position: absolute; inset: 0; opacity: 0.035; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  .title {
+    position: absolute; left: 0; right: 0; top: 20px; text-align: center;
+  }
+  .title .name {
+    font-family: "Blueaka", "Rubik", sans-serif; font-size: 22px; letter-spacing: 0.6px; line-height: 1;
+  }
+  .title .tag {
+    margin-top: 6px; display: inline-flex; align-items: center; gap: 10px;
+    font-family: "JBMono", Menlo, monospace; font-size: 9px; font-weight: 500; letter-spacing: 2.6px; text-transform: uppercase; color: #5f8a8d;
+  }
+  .title .tag::before, .title .tag::after {
+    content: ""; width: 22px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(31,191,191,0.7));
+  }
+  .title .tag::after { background: linear-gradient(90deg, rgba(31,191,191,0.7), transparent); }
+
+  /* single arrow between icons (icon centres 160,140 & 400,140) */
+  .arrow { position: absolute; left: 236px; top: 130px; width: 88px; height: 20px; }
+
+  .hint {
+    position: absolute; left: 0; right: 0; top: 246px; text-align: center;
+  }
+  .hint .zh { font-size: 13px; font-weight: 500; color: #2a2d31; letter-spacing: 0.4px; }
+  .hint .en { margin-top: 4px; font-family: "JBMono", Menlo, monospace; font-size: 9.5px; letter-spacing: 0 !important; color: #8a9095; letter-spacing: 0.5px; }
+
+  @font-face { font-family: "JBMono"; src: url("../../../../public/fonts/JetBrainsMono.ttf"); }
+  /* dot matrix */
+  .dots {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(23,169,169,0.28) 0.8px, transparent 1.1px);
+    background-size: 14px 14px; background-position: 7px 7px;
+    -webkit-mask-image: radial-gradient(470px 250px at 50% 50%, transparent 30%, #000 75%);
+    opacity: 0.55;
+  }
+  .circuit { position: absolute; inset: 0; }
+  .hud { position: absolute; inset: 0; }
+  .mono { font-family: "JBMono", Menlo, monospace; }
+  .meta {
+    position: absolute; font-size: 8px; letter-spacing: 1.6px; color: rgba(23,140,140,0.55);
+  }
+  .m1 { left: 30px; bottom: 12px; }
+  .m2 { right: 30px; bottom: 12px; text-align: right; }
+  .title .name {
+    background: linear-gradient(180deg, #1a1c1f 30%, #24484c 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .arrow { filter: drop-shadow(0 0 4px rgba(31,191,191,0.45)); }
+  .credit {
+    position: absolute; left: 0; right: 0; bottom: 12px; text-align: center;
+    font-size: 8.5px; letter-spacing: 0.6px; color: rgba(60,90,95,0.6);
+  }
+  .credit b { font-weight: 600; color: rgba(23,140,140,0.85); }
+</style>
+</head>
+<body>
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+
+  <svg class="waves" viewBox="0 0 560 330" fill="none">
+    <defs>
+      <linearGradient id="w" x1="0" x2="1">
+        <stop offset="0" stop-color="#1fbfbf" stop-opacity="0"/>
+        <stop offset="0.5" stop-color="#1fbfbf" stop-opacity="0.22"/>
+        <stop offset="1" stop-color="#5aa8ff" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path d="M -20 292 C 100 264 200 332 330 300 S 510 264 590 286" stroke="url(#w)" stroke-width="1.2"/>
+    <path d="M -20 304 C 120 276 210 342 350 312 S 520 278 590 300" stroke="url(#w)" stroke-width="1" opacity="0.7"/>
+    <path d="M -20 316 C 140 290 220 354 370 324 S 530 292 590 314" stroke="url(#w)" stroke-width="0.8" opacity="0.45"/>
+  </svg>
+
+
+  <div class="dots"></div>
+  <svg class="circuit" viewBox="0 0 560 330" fill="none" stroke="#1fbfbf" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+    <g opacity="0.30">
+      <path d="M0 62 H30 L44 76 H66"/><circle cx="69" cy="76" r="2.2" fill="#f4f8fa"/>
+      <path d="M0 76 H22 L34 88 H48"/><circle cx="51" cy="88" r="1.8" fill="#f4f8fa"/>
+      <path d="M62 0 V16 L76 30 V38"/><circle cx="76" cy="41" r="1.8" fill="#f4f8fa"/>
+    </g>
+    <g opacity="0.28">
+      <path d="M560 196 H530 L516 210 H494"/><circle cx="491" cy="210" r="2.2" fill="#eef3f6"/>
+      <path d="M560 210 H538 L526 222 H512"/><circle cx="509" cy="222" r="1.8" fill="#eef3f6"/>
+    </g>
+  </svg>
+  <svg class="hud" viewBox="0 0 560 330" fill="none" stroke="#17a9a9" stroke-width="1.2" stroke-linecap="round" opacity="0.5">
+    <path d="M12 22 V12 H22"/><path d="M538 12 H548 V22"/>
+    <path d="M12 308 V318 H22"/><path d="M548 308 V318 H538"/>
+  </svg>
+  <div class="grain"></div>
+
+  <div class="title">
+    <div class="name">BAAS Tauri App</div>
+    <div class="tag">Blue Archive Auto Script</div>
+  </div>
+
+  <svg class="arrow" viewBox="0 0 88 20" fill="none">
+    <defs>
+      <linearGradient id="a" gradientUnits="userSpaceOnUse" x1="6" y1="10" x2="80" y2="10">
+        <stop offset="0" stop-color="#1fbfbf" stop-opacity="0.25"/>
+        <stop offset="0.5" stop-color="#1fbfbf" stop-opacity="0.7"/>
+        <stop offset="1" stop-color="#17a9a9"/>
+      </linearGradient>
+    </defs>
+    <circle cx="6" cy="10" r="2.6" fill="#1fbfbf" fill-opacity="0.55"/>
+    <path d="M12 10 H80" stroke="url(#a)" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M73 3.5 L80.5 10 L73 16.5" stroke="#17a9a9" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+
+  <div class="hint">
+    <div class="zh">将 BAAS Tauri App 拖入「应用程序」文件夹即可完成安装</div>
+    <div class="en">Drag BAAS Tauri App into the Applications folder to install</div>
+  </div>
+  <div class="meta mono m1">SETUP // MACOS</div>
+  <div class="meta mono m2">DRAG · DROP · LAUNCH</div>
+</body>
+</html>

@@ -262,6 +262,14 @@ jobs:
             throw "Portable executable signature is missing"
           }
 
+      - name: Fix macOS DMG window scrolling
+        if: contains(matrix.target, 'apple-darwin')
+        shell: bash
+        run: |
+          set -euo pipefail
+          find "target/${{ matrix.target }}/release/bundle/dmg" -maxdepth 1 -type f -name '*.dmg' \
+            -exec python3 scripts/fix-macos-dmg-layout.py {} +
+
       - name: Normalize macOS artifacts
         if: contains(matrix.target, 'apple-darwin')
         shell: bash
