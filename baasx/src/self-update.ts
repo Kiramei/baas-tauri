@@ -273,6 +273,10 @@ export async function checkSelfUpdate(
   };
 }
 
+// Git for Windows may put GNU tar first on PATH. It interprets C: as a remote host.
+export const archiveTar =
+  process.platform === "win32" ? join(process.env.SystemRoot!, "System32", "tar.exe") : "tar";
+
 const exec = promisify(execFile);
 
 export async function replaceNative(
@@ -319,7 +323,7 @@ export async function replaceNative(
     for await (const chunk of createReadStream(archive)) hash.update(chunk);
     if (hash.digest("hex") !== expected.toLowerCase())
       throw new Error("BAASX release checksum mismatch");
-    const { stdout: listing } = await exec("tar", ["-tzf", archive], { signal });
+    const { stdout: listing } = await exec(archiveTar, ["-tzf", archive], { signal });
     const members = new Set(listing.split(/\r?\n/));
     const runtimeName = process.platform === "win32" ? "baasx-runtime.exe" : "baasx-runtime";
     const helpers = [runtimeName, helper]
@@ -330,7 +334,7 @@ export async function replaceNative(
       hostPlatform().runtime === "node"
         ? [...helpers, "runtime/node", "dist/baasx-node.mjs"]
         : helpers;
-    await exec("tar", ["-xzf", archive, "-C", stage, nativeName, ...files], { signal });
+    await exec(archiveTar, ["-xzf", archive, "-C", stage, nativeName, ...files], { signal });
     const targets = [
       ...files.map((name) => [join(stage, name), join(root, name)]),
       [join(stage, nativeName), executable],
