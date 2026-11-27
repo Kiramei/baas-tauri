@@ -1291,8 +1291,8 @@
       },
       {
         "file": ".github/workflows/release-app.yml",
-        "revision": "8cf49940b962dd1f29fedaa8c8cae23b8d01a08e",
-        "sha256": "90eb959cc81e175cd0680ec2a7b32652b141d9ce04f961204997591f3194c0c8",
+        "revision": "4ddc30c46326d8aa8e05146fc9d9dfa8a58b8f51",
+        "sha256": "f0635491e3ef3c08c65a69f6ed3f3b8f4851ebd7ed5148c14e8b76d7e828ae70",
         "gitContentVerified": true
       },
       {
