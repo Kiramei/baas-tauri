@@ -38,18 +38,18 @@
       "signingIdentity": "-",
       "entitlements": "packages/macos/entitlements.plist",
       "dmg": {
-        "background": "packages/macos/background.png",
+        "background": "packages/macos/background.tiff",
         "appPosition": {
-          "x": 180,
-          "y": 170
+          "x": 160,
+          "y": 140
         },
         "applicationFolderPosition": {
-          "x": 480,
-          "y": 170
+          "x": 400,
+          "y": 140
         },
         "windowSize": {
-          "height": 400,
-          "width": 660
+          "height": 362,
+          "width": 560
         },
         "windowPosition": {
           "x": 200,

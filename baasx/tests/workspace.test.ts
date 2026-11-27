@@ -999,7 +999,7 @@ describe("deterministic BAAS workspace", () => {
     expect(workspace.snapshot.logs.some((entry) => entry.message.includes("执行完成"))).toBe(true);
   });
 
-  test("direct start skips confirmation but stop and command packs retain it", async () => {
+  test("direct start and stop skip confirmation but command packs retain it", async () => {
     const workspace = await demo();
     await workspace.connect();
     const prompts: string[] = [];
@@ -1013,10 +1013,10 @@ describe("deterministic BAAS workspace", () => {
     expect(prompts).toEqual([]);
     expect(workspace.snapshot.status["sensei-cn"].running).toBe(true);
     await workspace.stop();
-    expect(prompts).toHaveLength(1);
-    expect(workspace.snapshot.status["sensei-cn"].running).toBe(true);
+    expect(prompts).toHaveLength(0);
+    expect(workspace.snapshot.status["sensei-cn"].running).toBe(false);
     await workspace.execute("pack daily");
-    expect(prompts).toHaveLength(2);
+    expect(prompts).toHaveLength(1);
     const readOnly = await demo({ readOnly: true });
     await readOnly.connect();
     await readOnly.start();

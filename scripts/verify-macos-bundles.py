@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Verify the exact macOS bundles that will be uploaded, without changing them.
 
-This checks Apple ad-hoc code signatures and bundle contents. Persistent updater
-signature metadata must be present; updater cryptography is not checked here.
+This checks Apple ad-hoc code signatures, bundle contents, and DMG layout files.
+Persistent updater signature metadata must be present; updater cryptography is not checked here.
 No Apple certificate, notarization credentials, or third-party Python modules are
 required.
 """
@@ -28,6 +28,7 @@ TARGETS = {
     "x86_64-apple-darwin": ("x64", "x86_64"),
 }
 TOOL_TIMEOUT_SECONDS = 120
+MACOS_CONFIG = Path(__file__).resolve().parents[1] / "src-tauri/tauri.macos.conf.json"
 
 
 class VerificationError(Exception):
@@ -74,6 +75,17 @@ def single_app(directory):
     if len(apps) != 1 or apps[0].is_symlink() or not apps[0].is_dir():
         raise VerificationError("Expected exactly one .app directory directly inside {}".format(directory))
     return apps[0]
+
+
+def verify_dmg_layout(mountpoint):
+    require_file(mountpoint / ".DS_Store")
+
+    config = json.loads(MACOS_CONFIG.read_text(encoding="utf-8"))
+    background = MACOS_CONFIG.parent / config["bundle"]["macOS"]["dmg"]["background"]
+    packaged_background = mountpoint / ".background" / background.name
+    require_file(packaged_background)
+    if packaged_background.read_bytes() != background.read_bytes():
+        raise VerificationError("DMG background differs from the configured image: {}".format(background))
 
 
 def verify_app(app, expected_arch):
@@ -236,6 +248,7 @@ def verify_bundles(target, bundle_dir, assets_dir, version):
         log("Checking normalized disk image: {}".format(dmg))
         run_tool(["hdiutil", "verify", dmg])
         with mounted_dmg(dmg, temporary_path / "mount") as mountpoint:
+            verify_dmg_layout(mountpoint)
             disk_app = single_app(mountpoint)
             if disk_app.name != app.name:
                 raise VerificationError("DMG application name differs from built application")

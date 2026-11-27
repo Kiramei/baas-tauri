@@ -44,9 +44,7 @@ const USAGE: Record<string, CommandUsage> = {
   "new-profile": {
     explanation: "按向导输入名称和服务器，创建并选中配置档。",
   },
-  stop: {
-    explanation: "请求停止当前配置档正在运行的任务或调度；提交前按提示确认。",
-  },
+  detach: { example: "baasx attach · baasx attach -f" },
   logs: {
     syntax: "/logs [<count>]",
     example: "/logs · /logs 50",

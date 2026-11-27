@@ -7,6 +7,7 @@ export interface Settings {
   pipe?: string;
   profile?: string;
   language?: string;
+  skippedSelfVersion?: string;
   connectionMode?: "local" | "remote";
   packsDirectory?: string;
 }
@@ -46,7 +47,13 @@ export async function loadSettings(directory = settingsDirectory()): Promise<Set
   const settings: Settings = {
     url: normalizeEndpoint(typeof data.url === "string" ? data.url : DEFAULT_URL),
   };
-  for (const field of ["pipe", "profile", "packsDirectory", "language"] as const) {
+  for (const field of [
+    "pipe",
+    "profile",
+    "packsDirectory",
+    "language",
+    "skippedSelfVersion",
+  ] as const) {
     if (data[field] !== undefined && typeof data[field] !== "string")
       throw new Error(`CLI 配置 ${field} 必须是字符串`);
     if (typeof data[field] === "string" && data[field]) settings[field] = data[field];
@@ -65,7 +72,15 @@ export async function saveSettings(
   const file = join(directory, "settings.json");
   const temporary = `${file}.${process.pid}.tmp`;
   const preferences = Object.fromEntries(
-    ["url", "pipe", "profile", "packsDirectory", "language", "connectionMode"].flatMap((key) => {
+    [
+      "url",
+      "pipe",
+      "profile",
+      "packsDirectory",
+      "language",
+      "skippedSelfVersion",
+      "connectionMode",
+    ].flatMap((key) => {
       const value = settings[key as keyof Settings];
       return typeof value === "string" && value ? [[key, value]] : [];
     })

@@ -65,7 +65,7 @@ type TauriBackendVersionReport = {
   method?: string;
 };
 
-type TauriShaMethodReport = {
+type ShaMethodReport = {
   success: boolean;
   name: string;
   order?: number;
@@ -363,7 +363,7 @@ const SettingsPage: React.FC = () => {
     (method) => updateChannel === "stable" || method.value !== "mirrorc"
   );
   const [shaResults, setShaResults] = useState<ShaDiagnosticResult[]>(
-    shaMethods.map((m) => ({ method: shaMethodKey(m.value), status: "pending" }))
+    __WITH_TAURI__ ? shaMethods.map((m) => ({ method: m.value, status: "pending" })) : []
   );
   const [showShaResults, setShowShaResults] = useState(false);
   const shaTestRunRef = useRef<number | null>(null);
@@ -373,6 +373,7 @@ const SettingsPage: React.FC = () => {
     setThemeColorInput(uiSettings.themeColor || DEFAULT_THEME_COLOR);
   }, [uiSettings.themeColor]);
 
+  const dockerUpdates = __WITH_WEBUI__ && versionStore.method === "docker-git";
   const fetchVersion = async () => {
     setVersionChecking(true);
     setShaRemote("");
@@ -424,11 +425,15 @@ const SettingsPage: React.FC = () => {
       {
         timestamp: getTimestampMs(),
         command: "check_for_update",
-        payload: {
-          channel: updateChannel,
-        },
+        payload: __WITH_WEBUI__ ? {} : { channel: updateChannel },
       },
       (e) => {
+        if (e.status === "error" || e.data?.error) {
+          setUpdateStatus("version.checkError");
+          setRemoteVersion(t("version.checkError"));
+          setVersionChecking(false);
+          return;
+        }
         setShaLocal(e.data.local);
         setShaRemote(e.data.remote);
         setUpdateStatus("version.tapToTest");
@@ -439,7 +444,7 @@ const SettingsPage: React.FC = () => {
 
   useEffect(() => {
     setUpdateChannel(updateConfig["channel"] ?? "stable");
-  }, [updateConfig]);
+  }, [updateConfig.channel]);
 
   useEffect(() => {
     if (versionStore.local !== undefined) setShaLocal(versionStore.local);
@@ -481,48 +486,55 @@ const SettingsPage: React.FC = () => {
       clearTimeout(shaTestTimeoutRef.current);
     }
     setApiLoading(true);
-    setShaResults(shaMethods.map((m) => ({ method: shaMethodKey(m.value), status: "testing" })));
-    shaTestTimeoutRef.current = setTimeout(() => {
-      if (shaTestRunRef.current !== timestamp) return;
-      shaTestRunRef.current = null;
-      shaTestTimeoutRef.current = null;
-      setApiLoading(false);
-      setShaResults((prev) =>
-        prev.map((item) =>
-          item.status === "testing"
-            ? {
-                ...item,
-                status: "error",
-                time: item.time ?? SHA_TEST_TIMEOUT_SECONDS.toFixed(3),
-              }
-            : item
-        )
-      );
-      toast.error(t("shaTest.timeout"));
-    }, SHA_TEST_TIMEOUT_MS);
-
-    if (__WITH_TAURI__) {
-      const { invoke } = await import("@/shared/TauriInvoke");
-      const applyResult = (result: TauriShaMethodReport) => {
+    setShaResults(
+      __WITH_TAURI__ ? shaMethods.map((m) => ({ method: m.value, status: "testing" })) : []
+    );
+    shaTestTimeoutRef.current = setTimeout(
+      () => {
         if (shaTestRunRef.current !== timestamp) return;
+        shaTestRunRef.current = null;
+        shaTestTimeoutRef.current = null;
+        setApiLoading(false);
         setShaResults((prev) =>
           prev.map((item) =>
-            item.method === shaMethodKey(result.name)
+            item.status === "testing"
               ? {
                   ...item,
-                  status: result.success ? "success" : "error",
-                  time: result.duration.toFixed(3),
-                  sha: result.success ? (result.value ?? undefined) : undefined,
+                  status: "error",
+                  time: item.time ?? SHA_TEST_TIMEOUT_SECONDS.toFixed(3),
                 }
               : item
           )
         );
+        toast.error(t("shaTest.timeout"));
+      },
+      SHA_TEST_TIMEOUT_MS + (__WITH_TAURI__ ? 0 : 3000)
+    );
+
+    const applyResult = (result: ShaMethodReport) => {
+      if (shaTestRunRef.current !== timestamp) return;
+      // Some backends also return MirrorChyan in development, which has no such channel.
+      if (updateChannel === "dev" && result.name === "mirrorc") return;
+      const row: ShaDiagnosticResult = {
+        method: result.name,
+        status: result.success ? "success" : "error",
+        time: result.duration.toFixed(3),
+        sha: result.value ?? undefined,
+        error: result.error ?? undefined,
       };
+      setShaResults((prev) =>
+        prev.some((item) => item.method === row.method)
+          ? prev.map((item) => (item.method === row.method ? row : item))
+          : [...prev, row]
+      );
+    };
+    if (__WITH_TAURI__) {
+      const { invoke } = await import("@/shared/TauriInvoke");
       try {
         await Promise.allSettled(
           shaMethods.map(async (method) => {
             try {
-              const result = await invoke<TauriShaMethodReport>("updater_test_sha_method", {
+              const result = await invoke<ShaMethodReport>("updater_test_sha_method", {
                 request: {
                   channel: updateChannel,
                   timeout: SHA_TEST_TIMEOUT_SECONDS,
@@ -569,7 +581,7 @@ const SettingsPage: React.FC = () => {
       },
       (e) => {
         if (shaTestRunRef.current !== timestamp) return;
-        if (e.data?.done) {
+        if (e.data?.done || e.status === "error") {
           if (shaTestTimeoutRef.current) {
             clearTimeout(shaTestTimeoutRef.current);
             shaTestTimeoutRef.current = null;
@@ -581,24 +593,9 @@ const SettingsPage: React.FC = () => {
           }
           return;
         }
-        const result = e.data as {
-          success: boolean;
-          name: string;
-          duration: number;
-          value: string | null;
-        };
-        setShaResults((prev) =>
-          prev.map((item) =>
-            item.method === shaMethodKey(result.name)
-              ? {
-                  ...item,
-                  status: result.success ? "success" : "error",
-                  time: result.duration.toFixed(3),
-                  sha: result.success ? (result.value ?? undefined) : undefined,
-                }
-              : item
-          )
-        );
+        if (typeof e.data?.name === "string" && typeof e.data.duration === "number") {
+          applyResult(e.data as ShaMethodReport);
+        }
       }
     );
   };
@@ -962,75 +959,103 @@ const SettingsPage: React.FC = () => {
                       latest: remoteVersion,
                       currentDetail: shaLocal || undefined,
                       latestDetail: shaRemote || undefined,
-                      source: t(updateMethodKey(updateMethod)),
+                      source: dockerUpdates
+                        ? `Docker · origin/${versionStore.branch}`
+                        : t(updateMethodKey(updateMethod)),
                       checking: versionChecking,
-                      checkLabel: t(i18nKey(updateStatus)),
-                      onCheck: fetchVersion,
+                      checkLabel:
+                        dockerUpdates && versionStore.updateAvailable
+                          ? t("update.backendAction")
+                          : t(i18nKey(updateStatus)),
+                      onCheck:
+                        dockerUpdates && versionStore.updateAvailable
+                          ? () => {
+                              window.dispatchEvent(new Event("baas:update-docker-backend"));
+                            }
+                          : fetchVersion,
                     }}
                   />
                   <CommitHistorySettings channel={updateChannel} />
-                  <SettingsGroup title={t("update.settingsTitle")}>
-                    {__WITH_TAURI__ && !__WITH_WEBUI__ && (
-                      <SettingsToggle
-                        label={t("settings.ui.idleAutoUpdate")}
-                        description={t("settings.descriptions.idleAutoUpdate")}
-                        checked={uiSettings.idleAutoUpdate ?? true}
-                        onChange={(value) =>
-                          setUiSettings((state) => ({ ...state, idleAutoUpdate: value }))
-                        }
-                      />
-                    )}
-                    <div className="settings-update-form">
-                      {__WITH_TAURI__ && updateChannel === "stable" && (
-                        <MirrorCdkField
-                          label={t("update.mirrorCdk")}
-                          channel={updateChannel}
-                          configured={mirror.configured}
-                          disabled={mirror.disabled}
-                          onChange={mirror.changeKey}
-                          onBusy={mirror.setBusy}
+                  {!dockerUpdates && (
+                    <SettingsGroup title={t("update.settingsTitle")}>
+                      {__WITH_TAURI__ && !__WITH_WEBUI__ && (
+                        <SettingsToggle
+                          label={t("settings.ui.idleAutoUpdate")}
+                          description={t("settings.descriptions.idleAutoUpdate")}
+                          checked={uiSettings.idleAutoUpdate ?? true}
+                          onChange={(value) =>
+                            setUiSettings((state) => ({ ...state, idleAutoUpdate: value }))
+                          }
                         />
                       )}
-                      <SettingsSelect
-                        label={t("update.method")}
-                        value={updateMethod}
-                        onChange={mirror.changeMethod}
-                        disabled={mirror.disabled || (!__WITH_TAURI__ && mirror.active)}
-                        options={reposInitState.map((r) => ({
-                          value: r.method,
-                          label: t(updateMethodKey(r.method)),
-                        }))}
-                      />
+                      <div className="settings-update-form">
+                        {__WITH_TAURI__ && updateChannel === "stable" && (
+                          <MirrorCdkField
+                            label={t("update.mirrorCdk")}
+                            channel={updateChannel}
+                            configured={mirror.configured}
+                            disabled={mirror.disabled}
+                            onChange={mirror.changeKey}
+                            onBusy={mirror.setBusy}
+                          />
+                        )}
+                        <SettingsSelect
+                          label={t("update.method")}
+                          value={updateMethod}
+                          onChange={mirror.changeMethod}
+                          disabled={mirror.disabled || (!__WITH_TAURI__ && mirror.active)}
+                          options={reposInitState.map((r) => ({
+                            value: r.method,
+                            label: t(updateMethodKey(r.method)),
+                          }))}
+                        />
+                        <SettingsSelect
+                          label={t("update.channel")}
+                          value={updateChannel}
+                          onChange={handleUpdateChannel}
+                          disabled={mirror.disabled}
+                          options={[
+                            { value: "stable", label: t("updateChannel.stable") },
+                            { value: "dev", label: t("updateChannel.dev") },
+                          ]}
+                        />
+                      </div>
+                    </SettingsGroup>
+                  )}
+                  <SettingsGroup title={t("update.shaConnectivityTest")}>
+                    {dockerUpdates && (
                       <SettingsSelect
                         label={t("update.channel")}
                         value={updateChannel}
-                        onChange={handleUpdateChannel}
-                        disabled={mirror.disabled}
+                        disabled={apiLoading}
+                        onChange={(channel) => {
+                          setUpdateChannel(channel);
+                          setShaResults([]);
+                        }}
                         options={[
                           { value: "stable", label: t("updateChannel.stable") },
                           { value: "dev", label: t("updateChannel.dev") },
                         ]}
                       />
-                    </div>
-                  </SettingsGroup>
-                  <SettingsGroup title={t("update.shaConnectivityTest")}>
+                    )}
                     <ShaDiagnostics
                       value={
                         updateChannel === "dev" && updateConfig["shaMethod"] === "mirrorc"
                           ? "github"
                           : updateConfig["shaMethod"]
                       }
-                      onChange={(value) => modify("global::setup_toml", { shaMethod: value })}
+                      onChange={
+                        dockerUpdates
+                          ? undefined
+                          : (value) => modify("global::setup_toml", { shaMethod: value })
+                      }
                       options={shaMethods.map((method) => ({
                         value: method.value,
                         label: t(shaMethodKey(method.value)),
                       }))}
                       loading={apiLoading}
                       onTest={handleTestSha}
-                      results={shaResults.filter(
-                        (result) =>
-                          updateChannel === "stable" || result.method !== "shaMethod.mirrorc"
-                      )}
+                      results={shaResults}
                       expanded={showShaResults}
                       onExpandedChange={setShowShaResults}
                     />

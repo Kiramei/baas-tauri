@@ -33,7 +33,7 @@ Deno 的 `-A` 为启动器授予全部权限。安装后需将 Deno 和其全局
 
 Linux ARM32 可配合 ARM32 Node.js 使用 npm、pnpm、Yarn 或 cnpm，或选择下方独立归档。Bun 不支持 ARM32。ARM32 支持终端工作台、演示模式、远程配置编辑、任务与调度控制、日志，以及通过 `--server`／`--pipe` 连接已有服务。目前不支持托管本地安装和本地识别：上游没有 ARM32 OCR 预构建，后端的 Python／依赖／OCR 整体环境也尚未在 ARM32 验证。本地 OCR 当前支持 Linux x64、macOS ARM64 和 Windows x64。
 
-独立版本发布后，可从 [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-) 的 `baasx-<版本>` 下载归档。桌面客户端的 Latest 安装包为另一发行物。
+从 0.1.6 起，BAASX 独立版使用 `baasx-<版本>` 标签，例如 `baasx-0.1.6`。可在 [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-) 下载对应平台的归档。桌面客户端的 Latest 安装包单独发布。
 
 ## 原生发行包
 
@@ -213,4 +213,4 @@ Windows 使用后端实际创建的命名管道路径。不要照抄另一个进
 
 通过注册表安装的终端程序可用 `npm update -g @kiramei/baasx` 升级。下载归档的用户应整体替换解压目录，包括 `runtime/` 和 ARM32 的 `dist/`；本地后端 `/update` 和工作台 `/reload` 都不会安装新版 BAASX。
 
-退出 CLI 会关闭本次 CLI 自己启动的本地后端。外部服务及已提交任务则继续运行。需要常驻后台服务时，自行启动服务后用 `--server` 或 `--pipe` 连接；不要把关闭终端当作停止远程任务的方法。
+使用 `/detach` 离开工作台会保留本地后端与任务，重新运行 `baasx` 即可恢复。使用 `/quit` 结束会话会关闭该会话启动的本地后端。外部服务及已提交任务则继续运行。需要常驻后台服务时，自行启动服务后用 `--server` 或 `--pipe` 连接；不要把关闭终端当作停止远程任务的方法。

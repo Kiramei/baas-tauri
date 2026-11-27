@@ -4,6 +4,10 @@ title: Backend and OCR Preparation
 
 New installations clone the stable backend from `pur1fying/blue_archive_auto_script` on `master`. To install the development backend, pass `https://github.com/Kiramei/baas-dev.git` as the container command. Existing volumes keep their Git origin. Use `BRANCH` to select the branch. Existing Git checkouts update by fast-forward only, without automatically discarding or stashing local changes. Complete OCR installations are retained; missing files trigger repair according to startup configuration while preserving configuration and output.
 
+Open **Settings → Updates** and select **Check for updates**. When a newer revision is available, select **Update BAAS** there or in the sidebar. The container stops the tasks, fast-forwards the installed branch, and restarts the Python service. The page reloads after verifying the running revision. Profiles and login data stay in the existing `/app` volume. Enabling `no_update` also disables updates from the WebUI.
+
+**Test All Methods** measures how long the container takes to read the latest revision from each source in the selected channel. Each row shows the revision or the error returned by that source.
+
 The ARM64 image bundles Linux OCR built from [BAAS_Cpp](https://github.com/pur1fying/BAAS_Cpp/tree/753901eb4678693992ef33e58abaa4d854bbdb63). It installs the bundle on first startup. With startup updates enabled, it also replaces mismatched OCR binaries when migrating an AMD64 volume, keeping the OCR configuration and output. The AMD64 image downloads its default OCR package from [BAAS_Cpp_prebuild](https://github.com/pur1fying/BAAS_Cpp_prebuild/tree/linux-x64).
 
 For a fully offline deployment, set `/app/setup.toml`:

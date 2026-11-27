@@ -176,7 +176,7 @@ test.skipIf(!executable || process.platform === "win32" || typeof Bun.Terminal !
       // Help itself mentions /reload. Require its exact input row and candidate menu before Enter.
       await command("/reload");
       await key("\r", "reloaded workbench", reloaded);
-      expect(terminalText(output)).toContain("项任务");
+      expect(terminalText(output)).not.toContain("/logs 查看日志");
       await command("/help");
       await key("\r", "help before Ctrl+R", contains("命令说明与快捷键"));
       await key("\x12", "Ctrl+R reload leaving help", reloaded);
