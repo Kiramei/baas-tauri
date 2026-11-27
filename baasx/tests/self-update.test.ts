@@ -3,8 +3,16 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import platforms from "../scripts/distribution-platforms.json";
 import { tmpdir } from "node:os";
 import { checkSelfUpdate, newerStable, packageManager, replaceNative } from "../src/self-update";
+
+const platformLabels = platforms.map((p) => {
+  const os = ({ linux: "Linux", darwin: "macOS", win32: "Windows" } as Record<string, string>)[
+    p.os
+  ];
+  return { ...p, label: os + "-" + (p.assetCpu ?? p.cpu).toUpperCase() };
+});
 
 function mockFetch(handler: (input: Parameters<typeof fetch>[0]) => Promise<Response>) {
   return spyOn(globalThis, "fetch").mockImplementation(
@@ -83,8 +91,8 @@ test.each([
       return new Response(null, { status: 404 });
     expect(url.pathname).toEndWith(`/${tag}/SHA256SUMS`);
     return new Response(
-      ["Linux-X64", "macOS-ARM64", "Windows-X64"]
-        .map((os) => "a".repeat(64) + `  baasx-${version}-${os}.tar.gz`)
+      platformLabels
+        .map(({ label: os }) => "a".repeat(64) + `  baasx-${version}-${os}.tar.gz`)
         .join("\n")
     );
   });
@@ -109,11 +117,8 @@ test("native updates verify the archive before replacing the executable and help
   const signal = new AbortController().signal;
   let checksum = "0".repeat(64);
   let archive: Buffer;
-  const platform = win
-    ? "Windows-X64"
-    : process.platform === "darwin"
-      ? "macOS-ARM64"
-      : "Linux-X64";
+  const target = platformLabels.find((p) => p.os === process.platform && p.cpu === process.arch)!;
+  const platform = target.label;
   const mock = mockFetch(async (input) => {
     expect(new URL(String(input)).pathname).toContain("/download/baasx-1.0.0/");
     if (new URL(String(input)).hostname === "github.com" && !String(input).endsWith("/SHA256SUMS"))
@@ -132,7 +137,14 @@ test("native updates verify the archive before replacing the executable and help
       await writeFile(join(location, helper), content);
     }
     await writeFile(join(stage, runtime), "new");
-    execFileSync("tar", ["-czf", join(dir, "release.tgz"), "-C", stage, exe, "runtime"]);
+    const paths = [exe, "runtime"];
+    if (target.runtime === "node") {
+      for (const dir of [stage, install]) await mkdir(join(dir, "dist"));
+      await writeFile(join(stage, "runtime/node"), "new");
+      await writeFile(join(stage, "dist/baasx-node.mjs"), "new");
+      paths.push("dist");
+    }
+    execFileSync("tar", ["-czf", join(dir, "release.tgz"), "-C", stage, ...paths]);
     archive = await readFile(join(dir, "release.tgz"));
     await expect(replaceNative("1.0.0", join(install, exe), signal)).rejects.toThrow(
       "checksum mismatch"

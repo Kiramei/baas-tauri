@@ -1,6 +1,12 @@
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream, existsSync, realpathSync } from "node:fs";
+import {
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  readFileSync,
+  realpathSync,
+} from "node:fs";
 import { chmod, lstat, mkdir, mkdtemp, realpath, rename, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { Readable } from "node:stream";
@@ -8,6 +14,7 @@ import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import manifest from "../package.json";
+import platforms from "../scripts/distribution-platforms.json";
 import { denoPermissionFlags, isStandalone } from "./session";
 
 const repository = "https://github.com/Kiramei/baas-tauri";
@@ -20,7 +27,7 @@ const stable = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\+[0-9A-Za-z-]+(?:\.
 type Manager = "npm" | "bun" | "pnpm" | "yarn" | "deno" | "cnpm";
 type Install =
   | { kind: "package"; manager: Manager; archive: boolean; project?: string; prefix?: string }
-  | { kind: "native" }
+  | { kind: "native"; launcher?: string }
   | { kind: "source" };
 export interface SelfUpdate {
   source?: ReleaseSource;
@@ -69,12 +76,27 @@ export function installation(): Install {
     /* Deno may use a virtual npm path. */
   }
   const normalized = path.replaceAll("\\", "/");
-  const archive = normalized.endsWith("/dist/baasx.js");
+  const packageRoot = dirname(dirname(path));
+  const nodeBundle = normalized.endsWith("/dist/baasx-node.mjs");
   if (
-    (!archive && !normalized.endsWith("/dist/baasx-node.mjs")) ||
+    nodeBundle &&
+    process.platform === "linux" &&
+    process.arch === "arm" &&
+    process.execPath === join(packageRoot, "runtime", "node")
+  ) {
+    return { kind: "native", launcher: join(packageRoot, "baasx") };
+  }
+  let archive = normalized.endsWith("/dist/baasx.js");
+  if (
+    (!archive && !nodeBundle) ||
     (!normalized.includes("/node_modules/") && !process.versions.deno)
   )
     return { kind: "source" };
+  // The platform archive and the registry package both ship the Node bundle.
+  if (nodeBundle && existsSync(join(packageRoot, "package.json"))) {
+    archive =
+      JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")).name === manifest.name;
+  }
   let manager = packageManager(path, !!process.versions.deno);
   const modules = normalized.indexOf("/node_modules/");
   const root = modules < 0 ? undefined : normalized.slice(0, modules);
@@ -120,15 +142,18 @@ function versionFromTag(tag: unknown) {
   if (version && stable.test(version) && tag === releaseTag(version)) return version;
 }
 
+function hostPlatform() {
+  const target = platforms.find(({ os, cpu }) => os === process.platform && cpu === process.arch);
+  if (!target) throw new Error(`No BAASX release for ${process.platform}-${process.arch}`);
+  return target;
+}
+
 function platformAsset(version: string) {
-  const platform: Record<string, string> = {
-    "linux-x64": "Linux-X64",
-    "darwin-arm64": "macOS-ARM64",
-    "win32-x64": "Windows-X64",
-  };
-  const label = platform[`${process.platform}-${process.arch}`];
-  if (!label) throw new Error(`No BAASX release for ${process.platform}-${process.arch}`);
-  return `baasx-${version}-${label}`;
+  const target = hostPlatform();
+  const os = ({ linux: "Linux", darwin: "macOS", win32: "Windows" } as Record<string, string>)[
+    target.os
+  ];
+  return `baasx-${version}-${os}-${(target.assetCpu ?? target.cpu).toUpperCase()}`;
 }
 
 async function request(url: string, signal: AbortSignal) {
@@ -144,7 +169,7 @@ function packageCommand(
   source: ReleaseSource = "github"
 ) {
   const target = install.archive
-    ? `${releaseBase(source)}/download/${releaseTag(version)}/${platformAsset(version)}-bun.tgz`
+    ? `${releaseBase(source)}/download/${releaseTag(version)}/${platformAsset(version)}-${hostPlatform().runtime ?? "bun"}.tgz`
     : `${install.manager === "deno" ? "npm:" : ""}${packageName}@${version}`;
   const args = install.project
     ? managerArgs[install.manager].filter((arg) => arg !== "-g" && arg !== "global")
@@ -301,14 +326,18 @@ export async function replaceNative(
       .map((name) => "runtime/" + name)
       .filter((name) => members.has(name));
     if (!helpers.length) throw new Error("Missing BAASX runtime helper");
-    await exec("tar", ["-xzf", archive, "-C", stage, nativeName, ...helpers], { signal });
+    const files =
+      hostPlatform().runtime === "node"
+        ? [...helpers, "runtime/node", "dist/baasx-node.mjs"]
+        : helpers;
+    await exec("tar", ["-xzf", archive, "-C", stage, nativeName, ...files], { signal });
     const targets = [
-      ...helpers.map((name) => [join(stage, name), join(root, name)]),
+      ...files.map((name) => [join(stage, name), join(root, name)]),
       [join(stage, nativeName), executable],
     ];
     for (const [next] of targets) {
       if (!(await lstat(next)).isFile()) throw new Error("Invalid BAASX release member");
-      await chmod(next, 0o755);
+      await chmod(next, next.endsWith(".mjs") ? 0o644 : 0o755);
     }
     signal.throwIfAborted();
     const lock = join(root, ".baasx-replacing");
@@ -353,7 +382,12 @@ export async function replaceNative(
 export async function applySelfUpdate(update: SelfUpdate, signal: AbortSignal) {
   if (!update.available || !newerStable(update.latest, manifest.version)) return false;
   if (update.install.kind === "native")
-    await replaceNative(update.latest, process.execPath, signal, update.source);
+    await replaceNative(
+      update.latest,
+      update.install.launcher ?? process.execPath,
+      signal,
+      update.source
+    );
   else if (update.install.kind === "package") {
     const install = update.install;
     const [program, ...args] = packageCommand(update.latest, install, update.source);
