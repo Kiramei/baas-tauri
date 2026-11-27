@@ -4,6 +4,7 @@ export function parseArguments(args: string[]) {
   const parsed = parseArgs({
     args,
     allowPositionals: true,
+    tokens: true,
     strict: true,
     options: {
       help: { type: "boolean", short: "h" },
@@ -15,6 +16,7 @@ export function parseArguments(args: string[]) {
       "dry-run": { type: "boolean" },
       wait: { type: "boolean" },
       follow: { type: "boolean", short: "f" },
+      force: { type: "boolean" },
       "wait-timeout": { type: "string" },
       "no-color": { type: "boolean" },
       server: { type: "string" },
@@ -26,6 +28,18 @@ export function parseArguments(args: string[]) {
       "config-home": { type: "string" },
     },
   });
+  // -f means follow for logs/runs and force ownership transfer only for attach.
+  const attach = parsed.positionals[0] === "attach";
+  const forceAttach =
+    attach &&
+    (parsed.values.force === true ||
+      parsed.tokens.some((token) => token.kind === "option" && token.rawName === "-f"));
+  if (parsed.values.force && !attach) throw new Error("--force requires baasx attach");
+  if (
+    attach &&
+    parsed.tokens.some((token) => token.kind === "option" && token.rawName === "--follow")
+  )
+    throw new Error("Usage: baasx attach [-f | --force]");
   const timeout = Number(parsed.values.timeout ?? 15000);
   if (!Number.isFinite(timeout) || timeout < 100 || timeout > 300000) {
     throw new Error("--timeout 必须是 100 到 300000 之间的毫秒数");
@@ -37,7 +51,7 @@ export function parseArguments(args: string[]) {
   const waitTimeoutMs = Number(parsed.values["wait-timeout"] ?? 300) * 1000;
   if (!Number.isFinite(waitTimeoutMs) || waitTimeoutMs < 1000 || waitTimeoutMs > 86400000)
     throw new Error("--wait-timeout 必须是 1–86400 之间的秒数");
-  return { ...parsed, timeout, waitTimeoutMs };
+  return { ...parsed, forceAttach, timeout, waitTimeoutMs };
 }
 
 /** Small shell-style tokenizer: quotes are for arguments, never shell evaluation. */

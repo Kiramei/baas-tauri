@@ -59,6 +59,10 @@ function fixture(overrides: Partial<WorkspaceSnapshot> = {}) {
       publish({ prompt: undefined, busy: undefined });
     },
     close() {},
+    async chooseSelfUpdate(choice: string) {
+      commands.push(choice);
+      publish({ selfUpdatePrompt: false });
+    },
     clearScreen() {
       clears++;
       publish({ activity: [], logs: [] });
@@ -413,6 +417,48 @@ describe("startup navigation", () => {
       message: "Backend ready",
     });
 
+  test("the startup offer can be skipped and the overview keeps both available updates", async () => {
+    const target = fixture({
+      selfUpdatePrompt: true,
+      selfUpdate: {
+        current: "0.1.4",
+        latest: "0.2.0",
+        command: "bun add -g @kiramei/baasx@0.2.0",
+        available: true,
+        notes: "https://example.org/release",
+        install: { kind: "package", manager: "bun", archive: false },
+      },
+      update: {
+        available: true,
+        channel: "stable",
+        root: "/runtime",
+        repositories: [
+          {
+            name: "backend",
+            localVersion: "a".repeat(40),
+            remoteVersion: "b".repeat(40),
+            available: true,
+          },
+        ],
+      },
+    });
+    const ui = await mounted(target);
+    try {
+      expect(ui.frame).toContain("立即更新");
+      expect(ui.frame).toContain("本次跳过");
+      expect(ui.frame).toContain("跳过此版本");
+      await ui.send("\x1b[B");
+      await ui.send("\r");
+      expect(target.commands).toEqual(["skip"]);
+      expect(ui.frame).toContain("BAASX 0.1.4 → 0.2.0");
+      expect(ui.frame).toContain("BAAS aaaaaaaa → bbbbbbbb");
+      expect(ui.frame).toContain("bun add -g");
+      expect(ui.frame).toContain("/update");
+    } finally {
+      ui.close();
+    }
+  });
+
   test.each([false, true])(
     "connected startup returns home with retained progress=%s",
     async (retain) => {
@@ -427,20 +473,21 @@ describe("startup navigation", () => {
           installation: retain ? ready(progress) : undefined,
           activity: [{ id: "connected", title: "连接已建立", tone: "success" }],
         });
-        await ui.waitForFrame("项任务 ·");
-        expect(ui.frame).toContain("项任务 ·");
+        await ui.waitForFrame("○ 空闲");
+        expect(ui.frame).toContain("○ 空闲");
+        expect(ui.frame).not.toContain("/logs 查看日志");
         expect(ui.frame).not.toContain("[1/1]");
 
         // An unrelated operation must not resurrect old startup progress.
         await ui.update({ busy: "新建配置档", installation: ready(progress) });
-        expect(ui.frame).toContain("项任务 ·");
+        expect(ui.frame).toContain("○ 空闲");
         expect(ui.frame).not.toContain("[1/1]");
         await ui.update({ busy: undefined });
         await ui.click("任务", (line) => line.includes("总览"));
         await ui.update({
           logs: [{ time: "now", level: "INFO", scope: "backend", message: "late backend log" }],
         });
-        expect(ui.frame).not.toContain("项任务 ·");
+        expect(ui.frame).not.toContain("○ 空闲");
         expect(ui.frame).not.toContain("[1/1]");
       } finally {
         ui.close();
@@ -465,7 +512,7 @@ describe("startup navigation", () => {
       });
       await ui.waitForFrame("Backend handshake failed");
       expect(ui.frame).toContain("Backend handshake failed");
-      expect(ui.frame).not.toContain("项任务 ·");
+      expect(ui.frame).not.toContain("○ 空闲");
       const retry = running();
       await ui.update({ busy: "启动本地后端", installation: retry });
       await ui.update({
@@ -474,8 +521,8 @@ describe("startup navigation", () => {
         installation: ready(retry),
         activity: [{ id: "connected", title: "连接已建立", tone: "success" }],
       });
-      await ui.waitForFrame("项任务 ·");
-      expect(ui.frame).toContain("项任务 ·");
+      await ui.waitForFrame("○ 空闲");
+      expect(ui.frame).toContain("○ 空闲");
       expect(ui.frame).not.toContain("[1/1]");
     } finally {
       ui.close();
@@ -623,7 +670,7 @@ describe("workspace input", () => {
       expect(ui.frame).toContain("重新加载界面与连接");
       await ui.send("\r");
       expect(target.reloads).toBe(1);
-      expect(ui.frame).toContain("项任务 ·");
+      expect(ui.frame).toContain("○ 空闲");
       expect(ui.frame).not.toContain("配置分类");
       await ui.send("\x1b[A");
       expect(ui.frame).not.toContain("/reload");
@@ -654,7 +701,7 @@ describe("workspace input", () => {
       await ui.send("\x1b[B");
       await ui.send("\x12");
       expect(target.reloads).toBe(1);
-      expect(ui.frame).toContain("项任务 ·");
+      expect(ui.frame).toContain("○ 空闲");
       expect(target.writes).toEqual([]);
       await ui.send("unsubmitted draft");
       await ui.send("\x12");
@@ -828,7 +875,7 @@ describe("workspace input", () => {
       const beforeReload = ui.rawModeActivations;
       await ui.send("\x12");
       await ui.waitForInputRemount(beforeReload);
-      await ui.waitForFrame("项任务 ·");
+      await ui.waitForFrame("○ 空闲");
       await ui.send("/config");
       await ui.waitForFrame("/config");
       await ui.send("\r");

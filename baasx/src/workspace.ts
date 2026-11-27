@@ -27,6 +27,7 @@ import {
 import { abortable } from "./monitor";
 import { terminalText } from "./ui";
 import { isOneOffTask } from "./oneoff-tasks";
+import { checkSelfUpdate, applySelfUpdate, type SelfUpdate } from "./self-update";
 import manifest from "../package.json";
 import {
   changedSchedulerFields,
@@ -39,6 +40,7 @@ import {
 import type { BaasEventChange } from "@baas/client";
 
 export interface WorkspaceOptions {
+  detach?: () => void;
   demo?: boolean;
   readOnly?: boolean;
   yes?: boolean;
@@ -89,6 +91,8 @@ export interface WorkspaceSnapshot {
   setupNeeded?: boolean;
   installation?: InstallationProgress;
   update?: RuntimeUpdateCheck;
+  selfUpdate?: SelfUpdate;
+  selfUpdatePrompt?: boolean;
   scheduler?: SchedulerState;
   staticData?: Record<string, unknown>;
 }
@@ -214,6 +218,87 @@ export class Workspace {
     }
     workspace.publish();
     return workspace;
+  }
+
+  private startupCheck?: AbortController;
+  private backendCheck?: AbortController;
+
+  checkOnStartup(): void {
+    if (this.startupCheck || this.state.demo || this.closed) return;
+    const controller = new AbortController();
+    this.startupCheck = controller;
+    void checkSelfUpdate(undefined, controller.signal)
+      .then((update) => {
+        if (!update.available || controller.signal.aborted) return;
+        this.state.selfUpdate = update;
+        this.state.selfUpdatePrompt =
+          !this.state.readOnly && this.preferences.skippedSelfVersion !== update.latest;
+        this.publish();
+      })
+      .catch(() => {
+        /* Offline startup still opens the workspace. */
+      });
+
+    this.checkBackendInBackground();
+  }
+
+  private checkBackendInBackground(): void {
+    this.backendCheck?.abort();
+    if (
+      !existsSync(join(this.directory, "runtime.json")) &&
+      this.preferences.connectionMode !== "local"
+    )
+      return;
+    this.backendCheck = new AbortController();
+    const { signal } = this.backendCheck;
+    // The regular runtime manager serializes foreground operations. A version
+    // probe must not claim that slot while the local backend is starting.
+    const probe = new RuntimeManager({ directory: this.directory });
+    void probe
+      .checkUpdates(undefined, signal)
+      .then((update) => {
+        if (!signal.aborted) {
+          this.state.update = update;
+          this.publish();
+        }
+      })
+      .catch(() => {})
+      .finally(() => probe.close());
+  }
+
+  async chooseSelfUpdate(choice: "install" | "skip" | "later"): Promise<void> {
+    const update = this.state.selfUpdate;
+    this.state.selfUpdatePrompt = false;
+    this.publish();
+    if (!update || choice === "skip") return;
+    if (choice === "later") {
+      this.preferences.skippedSelfVersion = update.latest;
+      await saveSettings(this.preferences, this.directory);
+      return;
+    }
+    await this.selfUpdate(update);
+  }
+
+  async selfUpdate(known?: SelfUpdate): Promise<void> {
+    await this.operation("更新 BAASX", async (signal) => {
+      if (this.state.demo || this.state.readOnly)
+        throw new Error("Self-update requires a writable, non-demo session");
+      this.startupCheck?.abort();
+      this.state.selfUpdatePrompt = false;
+      const update = known ?? (await checkSelfUpdate(undefined, signal));
+      this.state.selfUpdate = update.available ? update : undefined;
+      if (!update.available) {
+        this.activity("BAASX 已是最新版本", update.current, "success");
+        return;
+      }
+      if (this.state.dryRun) {
+        this.activity("更新预演", update.command, "info");
+        return;
+      }
+      await applySelfUpdate(update, signal);
+      this.state.selfUpdate = undefined;
+      this.activity("BAASX 已更新，退出并重新启动以使用新版本", update.latest, "success");
+    });
   }
 
   async initialize(): Promise<void> {
@@ -376,6 +461,7 @@ export class Workspace {
       }
       if (connectedLocal || this.preferences.connectionMode === "local")
         this.state.setupNeeded = true;
+      this.state.update = undefined;
       this.activity("本地环境已卸载", detail, "success");
     });
   }
@@ -639,8 +725,11 @@ export class Workspace {
   async start(): Promise<void> {
     await this.action("启动调度", "scheduler_start", {}, true);
   }
+  detach(): void {
+    this.options.detach?.();
+  }
   async stop(): Promise<void> {
-    await this.action("停止调度", "scheduler_stop");
+    await this.action("停止调度", "scheduler_stop", {}, true);
   }
   async refresh(): Promise<void> {
     await this.operation("刷新工作台", async (signal) => {
@@ -682,6 +771,8 @@ export class Workspace {
       this.state = {
         version: manifest.version,
         reloadRevision: (this.state.reloadRevision || 0) + 1,
+        selfUpdate: this.state.selfUpdate,
+        selfUpdatePrompt: this.state.selfUpdatePrompt,
         endpoint: DEFAULT_URL,
         demo: !!this.options.demo,
         connected: false,
@@ -711,6 +802,7 @@ export class Workspace {
           await this.attachLocal(signal);
         else await this.refreshData(signal);
       }
+      if (this.startupCheck) this.checkBackendInBackground();
       this.activity("工作台已重载", undefined, "success");
     });
   }
@@ -884,6 +976,10 @@ export class Workspace {
     }
     const [command, ...args] = tokens;
     if (!command) return;
+    if (command === "self" && args.length === 1 && args[0] === "update") {
+      await this.selfUpdate();
+      return;
+    }
     if (command === "reload") {
       if (args.length) {
         this.activity("命令格式有误", "用法：reload", "error");
@@ -1106,6 +1202,8 @@ export class Workspace {
   close(): void {
     if (this.closed) return;
     this.closed = true;
+    this.startupCheck?.abort();
+    this.backendCheck?.abort();
     clearTimeout(this.logPublishTimer);
     this.logPublishTimer = undefined;
     this.cancel();
@@ -1167,6 +1265,8 @@ export class Workspace {
       this.activity("已有操作正在进行", "请等待当前操作完成，或先取消当前操作。", "info");
       return undefined;
     }
+    if (["检查本地环境更新", "更新本地环境", "卸载本地环境", "正在安装运行环境"].includes(title))
+      this.backendCheck?.abort();
     const controller = new AbortController();
     this.current = controller;
     this.state.busy = title;

@@ -29,7 +29,6 @@ import manifest from "../package.json";
 import { help } from "./help";
 
 async function loadWorkspace() {
-  if (!process.stdin.isTTY || !process.stdout.isTTY) return import("./workspace-view");
   // Ink 6 caches CI detection when imported and otherwise withholds every frame
   // until exit. A real terminal needs live input and resize, even inside CI.
   // Restore the environment before workspace initialization or child processes.
@@ -71,15 +70,20 @@ async function main() {
     return;
   }
   const directory = values["config-home"] || settingsDirectory();
-  if (process.stdin.isTTY && options.positionals.length === 0 && !values.json) {
-    const { launchWorkspace } = await loadWorkspace();
-    await launchWorkspace({
+  const attach = options.positionals[0] === "attach";
+  const worker = process.env.BAASX_SESSION_WORKER;
+  if (attach && options.positionals.length !== 1) throw new Error("Usage: baasx attach [-f]");
+  if (worker || attach || (process.stdin.isTTY && !options.positionals.length && !values.json)) {
+    const { attachTerminal, hostSession } = await import("./session");
+    const workspaceOptions = {
       demo: values.demo,
       readOnly: values["read-only"],
       yes: values.yes,
       dryRun: values["dry-run"],
-      server: values.server,
-      pipe: values.pipe,
+      server: values.server || (values.pipe ? undefined : process.env.BAAS_SERVER),
+      pipe:
+        values.pipe ||
+        (values.server || process.env.BAAS_SERVER ? undefined : process.env.BAAS_PIPE),
       profile: values.profile,
       key: process.env.BAAS_KEY,
       serverKey: values["server-key"] || process.env.BAAS_SERVER_SIGN_PUBLIC_KEY,
@@ -87,7 +91,18 @@ async function main() {
       directory,
       lang: values.lang || process.env.BAAS_LANG,
       noColor,
-    });
+    };
+    if (worker) {
+      delete process.env.BAASX_SESSION_WORKER;
+      await hostSession(worker, workspaceOptions, async (io) => {
+        const { launchWorkspace } = await loadWorkspace();
+        await launchWorkspace(workspaceOptions, io);
+      });
+    } else {
+      if (!process.stdin.isTTY || !process.stdout.isTTY || values.json)
+        throw new Error("Attaching requires an interactive terminal");
+      await attachTerminal(workspaceOptions, attach, options.forceAttach);
+    }
     return;
   }
   if (!options.positionals.length)
@@ -376,6 +391,26 @@ async function main() {
         }
         break;
       }
+      case "self": {
+        if (args.length !== 1 || args[0] !== "update") throw new Error("Usage: baasx self update");
+        if (context.readOnly || values.demo)
+          throw new Error("Self-update requires a writable, non-demo session");
+        const { checkSelfUpdate, applySelfUpdate } = await import("./self-update");
+        const result = await withOperation(async (signal) => {
+          const update = await checkSelfUpdate(undefined, signal);
+          const updated =
+            !context.dryRun && update.available && (await applySelfUpdate(update, signal));
+          return {
+            updated,
+            current: update.current,
+            latest: update.latest,
+            command: update.command,
+            ...(context.dryRun ? { dry_run: true } : {}),
+          };
+        });
+        ui.result(result);
+        break;
+      }
       case "check-update":
       case "update": {
         expect(0);
@@ -516,7 +551,7 @@ async function main() {
         break;
       case "stop":
         expect(0);
-        show(command, await action("scheduler_stop"));
+        show(command, await action("scheduler_stop", {}, true));
         break;
       case "wait":
         expect(0, 1);

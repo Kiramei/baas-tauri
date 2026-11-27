@@ -8,6 +8,7 @@ export class AnimationClock {
   private elapsedMs = 0;
   private startedAt?: number;
   private focused = true;
+  private suspended = false;
   private listeners = new Set<() => void>();
   private timer?: ReturnType<typeof setInterval>;
 
@@ -27,7 +28,7 @@ export class AnimationClock {
 
   readonly subscribe = (listener: () => void) => {
     this.listeners.add(listener);
-    if (!this.timer) this.startTimer();
+    if (!this.timer && !this.suspended) this.startTimer();
     return () => {
       this.listeners.delete(listener);
       if (!this.listeners.size && this.timer) {
@@ -39,6 +40,15 @@ export class AnimationClock {
       }
     };
   };
+
+  setSuspended(suspended: boolean) {
+    this.suspended = suspended;
+    if (suspended) {
+      clearInterval(this.timer);
+      this.timer = undefined;
+      this.startedAt = undefined;
+    } else if (this.listeners.size && !this.timer) this.startTimer();
+  }
 
   setFocused(focused: boolean) {
     if (focused === this.focused) return;
@@ -62,6 +72,7 @@ export class AnimationClock {
 }
 
 const clock = new AnimationClock();
+export const suspendAnimations = (suspended: boolean) => clock.setSuspended(suspended);
 const still = () => 0;
 const noAnimation = () => () => {};
 

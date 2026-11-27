@@ -71,7 +71,7 @@ baasx --pipe /tmp/baasx.sock --profile PROFILE_ID --json status
 | `status`                                                 | Read current status for all profiles                                                                     |
 | `run <task>`                                             | Submit a daily task or supported one-off task                                                            |
 | `start`                                                  | Immediately start the profile's existing schedule, without another confirmation                          |
-| `stop`                                                   | Request a stop for the running task or scheduler; confirmation is required by default                    |
+| `stop`                                                   | Immediately request a stop for the running task or scheduler                    |
 | `wait [run_id]`                                          | Wait for a specified or currently correlatable run; never starts a task                                  |
 | `logs [count]`                                           | Recent logs; default 30, range 1–500                                                                     |
 | `watch`                                                  | Continuously observe status; Ctrl+C ends monitoring                                                      |
@@ -149,7 +149,7 @@ Only `url`, `pipe`, `profile`, `packsDirectory`, `language` and `connectionMode`
 ## Confirmation, Read-only Mode and Dry Runs
 
 - `--yes` / `-y` skips routine mutation confirmations. Noninteractive or `--json` commands cannot prompt, so mutations usually require this flag.
-- Direct `start` skips another confirmation. `run`, `stop`, configuration writes and pack mutations still require confirmation by default. Initial installation needs confirmation in the wizard; `--yes` does not bypass it.
+- Direct `start` and `stop` skip confirmation. `run`, configuration writes and pack mutations still require confirmation by default. Initial installation needs confirmation in the wizard; `--yes` does not bypass it.
 - `--read-only` rejects backend mutations and applying updates, and cannot be combined with `--yes`. It is not an operating-system sandbox and does not prohibit connecting, reading or managing local preferences.
 - `--dry-run` previews supported mutation actions, updates and pack plans. It may read real backend data for validation. It is not a universal no-write flag: local preference commands such as `settings set`, `init` and `use` still perform their normal behavior.
 
@@ -180,7 +180,9 @@ Backend ownership changes what happens on exit:
 - An external service reached through `--server` / `--pipe` does not belong to the CLI. Exiting or cancelling a wait does not automatically stop it or submitted tasks. Run `stop` explicitly when needed.
 - Workbench `/reload` stays inside the current process, preserving its backend and tasks.
 
-To keep work running after closing the terminal, start the service independently and connect BAASX to it.
+Use `/detach` to leave the workbench running. Run `baasx` to resume, or `baasx attach -f` to take over from another terminal.
+
+The workbench checks BAASX and the installed local backend on startup and shows available updates in the overview. Use `baasx self update` for the CLI and `baasx update` for the backend.
 
 ## JSON, Streaming and Exit Codes
 
