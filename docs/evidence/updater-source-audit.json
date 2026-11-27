@@ -1263,5 +1263,44 @@
         "gitContentVerified": true
       }
     ]
+  },
+  "updateSourceFollowup": {
+    "verificationKind": "code inspection and pinned Git-content comparison",
+    "scope": [
+      "Docker WebUI backend update actions and per-source diagnostics",
+      "The existing macOS release workflow prepares the Finder layout and the bundle verifier checks the packaged layout files"
+    ],
+    "sources": [
+      {
+        "file": "src/pages/SettingsPage.tsx",
+        "revision": "8ba60ed073686f695f48b115ecbee8485939633f",
+        "sha256": "90283c13021434596bd3439df3a04edc835fd492a9f927ab16a135849687466e",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src/components/layout/Sidebar.tsx",
+        "revision": "8ba60ed073686f695f48b115ecbee8485939633f",
+        "sha256": "86736826c87c3a5cd820e69b6807a80b34e9b559238755c0acc2b1fd34b1a2f3",
+        "gitContentVerified": true
+      },
+      {
+        "file": "src/store/WebsocketStore.ts",
+        "revision": "8ba60ed073686f695f48b115ecbee8485939633f",
+        "sha256": "24e7394a9b02a5cd4af335685a7870e8fe27d3cfabd3a8a8ae4761a64233b780",
+        "gitContentVerified": true
+      },
+      {
+        "file": ".github/workflows/release-app.yml",
+        "revision": "8cf49940b962dd1f29fedaa8c8cae23b8d01a08e",
+        "sha256": "90eb959cc81e175cd0680ec2a7b32652b141d9ce04f961204997591f3194c0c8",
+        "gitContentVerified": true
+      },
+      {
+        "file": "scripts/verify-macos-bundles.py",
+        "revision": "8cf49940b962dd1f29fedaa8c8cae23b8d01a08e",
+        "sha256": "4da72b9cc0ff54459ba21c9275c0873a846fbeb5307c2f85f614ce76730cf5a2",
+        "gitContentVerified": true
+      }
+    ]
   }
 }
