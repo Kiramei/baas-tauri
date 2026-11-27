@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
 import { PageKey } from "@/types/app";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
+import { updateDockerBackend } from "@/shared/DockerBackendUpdate";
 import { reloadWithoutPrompt } from "@/shared/reload";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
@@ -60,14 +61,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
   const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const versionConfig = useWebSocketStore((state) => state.versionStore);
   const trigger = useWebSocketStore((state) => state.trigger);
-  const triggerStream = useWebSocketStore((state) => state.triggerStream);
   const [backendUpdating, setBackendUpdating] = useState(false);
   const [backendUpdateLogs, setBackendUpdateLogs] = useState<string[]>([]);
   const [backendUpdateLogOpen, setBackendUpdateLogOpen] = useState(false);
   const tauriUpdate = useTauriSelfUpdate();
   const tauriVersion = versionConfig["tauri"] ?? {};
   const hasBackendUpdate =
-    __WITH_TAURI__ &&
+    (__WITH_TAURI__ ||
+      (__WITH_WEBUI__ && versionConfig.method === "docker-git" && versionConfig.updateAvailable)) &&
     !__WITH_ANDROID__ &&
     Boolean(versionConfig["remote"]) &&
     versionConfig["local"] !== versionConfig["remote"];
@@ -211,61 +212,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
     setBackendUpdateLogs([]);
     setBackendUpdateLogOpen(true);
     try {
-      await stopAllTasks();
-      if (__WITH_TAURI__ && !__WITH_ANDROID__) {
-        reloadWithoutPrompt();
+      if (__WITH_WEBUI__) {
+        // The authenticated Docker command stops the service's actual tasks before updating.
+        toast.info(t("update.backendStarted"));
+        const restarted = await updateDockerBackend((line) =>
+          setBackendUpdateLogs((prev) => [...prev, line])
+        );
+        setBackendUpdating(false);
+        if (restarted) reloadWithoutPrompt();
         return;
       }
-      triggerStream(
-        {
-          timestamp: getTimestampMs(),
-          command: "update_to_latest_stream",
-          payload: {},
-        },
-        async (event) => {
-          const data = event.data ?? {};
-          if (data.done) {
-            if (event.status === "error") {
-              setBackendUpdateLogs((prev) => [...prev, `ERROR ${String(event.error ?? "")}`]);
-              toast.error(t("update.backendStartFailed"), {
-                description: String(event.error ?? ""),
-              });
-            }
-            setBackendUpdating(false);
-            return;
-          }
-          if (data.type === "progress") {
-            setBackendUpdateLogs((prev) => [...prev, formatBackendUpdateEvent(data)]);
-            return;
-          }
-          if (data.type === "error") {
-            setBackendUpdateLogs((prev) => [...prev, `ERROR ${String(data.error ?? "")}`]);
-            setBackendUpdating(false);
-            toast.error(t("update.backendStartFailed"), {
-              description: String(data.error ?? ""),
-            });
-            return;
-          }
-          if (data.type === "result") {
-            const result = data.result ?? {};
-            setBackendUpdating(false);
-            if (result.status === "updated") {
-              setBackendUpdateLogs((prev) => [...prev, `DONE ${result.current ?? ""}`]);
-              toast.success(t("update.backendStarted"), {
-                description: result.current ?? result.channel ?? undefined,
-              });
-              return;
-            }
-            if (result.status === "skipped") {
-              setBackendUpdateLogs((prev) => [...prev, "SKIP no_update"]);
-              toast.info(t("update.tauriUpToDate"));
-              return;
-            }
-            toast.info(t("update.backendStarted"));
-          }
-        }
-      );
-      toast.info(t("update.backendStarted"));
+      await stopAllTasks();
+      reloadWithoutPrompt();
     } catch (error) {
       toast.error(t("update.backendStartFailed"), {
         description: error instanceof Error ? error.message : String(error),
@@ -273,6 +231,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
       setBackendUpdating(false);
     }
   };
+
+  const onDockerUpdate = React.useEffectEvent(() => {
+    if (hasBackendUpdate && !backendUpdating) void handleBackendUpdate();
+  });
+  React.useEffect(() => {
+    if (!__WITH_WEBUI__) return;
+    const update = () => onDockerUpdate();
+    window.addEventListener("baas:update-docker-backend", update);
+    return () => window.removeEventListener("baas:update-docker-backend", update);
+  }, []);
 
   return (
     <div
@@ -704,31 +672,4 @@ const FloatingUpdateButton: React.FC<{
       </motion.button>
     </IconTooltip>
   );
-};
-
-const formatBytes = (value?: number): string => {
-  if (!value) return "0 B";
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
-  return `${(value / 1024 / 1024).toFixed(1)} MiB`;
-};
-
-const formatBackendUpdateEvent = (data: any): string => {
-  const stage = String(data.stage ?? "progress");
-  if (stage === "fetch_sha")
-    return `FETCH SHA channel=${data.channel ?? ""} method=${data.method ?? ""}`;
-  if (stage === "remote_sha") return `REMOTE SHA ${String(data.sha ?? "").slice(0, 12)}`;
-  if (stage === "download_start") return `DOWNLOAD ${data.url ?? ""}`;
-  if (stage === "download_progress") {
-    if (data.total)
-      return `DOWNLOADING ${formatBytes(data.downloaded)} / ${formatBytes(data.total)}`;
-    return `DOWNLOADING ${formatBytes(data.downloaded)}`;
-  }
-  if (stage === "download_done") return `DOWNLOADED ${formatBytes(data.downloaded)}`;
-  if (stage === "extract_start") return "EXTRACT archive";
-  if (stage === "copy_start") return "COPY repository files";
-  if (stage === "copy_done") return "COPY done";
-  if (stage === "write_setup") return "WRITE setup.toml";
-  if (stage === "done") return `DONE ${String(data.sha ?? "").slice(0, 12)}`;
-  if (stage === "skipped") return `SKIP ${data.reason ?? ""}`;
-  return stage.toUpperCase();
 };

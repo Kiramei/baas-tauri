@@ -244,22 +244,35 @@ def serve(app_dir: Path) -> int:
         nonlocal stopping
         stopping = True
 
+    restart_at = None
+
+    def request_restart(_signum, _frame):
+        nonlocal restart_at
+        # Allow the service to flush the authenticated command result.
+        if restart_at is None:
+            restart_at = time.monotonic() + 1
+
+    def start_backend():
+        return ("backend", subprocess.Popen(
+            [sys.executable, __file__, "--run-service"], cwd=app_dir, start_new_session=True,
+            env=dict(os.environ, BAAS_SERVICE_OCR_UPDATE_CHECK="0"),
+        ))
+
     previous_handlers = {number: signal.signal(number, request_stop) for number in (signal.SIGTERM, signal.SIGINT)}
+    previous_handlers[signal.SIGUSR1] = signal.signal(signal.SIGUSR1, request_restart)
     try:
         subprocess.run(["nginx", "-t"], check=True)
         print("[INFO] Starting nginx and the loopback-only Python service.", flush=True)
         processes.append(("nginx", subprocess.Popen(["nginx", "-g", "daemon off;"], start_new_session=True)))
         if not stopping:
-            # Docker installs missing OCR explicitly; keep backend initialization
-            # and real model self-tests, without its separate Gitee update path.
-            backend_environment = dict(os.environ, BAAS_SERVICE_OCR_UPDATE_CHECK="0")
-            processes.append(("backend", subprocess.Popen(
-                [sys.executable, "main.service.py", "--host", "127.0.0.1", "--port", "8190"],
-                cwd=app_dir,
-                start_new_session=True,
-                env=backend_environment,
-            )))
+            processes.append(start_backend())
         while not stopping:
+            if restart_at is not None and time.monotonic() >= restart_at:
+                stop_processes([processes.pop()])
+                if stopping:
+                    break
+                processes.append(start_backend())
+                restart_at = None
             for name, process in processes:
                 status = process.poll()
                 if status is not None:
@@ -288,7 +301,12 @@ def main(argv=None) -> int:
     parser.add_argument("repo_url", nargs="?", default=STABLE_REPOSITORY,
                         help="Repository to clone for a first install (default: stable)")
     parser.add_argument("--healthcheck", action="store_true")
+    parser.add_argument("--run-service", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    if args.run_service:
+        from webui_service import run_service
+        run_service(Path.cwd(), no_update_enabled)
+        return 0
     if args.healthcheck:
         return healthcheck()
     try:

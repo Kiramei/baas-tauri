@@ -18,6 +18,10 @@ SPEC = importlib.util.spec_from_file_location("baas_container", ROOT / "scripts/
 container = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(container)
 
+UPDATE_SPEC = importlib.util.spec_from_file_location("webui_service", ROOT / "scripts/docker/webui_service.py")
+webui = importlib.util.module_from_spec(UPDATE_SPEC)
+UPDATE_SPEC.loader.exec_module(webui)
+
 
 class DockerStartupTests(unittest.TestCase):
     def setUp(self):
@@ -306,6 +310,45 @@ class DockerStartupTests(unittest.TestCase):
         container.copy_missing(source, self.app)
         self.assertEqual((external / "profile.json").read_text(), "preserve")
 
+    def test_docker_probe_reads_the_exact_branch_and_reports_missing_refs(self):
+        repo = self.make_repository()
+        config = {"url": repo.as_uri(), "branch": "master"}
+        self.assertEqual(webui.test_git_source(config, 2), (True, self.git(repo, "rev-parse", "HEAD")))
+        success, detail = webui.test_git_source(dict(config, branch="missing"), 2)
+        self.assertFalse(success)
+        self.assertIn("missing", detail)
+
+    def test_webui_updates_configured_branch_and_reports_the_running_revision(self):
+        repo = self.make_repository()
+        self.git(repo, "checkout", "-b", "docker-release")
+        container.prepare_service(self.app, repo.as_uri(), "docker-release")
+        restart = MagicMock()
+        updates = webui.CheckoutUpdates(self.app, "docker-release", container.no_update_enabled, restart)
+        old = updates.running
+        (repo / "main.service.py").write_text("# updated service")
+        self.git(repo, "commit", "-am", "Update service")
+        target = self.git(repo, "rev-parse", "HEAD")
+        self.setup_config("[general]\nno_update = true\n")
+        self.assertFalse(updates.version()["update_available"])
+        self.assertEqual(updates.install()["status"], "skipped")
+        restart.assert_not_called()
+        self.setup_config("[general]\nno_update = false\n")
+        self.assertEqual(updates.version()["remote"], target)
+        (self.app / "main.service.py").write_text("# local edit")
+        with self.assertRaisesRegex(RuntimeError, "fast-forward"):
+            updates.install()
+        self.assertEqual((self.app / "main.service.py").read_text(), "# local edit")
+        restart.assert_not_called()
+        self.git(self.app, "restore", "main.service.py")
+        self.assertEqual(updates.install(), {"status": "updated", "current": target})
+        self.assertEqual(updates.version()["local"], old)
+        self.assertEqual((self.app / "setup.toml").read_text(), "[general]\nno_update = false\n")
+        restart.assert_called_once()
+        restarted = webui.CheckoutUpdates(self.app, "docker-release", container.no_update_enabled, restart)
+        self.assertFalse(restarted.version()["update_available"])
+        self.assertEqual(restarted.install(), {"status": "unchanged", "current": target})
+        restart.assert_called_once()
+
     def test_child_exit_stops_sibling_and_reports_failure(self):
         nginx = MagicMock(pid=100)
         nginx.poll.return_value = None
@@ -317,7 +360,7 @@ class DockerStartupTests(unittest.TestCase):
              patch.object(container, "stop_processes") as stop:
             self.assertEqual(container.serve(self.app), 7)
             stop.assert_called_once_with([("nginx", nginx), ("backend", backend)])
-            self.assertIn("127.0.0.1", spawn.call_args_list[1].args[0])
+            self.assertIn("--run-service", spawn.call_args_list[1].args[0])
             self.assertEqual(spawn.call_args_list[1].kwargs["env"]["BAAS_SERVICE_OCR_UPDATE_CHECK"], "0")
 
     def test_sigterm_stops_both_children_cleanly(self):
