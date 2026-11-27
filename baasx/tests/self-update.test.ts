@@ -28,7 +28,7 @@ test("registry installs use their owning manager and a pinned stable version", a
     for (const [path, manager, command] of [
       ["/opt/bun/install/global/node_modules/@kiramei/baasx", "bun", "bun add -g"],
       ["C:\\pnpm\\global\\5\\node_modules\\.pnpm\\@kiramei+baasx", "pnpm", "pnpm add -g"],
-      ["/home/u/.config/yarn/global/node_modules/@kiramei/baasx", "yarn", "yarn global add"],
+      ["/fixture/.config/yarn/global/node_modules/@kiramei/baasx", "yarn", "yarn global add"],
       ["/usr/lib/node_modules/@kiramei/baasx", "npm", "npm install -g"],
       ["/cached/npm/registry.npmjs.org/@kiramei/baasx/0.1.0", "deno", "deno install -g -A --force"],
     ] as const) {
