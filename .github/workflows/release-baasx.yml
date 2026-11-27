@@ -142,7 +142,8 @@ jobs:
           fail_on_unmatched_files: true
           files: release-assets/*
           body: |
-            ## QQ 更新说明
+            ## 更新说明
+
             ${{ env.QQ_RELEASE_NOTES }}
 
             ## Installation

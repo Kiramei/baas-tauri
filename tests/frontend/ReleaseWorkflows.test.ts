@@ -106,6 +106,11 @@ test("Linux releases build each native 64-bit target once with signed DEB, RPM a
 
 const shellTest = process.platform === "win32" ? test.skip : test;
 
+test("BAASX release cards open with the versioned update notes", () => {
+  const publish = step(workflow("release-baasx"), "publish", "Publish baasx assets without changing the desktop Latest release");
+  expect(publish.with?.body).toStartWith("## 更新说明\n\n${{ env.QQ_RELEASE_NOTES }}");
+});
+
 shellTest("app release notes publish a versioned QQ summary before the full changelog and downloads", () => {
   const source = fs.mkdtempSync(path.join(os.tmpdir(), "app-release-notes-"));
   const notesDirectory = path.join(source, "release-notes");
@@ -125,7 +130,7 @@ shellTest("app release notes publish a versioned QQ summary before the full chan
     fs.writeFileSync(path.join(notesDirectory, "0.0.11.md"), summary);
     fs.writeFileSync(path.join(notesDirectory, "0.0.9.md"), "  \n");
     for (const [version, expectedPrefix] of [
-      ["0.0.11", `## QQ 更新说明\n\n${summary}\n\n`],
+      ["0.0.11", `## 更新说明\n\n${summary}\n\n`],
       ["0.0.10", ""],
       ["0.0.9", ""],
     ]) {
