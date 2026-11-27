@@ -5,7 +5,13 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import platforms from "../scripts/distribution-platforms.json";
 import { tmpdir } from "node:os";
-import { checkSelfUpdate, newerStable, packageManager, replaceNative } from "../src/self-update";
+import {
+  archiveTar,
+  checkSelfUpdate,
+  newerStable,
+  packageManager,
+  replaceNative,
+} from "../src/self-update";
 
 const platformLabels = platforms.map((p) => {
   const os = ({ linux: "Linux", darwin: "macOS", win32: "Windows" } as Record<string, string>)[
@@ -144,7 +150,7 @@ test("native updates verify the archive before replacing the executable and help
       await writeFile(join(stage, "dist/baasx-node.mjs"), "new");
       paths.push("dist");
     }
-    execFileSync("tar", ["-czf", join(dir, "release.tgz"), "-C", stage, ...paths]);
+    execFileSync(archiveTar, ["-czf", join(dir, "release.tgz"), "-C", stage, ...paths]);
     archive = await readFile(join(dir, "release.tgz"));
     await expect(replaceNative("1.0.0", join(install, exe), signal)).rejects.toThrow(
       "checksum mismatch"
