@@ -4,21 +4,20 @@ import CButton from "@/components/ui/CButton";
 import { EllipsisWithTooltip } from "@/components/ui/ETooltip";
 import { FormSelect } from "@/components/ui/FormSelect";
 import { useAppTranslation } from "@/shared/useAppTranslation";
-import { i18nKey } from "@/shared/I18nKeys";
-import type { TranslationKey } from "@/types/i18n";
 import "./sha-diagnostics.css";
 
 export type ShaDiagnosticResult = {
-  method: TranslationKey;
+  method: string;
   status: "pending" | "success" | "error" | "testing";
   time?: string;
   sha?: string;
+  error?: string;
 };
 
 type ShaDiagnosticsProps = {
   value: string;
   options: { value: string; label: string }[];
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
   loading: boolean;
   onTest: () => void;
   results: readonly ShaDiagnosticResult[];
@@ -47,13 +46,15 @@ export function ShaDiagnostics({
   return (
     <div className="sha-diagnostics">
       <div className="sha-diagnostics-toolbar">
-        <FormSelect
-          value={value}
-          options={options}
-          onChange={onChange}
-          ariaLabel={t("update.shaConnectivityTest")}
-          className="sha-diagnostics-method"
-        />
+        {onChange && (
+          <FormSelect
+            value={value}
+            options={options}
+            onChange={onChange}
+            ariaLabel={t("update.shaConnectivityTest")}
+            className="sha-diagnostics-method"
+          />
+        )}
         <CButton
           type="button"
           variant="secondary"
@@ -114,9 +115,18 @@ export function ShaDiagnostics({
             {results.map((result) => (
               <tr key={result.method}>
                 <td>
-                  <EllipsisWithTooltip text={t(i18nKey(result.method))} />
+                  <EllipsisWithTooltip
+                    text={
+                      options.find((option) => option.value === result.method)?.label ??
+                      result.method
+                    }
+                  />
                 </td>
-                <td className="sha-diagnostics-status" data-status={result.status}>
+                <td
+                  className="sha-diagnostics-status"
+                  data-status={result.status}
+                  title={result.error}
+                >
                   {result.status === "success" && <CheckCircle2 aria-hidden="true" />}
                   {result.status === "error" && <XCircle aria-hidden="true" />}
                   {result.status === "testing" && (
@@ -127,7 +137,7 @@ export function ShaDiagnostics({
                     {result.status === "success"
                       ? "✓"
                       : result.status === "error"
-                        ? "×"
+                        ? (result.error ?? "×")
                         : result.status === "testing"
                           ? t("shaTest.testing")
                           : "—"}
@@ -137,6 +147,8 @@ export function ShaDiagnostics({
                 <td className="sha-diagnostics-numeric font-mono">
                   {result.sha ? (
                     <EllipsisWithTooltip text={result.sha.substring(0, 6)} tooltip={result.sha} />
+                  ) : result.error ? (
+                    <EllipsisWithTooltip text={result.error} tooltip={result.error} />
                   ) : (
                     "—"
                   )}

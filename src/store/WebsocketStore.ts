@@ -242,11 +242,15 @@ const checkBackendUpdater = async () => {
         ...state,
         versionStore: {
           ...state.versionStore,
-          local: event.data.local,
-          remote: event.data.remote,
-          updateAvailable: event.data.update_available ?? event.data.local !== event.data.remote,
-          channel: event.data.channel ?? state.versionStore.channel,
-          method: event.data.method ?? state.versionStore.method,
+          local: event.data?.local,
+          remote: event.data?.remote,
+          updateAvailable:
+            event.data?.update_available ??
+            Boolean(event.data?.remote && event.data.local !== event.data.remote),
+          branch: event.data?.branch,
+          error: event.error ?? event.data?.error ?? null,
+          channel: event.data?.channel ?? state.versionStore.channel,
+          method: event.data?.method ?? state.versionStore.method,
           checking: false,
           lastChecked: Date.now(),
         },
@@ -1184,6 +1188,8 @@ export const useWebSocketStore = create<WebSocketState>()(
                   updateAvailable: version.update_available,
                   channel: version.channel,
                   method: version.method,
+                  branch: version.branch,
+                  error: version.error ?? null,
                 },
               }));
             } else {

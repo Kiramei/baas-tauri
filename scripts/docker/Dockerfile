@@ -105,6 +105,7 @@ COPY dist/ /usr/share/nginx/html/
 # ---- Runtime scripts ----
 COPY entrypoint.sh /entrypoint.sh
 COPY container.py /usr/local/bin/baas-container.py
+COPY webui_service.py /usr/local/bin/webui_service.py
 
 RUN git config --system --add safe.directory /app \
     && chmod +x /entrypoint.sh \
