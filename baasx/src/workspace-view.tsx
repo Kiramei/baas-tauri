@@ -1,4 +1,5 @@
 import chalk from "chalk";
+import { suspendAnimations } from "./motion";
 import { InstallationPanel } from "./installation-view";
 import { FieldEditor, type EditableField } from "./field-editor";
 import {
@@ -123,6 +124,8 @@ export const COMMANDS: Choice[] = [
   { id: "doctor", label: "/doctor", detail: "检查服务连接" },
   { id: "home", label: "/home", detail: "返回工作台总览" },
   { id: "help", label: "/help", detail: "命令与键盘操作" },
+  { id: "self update", label: "/self update", detail: "更新 BAASX" },
+  { id: "detach", label: "/detach", detail: "分离工作台并保持后台运行" },
   { id: "quit", label: "/quit", detail: "退出终端" },
 ];
 const inputSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
@@ -442,7 +445,29 @@ function Home({
   offset?: number;
 }) {
   const current = state.status[state.profile || ""];
-  const count = Math.max(0, Math.floor((height - 3) / 2));
+  const updates: { name: string; from: string; to: string; command: string; notes: string }[] = [];
+  if (state.selfUpdate?.available) {
+    const { current, latest, command, notes } = state.selfUpdate;
+    updates.push({ name: "BAASX", from: current, to: latest, command, notes });
+  }
+  for (const repo of state.update?.repositories ?? []) {
+    if (!repo.available) continue;
+    const project =
+      repo.name === "ocr"
+        ? "pur1fying/BAAS_Cpp_prebuild"
+        : state.update?.channel === "dev"
+          ? "Kiramei/baas-dev"
+          : "pur1fying/blue_archive_auto_script";
+    updates.push({
+      name: repo.name === "ocr" ? "OCR" : "BAAS",
+      from: repo.localVersion.slice(0, 8),
+      to: repo.remoteVersion.slice(0, 8),
+      command: "/update",
+      notes: `https://github.com/${project}/commit/${repo.remoteVersion}`,
+    });
+  }
+  const detail = height >= 3 + updates.length * 3;
+  const count = Math.max(0, Math.floor((height - 3 - updates.length * (detail ? 3 : 1)) / 2));
   const rows = count
     ? activity.slice(
         Math.max(0, activity.length - offset - count),
@@ -458,13 +483,29 @@ function Home({
           {current?.running ? "● 运行中" : state.connected ? "○ 空闲" : "○ 等待连接"}
         </Text>
       </Text>
-      {height > 1 && (
+      {!state.connected && height > 1 && (
         <Text color={MUTED} wrap="truncate">
-          {state.connected
-            ? `${Object.keys(state.tasks).length} 项任务 · ${state.packs.length} 个指令 · /tasks 选择任务 · /logs 查看日志`
-            : "/connect 连接服务 → /profiles 选择配置档 → /tasks 执行任务"}
+          /connect 连接服务 → /profiles 选择配置档 → /tasks 执行任务
         </Text>
       )}
+      {updates.map((update) => (
+        <Box key={update.name} flexDirection="column" flexShrink={0}>
+          <Text color={NOTICE} bold wrap="truncate">
+            ↑ {update.name} {update.from} → {update.to}
+            {!detail && ` · ${update.name === "BAASX" ? "/self update" : "/update"}`}
+          </Text>
+          {detail && (
+            <Text color={ACCENT} wrap="truncate">
+              {update.command}
+            </Text>
+          )}
+          {detail && (
+            <Text color={MUTED} wrap="truncate">
+              {update.notes}
+            </Text>
+          )}
+        </Box>
+      ))}
       {height >= 5 && <Text> </Text>}
       {rows.map((item) => (
         <Box key={item.id} flexDirection="column" flexShrink={0}>
@@ -549,6 +590,11 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
   const latestActivity = state.activity.at(-1);
   const statusActivity = latestActivity?.title === "连接已建立" ? undefined : latestActivity;
   const prompt = state.prompt;
+  const [updateChoice, setUpdateChoice] = useState(0);
+  const offerUpdate =
+    !!state.selfUpdate && !!state.selfUpdatePrompt && !prompt && !editing && !state.busy && !input;
+  const updateChoices = ["立即更新", "本次跳过", "跳过此版本"];
+
   const compact = columns < 64 || rows < 24;
   const language = state.language || "zh";
   const listing = [
@@ -858,6 +904,10 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
     setHistory((old) => [line, ...old.filter((x) => x !== line)].slice(0, 100));
     setHistoryIndex(-1);
     resetInput();
+    if (command === "detach") {
+      workspace.detach();
+      return;
+    }
     if (["quit", "exit"].includes(command)) {
       workspace.close();
       exit();
@@ -1098,6 +1148,18 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
       const choices = choicesFor(input);
       const suggestions = suggestionsFor(input);
       const suggestionIndex = Math.min(suggestedRef.current, Math.max(0, suggestions.length - 1));
+      if (offerUpdate) {
+        const pick = (n: number) =>
+          void operation(() =>
+            workspace.chooseSelfUpdate((["install", "skip", "later"] as const)[n])
+          );
+        if (key.escape || (key.ctrl && text === "c")) pick(1);
+        else if (key.return) pick(updateChoice);
+        else if (/^[123]$/.test(text)) pick(Number(text) - 1);
+        else if (key.upArrow || key.downArrow)
+          setUpdateChoice((n) => (n + (key.downArrow ? 1 : 2)) % 3);
+        return;
+      }
       if (!prompt && !state.busy && key.ctrl && text === "r") {
         void operation(() => workspace.reload());
         return;
@@ -1312,6 +1374,36 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
     : "输入 / 查看操作，或输入 tasks、start 等命令";
   const currentStatus = state.status[state.profile || ""];
   const activeTask = currentStatus?.running ? currentStatus.current_task : undefined;
+  if (offerUpdate && state.selfUpdate)
+    return (
+      <LanguageContext.Provider value={language}>
+        <Box height={rows} width={columns} flexDirection="column" paddingX={1} overflow="hidden">
+          <Text bold color={NOTICE}>
+            BAASX {state.selfUpdate.current} → {state.selfUpdate.latest}
+          </Text>
+          <Text wrap="truncate">{state.selfUpdate.notes}</Text>
+          <Text wrap="truncate" color={ACCENT}>
+            {state.selfUpdate.command}
+          </Text>
+          {updateChoices.map((label, i) => (
+            <HitBox
+              key={label}
+              onPress={() =>
+                void operation(() =>
+                  workspace.chooseSelfUpdate((["install", "skip", "later"] as const)[i])
+                )
+              }
+            >
+              <Text color={i === updateChoice ? ACCENT : undefined}>
+                {i === updateChoice ? "❯ " : "  "}
+                {i + 1}. {label}
+              </Text>
+            </HitBox>
+          ))}
+          <Text color={MUTED}>↑↓ · Enter · Esc</Text>
+        </Box>
+      </LanguageContext.Provider>
+    );
   if (columns < 24 || rows < 12)
     return (
       <LanguageContext.Provider value={language}>
@@ -1658,14 +1750,18 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
   );
 }
 
-export async function launchWorkspace(options: WorkspaceOptions & { noColor?: boolean }) {
+export async function launchWorkspace(
+  options: WorkspaceOptions & { noColor?: boolean },
+  io: import("./session").SessionTerminal
+) {
   if (options.noColor || process.env.NO_COLOR !== undefined) process.env.FORCE_COLOR = "0";
-  chalk.level =
-    options.noColor || process.env.NO_COLOR !== undefined ? 0 : process.stdout.isTTY ? 3 : 0;
-  const workspace = await Workspace.create(options);
+  chalk.level = options.noColor || process.env.NO_COLOR !== undefined ? 0 : io.output.isTTY ? 3 : 0;
+  const workspace = await Workspace.create({ ...options, detach: io.detach });
   const mouse = new MouseBus();
   mouse.setMaxListeners(200);
-  const terminal = terminalSession(process.stdin, process.stdout, mouse);
+  const onAttached = (attached: boolean) => suspendAnimations(!attached);
+  io.output.on("attached", onAttached);
+  const terminal = terminalSession(io.input, io.output, mouse);
   const restore = () => terminal.close();
   process.once("exit", restore);
   const app = render(
@@ -1681,9 +1777,11 @@ export async function launchWorkspace(options: WorkspaceOptions & { noColor?: bo
   process.once("SIGTERM", stop);
   try {
     // First-run setup pauses here; configured local and explicit remote modes initialize themselves.
+    workspace.checkOnStartup();
     void workspace.initialize();
     await app.waitUntilExit();
   } finally {
+    io.output.off("attached", onAttached);
     process.removeListener("SIGTERM", stop);
     workspace.close();
     app.unmount();

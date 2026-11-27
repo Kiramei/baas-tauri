@@ -34,6 +34,9 @@ export interface CommandPack {
 
 const CORE_NAMES = new Set([
   "home",
+  "attach",
+  "detach",
+  "self",
   "language",
   "setup",
   "install",
