@@ -587,7 +587,7 @@ jobs:
 
           {
             if [[ "$qq_notes" =~ [^[:space:]] ]]; then
-              printf '## QQ 更新说明\n\n%s\n\n' "$qq_notes"
+              printf '## 更新说明\n\n%s\n\n' "$qq_notes"
             fi
             cat << EOF
           ## Release Notes

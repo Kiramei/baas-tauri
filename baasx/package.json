@@ -1,6 +1,6 @@
 {
   "name": "@baas/baasx",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Independent BAAS automation terminal",
   "license": "GPL-3.0-only",
   "type": "module",
