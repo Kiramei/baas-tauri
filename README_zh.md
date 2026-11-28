@@ -3,7 +3,7 @@
 <p>
   <a href="README.md"><kbd>English README</kbd></a>
   <a href="https://github.com/Kiramei/baas-tauri/releases/latest"><kbd>下载最新版</kbd></a>
-  <a href="https://baas.kiramei.moe/docs/zh/"><kbd>文档站</kbd></a>
+  <a href="https://baas.wiki/docs/zh/"><kbd>文档站</kbd></a>
   <a href="LICENSE"><kbd>GPL-3.0-only</kbd></a>
 </p>
 
@@ -56,7 +56,7 @@ BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_arch
 
 ## 📚 文档站
 
-[中文文档](https://baas.kiramei.moe/docs/zh/) · [English documentation](https://baas.kiramei.moe/docs/en/)
+[中文文档](https://baas.wiki/docs/zh/) · [English documentation](https://baas.wiki/docs/en/)
 
 文档站源码位于 [`docs/`](docs/)，使用 Fumadocs 和 Next.js。本地预览：
 
@@ -167,12 +167,12 @@ baas-tauri/
 游戏冷启动至邮件流程、预览横屏进入/返回、Activity 重建及配置 ZIP 往返。
 Android 15 shell 模式输入、完整手势矩阵、release 构建及整体提速尚未通过验收，
 不代表通用兼容或发布验收通过。详见
-[Android 使用指南](https://baas.kiramei.moe/docs/zh/guide/android/)与
-[故障排查](https://baas.kiramei.moe/docs/zh/reference/troubleshooting/)。
+[Android 使用指南](https://baas.wiki/docs/zh/guide/android/)与
+[故障排查](https://baas.wiki/docs/zh/reference/troubleshooting/)。
 
-共用[插件工作区](https://baas.kiramei.moe/docs/zh/features/plugins/)提供囤体、自动推图、
+共用[插件工作区](https://baas.wiki/docs/zh/features/plugins/)提供囤体、自动推图、
 装备规划、搜索棋盘计算器和按配置档编辑主页的工具。浏览器部署与登录 Key 管理见
-[WebUI 与 Docker](https://baas.kiramei.moe/docs/zh/guide/webui/)。
+[WebUI 与 Docker](https://baas.wiki/docs/zh/guide/webui/)。
 
 ## 许可证
 

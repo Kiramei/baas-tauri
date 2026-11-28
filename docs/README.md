@@ -13,7 +13,7 @@ bun install --frozen-lockfile
 bun run build
 ```
 
-Serve `docs/out` with a static server. For authoring, run `bun run dev` inside `docs`. The export is deployed at the site root; the supported public entry is https://baas.kiramei.moe.
+Serve `docs/out` with a static server. For authoring, run `bun run dev` inside `docs`. The export is deployed at the site root; the supported public entry is https://baas.wiki.
 
 ## Validation
 
