@@ -33,7 +33,39 @@ description: 桌面包选择、普通与便携安装、全部高级选项、实�
 
 ### macOS 安全提示
 
-系统拦截未经验证的应用时，先核对来源和完整性。绕过 Gatekeeper 存在风险。Apple 的 [官方说明](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac) 提供尝试启动后限时出现的“隐私与安全性 → 仍要打开”例外入口。不要关闭 Gatekeeper/SIP，也不要对来源不明的下载盲目移除隔离属性。
+BAAS Tauri 暂未经过 Apple 公证，首次打开时 Gatekeeper 会拦截。先确认 DMG 下载自 [官方 Releases](https://github.com/Kiramei/baas-tauri/releases)，再按以下步骤为 BAAS Tauri 单独添加例外。流程依据 Apple 的 [官方说明](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac)，截图来自 macOS 简体中文界面，不同系统版本的文字可能略有差异。
+
+<Callout type="warn">
+  绕过 Gatekeeper 存在风险，只对来源可信的安装包这样做。不要关闭 Gatekeeper/SIP，也不要对来源不明的下载盲目移除隔离属性。
+</Callout>
+
+**1. 尝试打开一次。** 将 BAAS Tauri 拖入“应用程序”后双击打开。出现“未打开 “BAAS Tauri””提示时点**完成**，不要点“移到废纸篓”。
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/macos-gatekeeper-blocked.webp"
+  alt="macOS 提示未打开 BAAS Tauri，提供完成和移到废纸篓两个按钮"
+  width={243}
+/>
+
+**2. 在“隐私与安全性”中允许。** 打开“系统设置 → 隐私与安全性”，滚动到“安全性”。在“已阻止 “BAAS Tauri” 以保护 Mac。”一行点**仍要打开**。该按钮仅在尝试打开后约一小时内显示；没有出现时，回到第 1 步再打开一次。
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/macos-gatekeeper-privacy-security.webp"
+  alt="系统设置的隐私与安全性页面，安全性区域显示已阻止 BAAS Tauri 以及仍要打开按钮"
+/>
+
+**3. 确认打开。** 再次弹出“打开 “BAAS Tauri”？”时点**仍要打开**，按提示输入登录密码或使用触控 ID。
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/macos-gatekeeper-open-anyway.webp"
+  alt="macOS 询问是否打开 BAAS Tauri，提供移到废纸篓、仍要打开和完成三个按钮"
+  width={251}
+/>
+
+完成后 BAAS Tauri 会保存为例外，之后可直接双击启动。若安装新版 DMG 后再次被拦截，重复以上步骤。
 
 ## 目录选择与启动
 

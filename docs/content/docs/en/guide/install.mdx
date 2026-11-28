@@ -33,7 +33,39 @@ Run `chmod +x BAAS.Tauri_*.AppImage`, then launch the matching file. Updates ver
 
 ### macOS Security
 
-If macOS blocks an unverified app, first verify its origin and integrity. Overriding Gatekeeper carries risk. Apple's [official instructions](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac) describe the time-limited **Privacy & Security → Open Anyway** exception after a launch attempt. Do not disable Gatekeeper/SIP or blindly remove quarantine from an untrusted download.
+BAAS Tauri is not yet notarized by Apple, so Gatekeeper blocks the first launch. First confirm the DMG came from the [official Releases](https://github.com/Kiramei/baas-tauri/releases), then follow these steps to add an exception for BAAS Tauri only. The flow follows Apple's [official instructions](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac). The screenshots show the Simplified Chinese macOS interface; wording may differ slightly between macOS versions.
+
+<Callout type="warn">
+  Overriding Gatekeeper carries risk; do it only for an installer from a trusted source. Do not disable Gatekeeper/SIP or blindly remove quarantine from an untrusted download.
+</Callout>
+
+**1. Try to open it once.** Drag BAAS Tauri into Applications and double-click it. When macOS reports that “BAAS Tauri” was not opened, click **Done**, not **Move to Trash**.
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/macos-gatekeeper-blocked.webp"
+  alt="macOS dialog (Chinese UI) reporting that BAAS Tauri was not opened, with Done and Move to Trash buttons"
+  width={243}
+/>
+
+**2. Allow it in Privacy & Security.** Open **System Settings → Privacy & Security** and scroll to **Security**. On the row “BAAS Tauri” was blocked to protect your Mac, click **Open Anyway**. The button appears only for about an hour after the launch attempt; if it is missing, repeat step 1.
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/macos-gatekeeper-privacy-security.webp"
+  alt="Privacy and Security settings (Chinese UI) showing BAAS Tauri blocked in the Security section with an Open Anyway button"
+/>
+
+**3. Confirm.** When asked again whether to open “BAAS Tauri”, click **Open Anyway** and enter your login password or use Touch ID.
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/macos-gatekeeper-open-anyway.webp"
+  alt="macOS dialog (Chinese UI) asking whether to open BAAS Tauri, with Move to Trash, Open Anyway and Done buttons"
+  width={251}
+/>
+
+BAAS Tauri is then saved as an exception and can be opened normally. If a newer DMG is blocked again, repeat these steps.
 
 ## Directory Selection and Startup
 
