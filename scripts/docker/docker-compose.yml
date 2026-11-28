@@ -16,4 +16,4 @@ services:
 # Run: docker compose -f scripts/docker/docker-compose.yml up -d
 # Data is stored beside this file in scripts/docker/app; back it up before updates.
 # LAN access: BAAS_WEBUI_BIND=0.0.0.0 docker compose ... up -d
-# Deployment guide: https://baas.kiramei.moe/docs/en/guide/webui/
+# Deployment guide: https://baas.wiki/docs/en/guide/webui/

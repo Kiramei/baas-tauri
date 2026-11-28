@@ -4,7 +4,7 @@ import { mock } from "bun:test";
 delete process.env.VITE_BAAS_DOCS_URL;
 delete process.env.VITE_BAAS_WIKI_URL;
 const mode = process.argv[2] || "default";
-let expectedUrl = "https://baas.kiramei.moe";
+let expectedUrl = "https://baas.wiki";
 if (mode === "docs") {
   process.env.VITE_BAAS_DOCS_URL = "https://docs.example.test/custom/";
   process.env.VITE_BAAS_WIKI_URL = "https://legacy.example.test/";

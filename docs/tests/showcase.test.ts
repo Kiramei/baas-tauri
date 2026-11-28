@@ -10,9 +10,21 @@ import layout from "../evidence/showcase-layout.json";
 import { showcaseMedia } from "../lib/showcase-media.mjs";
 import { remarkDocLinks } from "../lib/remark-doc-links.mjs";
 import { captureTarget } from "../scripts/capture-target.mjs";
+import { reviewedDesktopAssets } from "../lib/reviewed-desktop-assets.mjs";
 
 const root = new URL("../../", import.meta.url);
 const hash = (value: Buffer | string) => createHash("sha256").update(value).digest("hex");
+
+test("only recorded and unchanged macOS system screenshots join the desktop showcase allowlist", () => {
+  const readAsset = (src: string) => readFileSync(new URL(`docs/public/${src.slice(1)}`, root));
+  const reviewed = reviewedDesktopAssets(assets, publication, readAsset);
+  const screenshots = ["blocked", "privacy-security", "open-anyway"].map(name => `/media/desktop/zh/macos-gatekeeper-${name}.webp`);
+  expect(reviewed.size).toBe(new Set(Object.values(assets)).size + screenshots.length);
+  for (const src of screenshots) expect(reviewed.has(src)).toBe(true);
+  expect(reviewed.has("/media/desktop/zh/config-cafe.webp")).toBe(false);
+  expect(() => reviewedDesktopAssets(assets, publication, () => Buffer.from("tampered"))).toThrow("screenshot changed");
+  expect(() => reviewedDesktopAssets(assets, { files: [] }, readAsset)).toThrow("Missing or duplicate publication record");
+});
 
 // Decode every capture at full resolution, including on slower CI runners.
 test("desktop showcase assets are native dark captures with intact historical evidence", async () => {

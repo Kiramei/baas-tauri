@@ -1,0 +1,29 @@
+{
+  "checkedAt": "2026-11-28T13:23:24.251688Z",
+  "method": "Incremental Tesseract 5.5.0 OCR using Simplified Chinese tessdata_fast and visual review of each screenshot. Pattern checks cover local paths, identifiers, email addresses and credentials; OCR text is not published.",
+  "modelSha256": "a5fcb6f0db1e1d6d8522f39db4e848f05984669172e584e8d76b6b3141e1f730",
+  "limits": "OCR and visual review can miss private or illegible content. This review covers only these three static screenshots.",
+  "files": [
+    {
+      "file": "media/desktop/zh/macos-gatekeeper-blocked.webp",
+      "sha256": "42577d2941a4c5d6224a9697d25f573411e528fa0d2b9fa412b9dc329ee6cef5",
+      "frames": 1,
+      "unresolvedPatternFindings": 0,
+      "visualReview": "No personal identifiers, private paths, host names, or credentials observed."
+    },
+    {
+      "file": "media/desktop/zh/macos-gatekeeper-open-anyway.webp",
+      "sha256": "d3e51b485e062cd3c7b0ea2e67f5fdd71c94ff46308bb759757ac71e29c7ca71",
+      "frames": 1,
+      "unresolvedPatternFindings": 0,
+      "visualReview": "No personal identifiers, private paths, host names, or credentials observed."
+    },
+    {
+      "file": "media/desktop/zh/macos-gatekeeper-privacy-security.webp",
+      "sha256": "5c8cabb2533da09f31bb9c1256d4a2416e5d8f4f352b2d9095ac7735710e5090",
+      "frames": 1,
+      "unresolvedPatternFindings": 0,
+      "visualReview": "No personal identifiers, private paths, host names, or credentials observed."
+    }
+  ]
+}
