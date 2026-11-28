@@ -5,6 +5,7 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import captures from "../public/media/desktop/installer-manifest.json";
 import privacyReview from "../evidence/privacy-review.json";
+import macosPrivacyReview from "../evidence/macos-gatekeeper-privacy-review.json";
 import legacyBlur from "../evidence/legacy-media-blur.json";
 import { readPublishedMedia } from "../scripts/published-media.mjs";
 import publication from "../evidence/webp-publication.json";
@@ -83,12 +84,40 @@ test("privacy review covers the current image inventory without publishing OCR t
   const inventory = files
     .map((file) => ({ file, sha256: digest(readFileSync(new URL(file, directory))) }))
     .sort((left, right) => left.file.localeCompare(right.file));
-  expect(privacyReview.inventorySha256).toBe(digest(JSON.stringify(inventory)));
-  expect(privacyReview.imageFiles).toBe(files.length);
-  expect(privacyReview.decodedFrames).toBeGreaterThanOrEqual(files.length);
+  // Keep the original full Windows OCR review intact and bind only the three
+  // independently OCR- and visually-reviewed additions to their own evidence.
+  const additions = macosPrivacyReview.files;
+  const expectedAdditions = ["blocked", "open-anyway", "privacy-security"].map(
+    (name) => `media/desktop/zh/macos-gatekeeper-${name}.webp`
+  );
+  expect(additions.map((file) => file.file).sort()).toEqual(expectedAdditions.sort());
+  expect(macosPrivacyReview.checkedAt).toBeTruthy();
+  expect(macosPrivacyReview.method).toContain("Tesseract 5.5.0");
+  expect(macosPrivacyReview.modelSha256).toBe("a5fcb6f0db1e1d6d8522f39db4e848f05984669172e584e8d76b6b3141e1f730");
+  for (const addition of additions) {
+    const current = inventory.find((file) => file.file === addition.file);
+    const published = publication.files.find((file) => file.file === addition.file);
+    expect(current?.sha256).toBe(addition.sha256);
+    expect(published?.sha256).toBe(addition.sha256);
+    expect(published?.frames).toBe(addition.frames);
+    expect(addition.frames).toBe(1);
+    expect(addition.unresolvedPatternFindings).toBe(0);
+    expect(addition.visualReview).toBeTruthy();
+  }
+  const addedNames = new Set(additions.map((file) => file.file));
+  const baselineInventory = inventory.filter((file) => !addedNames.has(file.file));
+  const baselinePublication = {
+    ...publication,
+    files: publication.files.filter((file) => !addedNames.has(file.file)),
+  };
+  expect(privacyReview.inventorySha256).toBe(digest(JSON.stringify(baselineInventory)));
+  expect(privacyReview.imageFiles).toBe(baselineInventory.length);
+  expect(privacyReview.decodedFrames).toBeGreaterThanOrEqual(baselineInventory.length);
   expect(privacyReview.decodingFailures).toBe(0);
-  expect(privacyReview.webpPublication.manifestSha256).toBe(digest(readFileSync(new URL("docs/evidence/webp-publication.json", root))));
-  expect(privacyReview.webpPublication.files).toBe(files.length);
+  expect(privacyReview.webpPublication.manifestSha256).toBe(digest(JSON.stringify(baselinePublication, null, 2) + "\n"));
+  expect(privacyReview.webpPublication.files).toBe(baselineInventory.length);
+  expect(publication.files).toHaveLength(inventory.length);
+  expect(macosPrivacyReview).not.toHaveProperty("text");
   expect(privacyReview.unresolvedPatternFindings).toBe(0);
   expect(privacyReview).not.toHaveProperty("frames");
   expect(privacyReview).not.toHaveProperty("text");
