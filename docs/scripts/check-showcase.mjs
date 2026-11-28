@@ -5,12 +5,14 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createExportServer } from "./static-export-server.mjs";
+import { reviewedDesktopAssets } from "../lib/reviewed-desktop-assets.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const out = path.join(root, "docs/out"), cache = path.join(root, ".cache/dark-showcase/layout");
 mkdirSync(cache, { recursive: true });
 const assets = JSON.parse(readFileSync(path.join(root, "docs/lib/showcase-assets.json")));
-const published = new Set(Object.values(assets));
+const publication = JSON.parse(readFileSync(path.join(root, "docs/evidence/webp-publication.json")));
+const published = reviewedDesktopAssets(assets, publication, src => readFileSync(path.join(root, "docs/public", src.slice(1))));
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || "playwright");
 const server = createExportServer(out, "");
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
@@ -75,7 +77,7 @@ try {
     await context.close();
   }
   assert.deepEqual(errors, []);
-  const sources = ["docs/scripts/check-showcase.mjs", "docs/lib/showcase-media.mjs", "docs/lib/showcase-assets.json", "docs/lib/remark-doc-links.mjs", "docs/components/MotionDemo.tsx", "docs/public/media/desktop/dark-manifest.json", "README.md", "README_zh.md"];
+  const sources = ["docs/scripts/check-showcase.mjs", "docs/lib/reviewed-desktop-assets.mjs", "docs/evidence/webp-publication.json", "docs/lib/showcase-media.mjs", "docs/lib/showcase-assets.json", "docs/lib/remark-doc-links.mjs", "docs/components/MotionDemo.tsx", "docs/public/media/desktop/dark-manifest.json", "README.md", "README_zh.md"];
   const report = { checkedAt: new Date().toISOString(), cases: results.length, failures: 0, staticReferences,
     scope: "Static document and browser rendering checks only; no native commands or device operations.",
     testedSources: Object.fromEntries(sources.map(file => [file, createHash("sha256").update(readFileSync(path.join(root, file), "utf8").replaceAll("\r\n", "\n")).digest("hex")])), results };
