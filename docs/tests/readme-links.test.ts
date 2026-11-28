@@ -71,7 +71,7 @@ test("README language entries agree with the application's default documentation
     ts.forEachChild(node, visit);
   }
   visit(source);
-  const base = "https://baas.kiramei.moe";
+  const base = "https://baas.wiki";
   expect(literals).toContain(base);
   for (const { content } of documents) {
     const urls = (await references(content)).map(ref => ref.url);
@@ -87,7 +87,7 @@ test("READMEs link localized user guides without exposing private validation dat
     const urls = (await references(content)).map(ref => ref.url);
     const locale = file === "README.md" ? "en" : "zh";
     for (const page of ["guide/android", "guide/webui", "features/plugins", "reference/troubleshooting"])
-      expect(urls).toContain(`https://baas.kiramei.moe/docs/${locale}/${page}/`);
+      expect(urls).toContain(`https://baas.wiki/docs/${locale}/${page}/`);
     expect(content).not.toMatch(/docs\/(?:ANDROID_[A-Z_0-9]+|refresh-audit|repository-cleanup)\.md/);
     for (const branch of ["main", "dev"])
       expect(urls).toContain(`https://github.com/Kiramei/baas-tauri/tree/${branch}`);

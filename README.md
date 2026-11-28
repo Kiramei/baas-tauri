@@ -19,7 +19,7 @@
   <p>
     <a href="README_zh.md"><kbd>Chinese README</kbd></a>
     <a href="https://github.com/Kiramei/baas-tauri/releases/latest"><kbd>Download</kbd></a>
-    <a href="https://baas.kiramei.moe/docs/en/"><kbd>Documentation</kbd></a>
+    <a href="https://baas.wiki/docs/en/"><kbd>Documentation</kbd></a>
     <a href="LICENSE"><kbd>License</kbd></a>
   </p>
 
@@ -80,7 +80,7 @@ The documentation site also includes a dynamic download panel that reads the lat
 
 ## 📚 Documentation Site
 
-[English documentation](https://baas.kiramei.moe/docs/en/) · [中文文档](https://baas.kiramei.moe/docs/zh/)
+[English documentation](https://baas.wiki/docs/en/) · [中文文档](https://baas.wiki/docs/zh/)
 
 The Fumadocs/Next.js site is maintained in [`docs/`](docs/). For a local preview:
 
@@ -201,13 +201,13 @@ through the mail flow, preview fullscreen entry/return, Activity recreation, and
 configuration ZIP round trips. Android 15 shell-mode input, the full gesture
 matrix, release builds, and overall performance gains remain unverified. These
 results do not establish general compatibility or release acceptance. See the
-[Android guide](https://baas.kiramei.moe/docs/en/guide/android/) and
-[troubleshooting](https://baas.kiramei.moe/docs/en/reference/troubleshooting/).
+[Android guide](https://baas.wiki/docs/en/guide/android/) and
+[troubleshooting](https://baas.wiki/docs/en/reference/troubleshooting/).
 
-The shared [plugin workspace](https://baas.kiramei.moe/docs/en/features/plugins/)
+The shared [plugin workspace](https://baas.wiki/docs/en/features/plugins/)
 includes AP hoarding, auto push, equipment planning, a search-board calculator,
 and per-profile Home editing. For browser deployment and login Key management,
-see [WebUI and Docker](https://baas.kiramei.moe/docs/en/guide/webui/).
+see [WebUI and Docker](https://baas.wiki/docs/en/guide/webui/).
 
 ## License
 

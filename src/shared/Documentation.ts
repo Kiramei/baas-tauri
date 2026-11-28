@@ -2,7 +2,7 @@
 export const DOCUMENTATION_URL =
   import.meta.env.VITE_BAAS_DOCS_URL ||
   import.meta.env.VITE_BAAS_WIKI_URL ||
-  "https://baas.kiramei.moe";
+  "https://baas.wiki";
 
 /** Tauri uses the system browser; WebUI keeps the browser's normal link behavior. */
 export async function openDocumentation(): Promise<void> {
